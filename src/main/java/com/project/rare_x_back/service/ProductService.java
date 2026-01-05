@@ -39,4 +39,13 @@ public class ProductService {
         productRepository.save(product);
 
     }
+
+    public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
+
+        Category category = Category.builder()
+                .categoryName(categoryCreateRequestDto.getCategoryName())
+                .build();
+
+        categoryRepository.save(category);
+    }
 }

@@ -1,5 +1,6 @@
 package com.project.rare_x_back.controller;
 
+import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
 import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
 import com.project.rare_x_back.service.ProductService;
 import lombok.AllArgsConstructor;
@@ -23,8 +24,10 @@ public class ProductController {
     }
 
     //카테고리 추가
-//    @PostMapping("categories")
-//    public ResponseEntity<Long> creatCategory(){
-//        return ResponseEntity.ok();
-//    }
+    @PostMapping("/categories")
+    public ResponseEntity createCategory(@RequestBody CategoryCreateRequestDto categoryCreateRequestDto){
+
+        productService.createCategory(categoryCreateRequestDto);
+        return ResponseEntity.ok("카테고리 추가 완료");
+    }
 }
