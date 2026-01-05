@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Setter
 @Getter
-@EntityListeners(AuditingEntityListener.class)
+@EntityListeners(AuditingEntityListener.class)  // 날짜 변경 이벤트 감지
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
