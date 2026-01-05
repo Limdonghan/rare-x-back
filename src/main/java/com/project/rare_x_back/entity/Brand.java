@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "brands")
-public class BrandEntity {
+public class Brand {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long brandId;
@@ -32,7 +32,6 @@ public class BrandEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @CreatedDate
     @Column(name = "updated_at", nullable = true)
     private LocalDateTime updatedAt;
 }

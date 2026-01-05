@@ -1,7 +1,6 @@
 package com.project.rare_x_back.entity;
 
 import jakarta.persistence.*;
-import jdk.jfr.Category;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -9,14 +8,14 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Builder
-@Getter
 @Setter
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "products")
-public class ProductEntity {
+public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,11 +45,13 @@ public class ProductEntity {
 
     @ManyToOne
     @JoinColumn(name = "brand_id")
-    private BrandEntity brandEntity;
+    private Brand brandEntity;
 
     @ManyToOne
     @JoinColumn(name = "category_id")
-    private CategoryEntity categoryEntity;
+    private Category categoryEntity;
+
+
 
 
 }
