@@ -1,4 +1,4 @@
-package com.project.rare_x_back.dto;
+package com.project.rare_x_back.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

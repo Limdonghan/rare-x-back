@@ -1,4 +1,4 @@
-package com.project.rare_x_back.dto;
+package com.project.rare_x_back.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,7 +10,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SignUpResponse {
-    private Long userId;
     private String email;
     private String name;
     private String message;
