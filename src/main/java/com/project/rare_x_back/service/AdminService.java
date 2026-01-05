@@ -1,6 +1,6 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.ProductCreateRequestDto;
+import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
 import com.project.rare_x_back.entity.BrandEntity;
 import com.project.rare_x_back.entity.CategoryEntity;
 import com.project.rare_x_back.entity.ProductEntity;
@@ -19,7 +19,7 @@ public class AdminService {
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
 
-    public long createProduct (ProductCreateRequestDto productCreateRequestDto) {
+    public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         BrandEntity brand = brandRepository.findById(productCreateRequestDto.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("해당 브랜드 없음"));
@@ -35,9 +35,7 @@ public class AdminService {
                 .categoryEntity(category)
                 .build();
 
-        ProductEntity saved = productRepository.save(product);
-
-        return saved.getProductId();
-    }
+        productRepository.save(product);
 
     }
+}

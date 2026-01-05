@@ -1,13 +1,10 @@
 package com.project.rare_x_back.controller;
 
-import com.project.rare_x_back.dto.ProductCreateRequestDto;
+import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
 import com.project.rare_x_back.service.AdminService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @AllArgsConstructor
 @RestController
@@ -16,11 +13,18 @@ public class AdminController {
 
     private final AdminService adminService;
 
+    //상품 등록
     @PostMapping("/products")
-    public ResponseEntity<Long> createProduct(@RequestBody ProductCreateRequestDto productCreateRequestDto) {
+    public ResponseEntity createProduct(@RequestBody ProductCreateRequestDto productCreateRequestDto) {
         // 서비스 호출 후 생성된 상품의 ID를 반환받음
-        long productId = adminService.createProduct(productCreateRequestDto);
+        adminService.createProduct(productCreateRequestDto);
         // 성공 응답(200 OK 또는 201 Created)과 함께 생성된 ID를 반환
-        return ResponseEntity.ok(productId);
+        return ResponseEntity.ok("상품 등록 완료");
     }
+
+    //카테고리 추가
+//    @PostMapping("categories")
+//    public ResponseEntity<Long> creatCategory(){
+//        return ResponseEntity.ok();
+//    }
 }

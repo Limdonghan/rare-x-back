@@ -38,11 +38,9 @@ public class ProductEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @CreatedDate
     @Column(name = "updated_at", nullable = true)
     private LocalDateTime updatedAt;
 
-    @CreatedDate
     @Column(name = "deleted_at", nullable = true)
     private LocalDateTime deletedAt;
 

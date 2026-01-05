@@ -1,6 +1,5 @@
-package com.project.rare_x_back.dto;
+package com.project.rare_x_back.dto.request;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
