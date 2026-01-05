@@ -1,9 +1,10 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
 import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
-import com.project.rare_x_back.entity.BrandEntity;
-import com.project.rare_x_back.entity.CategoryEntity;
-import com.project.rare_x_back.entity.ProductEntity;
+import com.project.rare_x_back.entity.Brand;
+import com.project.rare_x_back.entity.Category;
+import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
 import com.project.rare_x_back.repository.ProductRepository;
@@ -21,13 +22,13 @@ public class ProductService {
 
     public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
-        BrandEntity brand = brandRepository.findById(productCreateRequestDto.getBrandId())
+        Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("해당 브랜드 없음"));
 
-        CategoryEntity category = categoryRepository.findById(productCreateRequestDto.getCategoryId())
+        Category category = categoryRepository.findById(productCreateRequestDto.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("해당 카테고리 없음"));
 
-        ProductEntity product = ProductEntity.builder()
+        Product product = Product.builder()
                 .productName(productCreateRequestDto.getProductName())
                 .productDescription(productCreateRequestDto.getProductDescription())
                 .retailPrice(productCreateRequestDto.getRetailPrice())
