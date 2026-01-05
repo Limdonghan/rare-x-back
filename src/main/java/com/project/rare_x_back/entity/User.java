@@ -4,10 +4,7 @@ import com.project.rare_x_back.enums.ProviderType;
 import com.project.rare_x_back.enums.Role;
 import com.project.rare_x_back.enums.Status;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -20,6 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Setter
 @Getter
+@Builder
 @EntityListeners(AuditingEntityListener.class)  // 날짜 변경 이벤트 감지
 public class User {
     @Id
@@ -36,7 +34,7 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "phone", length = 20)
+    @Column(name = "phone", nullable = false, length = 20)
     private String phone;
 
     @Column(name = "provider_type", nullable = false, length = 10)
