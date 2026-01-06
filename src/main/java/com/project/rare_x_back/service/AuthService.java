@@ -6,6 +6,8 @@ import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.ProviderType;
 import com.project.rare_x_back.enums.Role;
 import com.project.rare_x_back.enums.Status;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,12 +25,12 @@ public class AuthService {
 
          // 1. 비밀번호 일치 검증
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            throw new RuntimeException("비밀번호가 일치하지 않습니다");
+            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
         // 2. 이메일 중복 확인
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("이미 가입된 이메일입니다");
+            throw new CustomException(ErrorCode.EMAIL_DUPLICATED);
         }
 
         // 3. User 엔티티 생성

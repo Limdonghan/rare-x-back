@@ -38,6 +38,7 @@ public class User {
     private String phone;
 
     @Column(name = "provider_type", nullable = false, length = 10)
+    @Enumerated(EnumType.STRING)
     private ProviderType providerType;
 
     @Column(name = "role", nullable = false, length = 10)
