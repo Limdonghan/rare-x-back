@@ -26,6 +26,10 @@ public enum ErrorCode {
     EMAIL_SEND_FAILED("EMAIL_SEND_FAILED", "이메일 발송에 실패했습니다"),
     EMAIL_ALREADY_VERIFIED("EMAIL_ALREADY_VERIFIED", "이미 인증된 이메일입니다"),
 
+    // 이메일 인증 추가 필요
+    INVALID_VERIFICATION_CODE("INVALID_VERIFICATION_CODE", "인증번호가 일치하지 않습니다"),
+    VERIFICATION_CODE_EXPIRED("VERIFICATION_CODE_EXPIRED", "인증번호가 만료되었습니다"),
+
     // 서버 에러
     INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다");
 

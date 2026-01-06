@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.request.EmailVerifyRequest;
 import com.project.rare_x_back.dto.request.LoginRequest;
 import com.project.rare_x_back.dto.request.SignUpRequest;
 import com.project.rare_x_back.dto.response.LoginResponse;
@@ -23,7 +24,8 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private  final JwtTokenProvider jwtTokenProvider;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
     // 회원등록
     @Transactional
@@ -52,7 +54,10 @@ public class AuthService {
 
         userRepository.save(user);
 
-        // 4. 응답 DTO 생성 (빌더 패턴)
+        // 4. 이메일 인증번호 발송
+        emailService.sendVerificationCode(request.getEmail());
+
+        // 5. 응답 DTO 생성
         SignUpResponse response = SignUpResponse.builder()
                 .email(user.getEmail())
                 .name(user.getName())
@@ -60,6 +65,30 @@ public class AuthService {
                 .build();
 
         return response;
+    }
+
+    //  이메일 인증
+    @Transactional
+    public void verifyEmail(EmailVerifyRequest request) {
+
+        // 1. 사용자 조회
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 이미 인증된 경우
+        if (user.getStatus() == Status.ACTIVE) {
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+        }
+
+        // 3. 인증번호 검증
+        boolean isValid = emailService.verifyCode(request.getEmail(), request.getCode());
+
+        if (!isValid) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
+        }
+
+        // 4. 상태 변경: PENDING → ACTIVE
+        user.setStatus(Status.ACTIVE);
     }
 
     // 로그인
@@ -87,8 +116,7 @@ public class AuthService {
 
         // 5. JWT 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(
-                user.getUserId(),
-                user.getRole().name()
+                user.getUserId()
         );
 
         String refreshToken = jwtTokenProvider.createRefreshToken(

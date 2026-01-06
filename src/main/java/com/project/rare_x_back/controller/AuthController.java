@@ -1,6 +1,7 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.dto.request.EmailVerifyRequest;
 import com.project.rare_x_back.dto.request.LoginRequest;
 import com.project.rare_x_back.dto.request.SignUpRequest;
 import com.project.rare_x_back.dto.response.LoginResponse;
@@ -30,6 +31,19 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)  // 201 상태 코드
                 .body(ApiResponse.success(response, "회원가입이 완료되었습니다"));
+    }
+
+    /// 이메일 인증 번호 발송 이거 없음
+    /// 이메일 인증 번호 확인
+
+    // 이메일인증
+    @PostMapping("/email/verify")
+    public ResponseEntity<ApiResponse<Void>> verifyEmailController(@Valid @RequestBody EmailVerifyRequest request) {
+
+        authService.verifyEmail(request);
+
+        return ResponseEntity
+                .ok(ApiResponse.success("이메일 인증이 완료되었습니다"));
     }
 
     // 로그인

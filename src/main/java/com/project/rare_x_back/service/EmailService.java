@@ -35,7 +35,11 @@ public class EmailService {
         String key = EMAIL_PREFIX + email;
         redisTemplate.opsForValue().set(key, code, CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
 
-        // 3. 이메일 발송
+        // 이메일 발송 임시 비활성화
+        log.info("인증번호 생성 (콘솔 확인): {} - {}", email, code);
+        log.info("실제 서비스에서는 이메일로 발송됩니다");
+
+        // 3. 이메일 발송 (Gmail 설정 후 주석 해제)
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(email);
