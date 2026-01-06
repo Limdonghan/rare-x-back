@@ -1,7 +1,9 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.dto.request.LoginRequest;
 import com.project.rare_x_back.dto.request.SignUpRequest;
+import com.project.rare_x_back.dto.response.LoginResponse;
 import com.project.rare_x_back.dto.response.SignUpResponse;
 import com.project.rare_x_back.service.AuthService;
 import jakarta.validation.Valid;
@@ -23,10 +25,19 @@ public class AuthController {
     // 회원가입
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignUpResponse>> signUp(@Valid @RequestBody SignUpRequest request) {
-        SignUpResponse response = authService.signUP(request);
+        SignUpResponse response = authService.signUp(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)  // 201 상태 코드
                 .body(ApiResponse.success(response, "회원가입이 완료되었습니다"));
+    }
+
+    // 로그인
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity
+                .ok(ApiResponse.success(response, "로그인 성공"));
     }
 }
