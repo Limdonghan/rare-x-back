@@ -9,8 +9,13 @@ public enum ErrorCode {
     EMAIL_DUPLICATED("EMAIL_DUPLICATED", "이미 가입된 이메일입니다"),
     PASSWORD_MISMATCH("PASSWORD_MISMATCH", "비밀번호가 일치하지 않습니다"),
 
+    // 로그인 관련 추가
+    USER_NOT_FOUND("USER_NOT_FOUND", "사용자를 찾을 수 없습니다"),
+    INVALID_PASSWORD("INVALID_PASSWORD", "비밀번호가 일치하지 않습니다"),
+    ACCOUNT_NOT_ACTIVE("ACCOUNT_NOT_ACTIVE", "활성화되지 않은 계정입니다"),
+    ACCOUNT_DELETED("ACCOUNT_DELETED", "탈퇴한 계정입니다"),
+
     // 사용자 관련
-    USER_NOT_FOUND("USER_NOT_FOUND", "사용자를 찾을 수 업습니다"),
     USER_ALREADY_DELETED("USER_ALREADY_DELETED", "탈퇴한 회원입니다"),
 
     // 인증 관련
