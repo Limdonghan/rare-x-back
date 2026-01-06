@@ -7,11 +7,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-@Builder
 @Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "categories")
@@ -27,4 +24,10 @@ public class Category {
     @CreatedDate
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Builder
+    public Category(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
 }

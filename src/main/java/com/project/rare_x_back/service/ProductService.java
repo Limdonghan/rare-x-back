@@ -8,18 +8,22 @@ import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
 import com.project.rare_x_back.repository.ProductRepository;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@AllArgsConstructor
+@Transactional
+@RequiredArgsConstructor
 public class ProductService {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
 
+    //상품 등록
     public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
@@ -32,14 +36,15 @@ public class ProductService {
                 .productName(productCreateRequestDto.getProductName())
                 .productDescription(productCreateRequestDto.getProductDescription())
                 .retailPrice(productCreateRequestDto.getRetailPrice())
-                .brandEntity(brand)
-                .categoryEntity(category)
+                .brand(brand)
+                .category(category)
                 .build();
 
         productRepository.save(product);
 
     }
 
+    //카테고리 등록
     public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
 
         Category category = Category.builder()
@@ -47,5 +52,11 @@ public class ProductService {
                 .build();
 
         categoryRepository.save(category);
+    }
+
+    //브랜드 등록
+    public void createBrand () {
+
+        Brand brand =
     }
 }

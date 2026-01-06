@@ -3,15 +3,14 @@ package com.project.rare_x_back.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-@Builder
-@Setter
+
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "products")
@@ -30,13 +29,14 @@ public class Product {
     @Column(name = "retail_price", nullable = false)
     private int retailPrice;
 
-    @Column(name = "is_deleted", nullable = true)
+    @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = true)
     private LocalDateTime updatedAt;
 
@@ -45,11 +45,26 @@ public class Product {
 
     @ManyToOne
     @JoinColumn(name = "brand_id")
-    private Brand brandEntity;
+    private Brand brand;
 
     @ManyToOne
     @JoinColumn(name = "category_id")
-    private Category categoryEntity;
+    private Category category;
+
+    @Builder
+    public Product(
+            String productName,
+            String productDescription,
+            int retailPrice,
+            Brand brand,
+            Category category
+    ) {
+        this.productName = productName;
+        this.productDescription = productDescription;
+        this.retailPrice = retailPrice;
+        this.brand = brand;
+        this.category = category;
+    }
 
 
 
