@@ -30,14 +30,13 @@ public class JwtTokenProvider {
     }
 
     //  Access Token 생성
-    public String createAccessToken(Long userId, String email, String role) {
+    public String createAccessToken(Long userId, String role) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + accessTokenValidity);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))    // 사용자 ID
-                .claim("email", email)  // 이메일
-                .claim("role", role)    // 권한
+                .claim("role", role)    // 권한 (관리자 기능 쓸 때 용이)
                 .issuedAt(now)
                 .expiration(validity)   // 만료 시간 (1시간)
                 .signWith(secretKey)    // 시크릿 키 발급
@@ -68,15 +67,15 @@ public class JwtTokenProvider {
         return Long.parseLong(claims.getSubject());
     }
 
-    // 토큰에서 email 추출
-    public String getEmailFromToken(String token) {
+    // 토큰에서 role 추출
+    public String getRoleFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
 
-        return claims.get("email", String.class);
+        return claims.get("role", String.class);
     }
 
     // 토큰 유효성 검증
