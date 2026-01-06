@@ -30,7 +30,4 @@ public class SignUpRequest {
 
     @NotBlank(message = "이름일 입력해주세요")
     private String name;
-
-    @NotBlank(message = "휴대폰번호를 입력해주세요")
-    private String phone;
 }

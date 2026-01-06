@@ -40,7 +40,6 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
-                .phone(request.getPhone().replaceAll("-", ""))  // 하이픈 제거
                 .providerType(ProviderType.LOCAL)
                 .role(Role.USER)
                 .status(Status.PENDING)
