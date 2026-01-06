@@ -40,4 +40,12 @@ public class AuthController {
         return ResponseEntity
                 .ok(ApiResponse.success(response, "로그인 성공"));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        // 추후 Redis 블랙리스트 추가
+        // - 토큰을 Redis에 저장 (만료 시간까지)
+        // - 매 요청마다 블랙리스트 확인
+        return ResponseEntity.ok(ApiResponse.success("로그아웃 되었습니다"));
+    }
 }
