@@ -3,6 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.BrandCreateRequestDto;
 import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
 import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
+import com.project.rare_x_back.dto.request.ProductUpdateRequestDto;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class ProductService {
+public class AdminService {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
@@ -43,6 +44,26 @@ public class ProductService {
 
         productRepository.save(product);
 
+    }
+
+    //상품 정보 수정
+    public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId){
+        //수정할 상품 존재여부 확인
+        Product product = productRepository.findById(productId)
+                .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 상품입니다.") );
+        //수정된 값만 json채워 보내주고, 수정안된 값은 null로 채움
+        Brand brand = null;
+        if (productUpdateRequestDto.getBrandId() != null) {
+            brand = brandRepository.findById(productUpdateRequestDto.getBrandId())
+                    .orElseThrow(() -> new IllegalArgumentException("해당 브랜드 없음"));
+        }
+        Category category = null;
+        if (productUpdateRequestDto.getCategoryId() != null) {
+            category = categoryRepository.findById(productUpdateRequestDto.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("해당 카테고리 없음"));
+        }
+        //엔티티 업데이트
+        product.updateProductInfo(productUpdateRequestDto, brand, category);
     }
 
     //카테고리 등록
