@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.request.BrandCreateRequestDto;
 import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
 import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
 import com.project.rare_x_back.entity.Brand;
@@ -55,8 +56,11 @@ public class ProductService {
     }
 
     //브랜드 등록
-    public void createBrand () {
+    public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
 
-        Brand brand =
+        Brand brand = Brand.builder()
+                .brandName(brandCreateRequestDto.getBrandName())
+                .build();
+        brandRepository.save(brand);
     }
 }

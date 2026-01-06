@@ -1,5 +1,6 @@
 package com.project.rare_x_back.controller;
 
+import com.project.rare_x_back.dto.request.BrandCreateRequestDto;
 import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
 import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
 import com.project.rare_x_back.service.ProductService;
@@ -29,5 +30,12 @@ public class ProductController {
 
         productService.createCategory(categoryCreateRequestDto);
         return ResponseEntity.ok("카테고리 추가 완료");
+    }
+
+    //브랜드 추가
+    @PostMapping("/brands")
+    public ResponseEntity createBrand(@RequestBody BrandCreateRequestDto brandCreateRequestDto){
+        productService.createBrand(brandCreateRequestDto);
+        return ResponseEntity.ok("브랜드 추가 완료");
     }
 }
