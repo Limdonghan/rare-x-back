@@ -1,5 +1,6 @@
 package com.project.rare_x_back.entity;
 
+import com.project.rare_x_back.dto.request.ProductUpdateRequestDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -66,7 +67,21 @@ public class Product {
         this.category = category;
     }
 
-
-
-
+    public void updateProductInfo(ProductUpdateRequestDto productUpdateRequestDto, Brand brand, Category category) {
+        // null이면 기존 값 유지
+        if (productUpdateRequestDto.getProductName() != null) {
+            this.productName = productUpdateRequestDto.getProductName();
+        }
+        if (productUpdateRequestDto.getProductDescription() != null) {
+            this.productDescription = productUpdateRequestDto.getProductDescription();
+        }
+        if (productUpdateRequestDto.getRetailPrice() != null) {
+            if (productUpdateRequestDto.getRetailPrice() < 0) {
+                throw new IllegalArgumentException("가격은 0 이상");
+            }
+            this.retailPrice = productUpdateRequestDto.getRetailPrice();
+        }
+        if (brand != null) this.brand = brand;
+        if (category != null) this.category = category;
+    }
 }
