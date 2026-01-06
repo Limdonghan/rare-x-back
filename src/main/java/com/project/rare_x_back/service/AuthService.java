@@ -10,6 +10,7 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // 회원등록
     @Transactional
@@ -36,7 +38,7 @@ public class AuthService {
         // 3. User 엔티티 생성
         User user = User.builder()
                 .email(request.getEmail())
-                .password(request.getPassword())    // 나중에 암호화 추가해야함
+                .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .phone(request.getPhone().replaceAll("-", ""))  // 하이픈 제거
                 .providerType(ProviderType.LOCAL)
