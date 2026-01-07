@@ -3,7 +3,6 @@ package com.project.rare_x_back.common;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
