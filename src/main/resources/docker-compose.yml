@@ -1,11 +1,16 @@
-#services:
-#  redis:
-#    image: redis:7.4.2-alpine
-#    container_name: simple-redis
-#    ports:
-#      - 6379:6379
-#    command: [ "redis-server" ]
-#    networks:
-#      - redis-network
-#    volumes:
-#      - redis_volume_data:/data
+version: '3.8'
+
+services:
+  # Redis
+  redis:
+    image: redis:latest
+    container_name: rare-x-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - rare-x-network
+
+networks:
+  rare-x-network:
+    driver: bridge

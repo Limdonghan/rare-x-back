@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.request.EmailSendRequest;
 import com.project.rare_x_back.dto.request.EmailVerifyRequest;
 import com.project.rare_x_back.dto.request.LoginRequest;
 import com.project.rare_x_back.dto.request.SignUpRequest;
@@ -48,26 +49,38 @@ public class AuthService {
                 .name(request.getName())
                 .providerType(ProviderType.LOCAL)
                 .role(Role.USER)
-                .status(Status.PENDING)
+                .status(Status.PENDING)  // 이메일 인증 전 상태
                 .isDeleted(false)
                 .build();
 
         userRepository.save(user);
 
-        // 4. 이메일 인증번호 발송
-        emailService.sendVerificationCode(request.getEmail());
-
-        // 5. 응답 DTO 생성
-        SignUpResponse response = SignUpResponse.builder()
+        // 4. 응답 DTO 생성
+        return SignUpResponse.builder()
                 .email(user.getEmail())
                 .name(user.getName())
-                .message("회원가입이 완료되었습니다")
+                .message("회원가입이 완료되었습니다.  이메일 인증을 진행해주세요.")
                 .build();
-
-        return response;
     }
 
-    //  이메일 인증
+    // 이메일 인증번호 발송
+    @Transactional(readOnly = true)
+    public void sendVerificationCode(EmailSendRequest request) {
+
+        // 1. 사용자 존재 확인
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 이미 인증된 경우
+        if (user.getStatus() == Status.ACTIVE) {
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+        }
+
+        // 3. 인증번호 발송
+        emailService.sendVerificationCode(request.getEmail());
+    }
+
+    // 이메일 인증
     @Transactional
     public void verifyEmail(EmailVerifyRequest request) {
 
@@ -94,6 +107,7 @@ public class AuthService {
     // 로그인
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
+
         // 1. 이메일로 사용자 조회
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -110,7 +124,7 @@ public class AuthService {
 
         // 4. 계정 활성화 확인 (PENDING 상태 허용)
         // 나중에 이메일 인증 추가 시 ACTIVE만 로그인 가능하도록 변경
-        if (user.getStatus() == Status.BANNED || user.getStatus() == Status.BLOCKED) {
+        if (user.getStatus() != Status.ACTIVE) {
             throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
