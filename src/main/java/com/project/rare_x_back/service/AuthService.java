@@ -1,10 +1,9 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.EmailSendRequest;
-import com.project.rare_x_back.dto.request.EmailVerifyRequest;
-import com.project.rare_x_back.dto.request.LoginRequest;
-import com.project.rare_x_back.dto.request.SignUpRequest;
+import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponse;
+import com.project.rare_x_back.dto.response.RefreshTokenResponse;
 import com.project.rare_x_back.dto.response.SignUpResponse;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.ProviderType;
@@ -15,10 +14,18 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
 import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
 
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor    // final 필드를 가진 생성자 만들기
 public class AuthService {
@@ -27,8 +34,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
+    private final RedisTemplate<String, String> redisTemplate;
 
-    // 회원등록
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
+
+    // 회원가입
     @Transactional
     public SignUpResponse signUp(SignUpRequest request) {
 
@@ -88,19 +98,14 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 이미 인증된 경우
-        if (user.getStatus() == Status.ACTIVE) {
-            throw new CustomException(ErrorCode.EMAIL_ALREADY_VERIFIED);
-        }
-
-        // 3. 인증번호 검증
+        // 2. 인증번호 검증
         boolean isValid = emailService.verifyCode(request.getEmail(), request.getCode());
 
         if (!isValid) {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        // 4. 상태 변경: PENDING → ACTIVE
+        // 3. 상태 변경 (PENDING → ACTIVE) // 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
         user.setStatus(Status.ACTIVE);
     }
 
@@ -129,18 +134,69 @@ public class AuthService {
         }
 
         // 5. JWT 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(
-                user.getUserId()
-        );
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
 
-        String refreshToken = jwtTokenProvider.createRefreshToken(
-                user.getUserId()
-        );
+        // 6. Refresh Token을 Redis에 저장 (7일)
+        String key = REFRESH_TOKEN_PREFIX + user.getUserId();
+        redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
 
-        // 6. 응답 생성
+        // 7. 응답 생성
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .build();
+    }
+
+
+    @Transactional
+    public void logout(Long userId) {
+        // Redis에서 Refresh Token 삭제
+        String key = REFRESH_TOKEN_PREFIX + userId;
+        redisTemplate.delete(key);
+    }
+
+    // Refresh Token으로 Access Token 갱신
+    @Transactional(readOnly = true)
+    public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
+
+        // 1. Refresh Token 유효성 검증 (JWT 자체)
+        if (!jwtTokenProvider.validateToken(request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserIdFromToken(request.getRefreshToken());
+
+        // 3. Redis에서 저장된 Refresh Token 확인
+        String key = REFRESH_TOKEN_PREFIX + userId;
+        String savedRefreshToken = redisTemplate.opsForValue().get(key);
+
+        // 4. Redis에 없거나 불일치 → 무효한 토큰
+        if (savedRefreshToken == null || !savedRefreshToken.equals(request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 5. 사용자 존재 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 6. 탈퇴한 사용자 확인
+        if (user.getIsDeleted()) {
+            throw new CustomException(ErrorCode.ACCOUNT_DELETED);
+        }
+
+        // 7. 계정 상태 확인
+        if (user.getStatus() != Status.ACTIVE) {
+            throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+
+        // 8. 새로운 Access Token 생성
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
+
+        return  RefreshTokenResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(request.getRefreshToken())
                 .build();
     }
 }
