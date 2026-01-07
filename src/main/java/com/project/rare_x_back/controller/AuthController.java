@@ -1,17 +1,16 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
-import com.project.rare_x_back.dto.request.EmailSendRequest;
-import com.project.rare_x_back.dto.request.EmailVerifyRequest;
-import com.project.rare_x_back.dto.request.LoginRequest;
-import com.project.rare_x_back.dto.request.SignUpRequest;
+import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponse;
+import com.project.rare_x_back.dto.response.RefreshTokenResponse;
 import com.project.rare_x_back.dto.response.SignUpResponse;
 import com.project.rare_x_back.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,7 +31,7 @@ public class AuthController {
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)  // 201 상태 코드
-                .body(ApiResponse.success(response, "회원가입이 완료되었습니다. 이메일 인증을 진행해주세요."));
+                .body(ApiResponse.success(response, response.getMessage()));    // getMessage 확인 필요
     }
 
     // 이메일 인증 번호 발송
@@ -68,10 +67,20 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout() {
-        // 추후 Redis 블랙리스트 추가
-        // - 토큰을 Redis에 저장 (만료 시간까지)
-        // - 매 요청마다 블랙리스트 확인
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal Long userId) {
+
+        authService.logout(userId);
         return ResponseEntity.ok(ApiResponse.success("로그아웃 되었습니다"));
+    }
+
+
+    // Access Token 갱신
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest request) {
+
+        RefreshTokenResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "토큰이 갱신되었습니다"));
     }
 }
