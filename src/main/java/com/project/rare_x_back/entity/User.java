@@ -34,9 +34,6 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "phone", nullable = false, length = 20)
-    private String phone;
-
     @Column(name = "provider_type", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
     private ProviderType providerType;
