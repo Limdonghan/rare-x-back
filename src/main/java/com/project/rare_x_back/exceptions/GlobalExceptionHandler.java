@@ -17,10 +17,10 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
 
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(errorCode.getStatus())
                 .body(ApiResponse.error(
-                        errorCode.getCode(),
-                        errorCode.getMessage()
+                        errorCode.name(),
+                        e.getMessage()
                 ));
     }
 
@@ -51,6 +51,5 @@ public class GlobalExceptionHandler {
                         "INTERNAL_SERVER_ERROR",
                         "서버 내부 오류가 발생했습니다"
                 ));
-
     }
 }
