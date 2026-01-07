@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   # Redis
@@ -9,8 +9,23 @@ services:
       - "6379:6379"
     restart: always
     networks:
-      - rare-x-network
+      - redis-network
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: simple-redisinsight
+    ports:
+      - 5540:5540
+    networks:
+      - redis-network
+    depends_on:
+      - redis
+    volumes:
+      - redis_insight_volume_data:/data
 
 networks:
-  rare-x-network:
+  redis-network:
     driver: bridge
+
+volumes:
+  redis_insight_volume_data:

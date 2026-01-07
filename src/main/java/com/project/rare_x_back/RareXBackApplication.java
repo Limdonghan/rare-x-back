@@ -2,11 +2,10 @@ package com.project.rare_x_back;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 @EnableJpaAuditing  // 엔티티 @CreatedDate, @LastModifiedDate 어노테이션 활성화 전역 스위치 역할(시간 자동 기록)
-@SpringBootApplication(exclude = {MailSenderAutoConfiguration.class})   //Mail 설정 오류 테스트, 테스트 후 Gmail 설정 완료 후 exclude 제거
+@SpringBootApplication
 public class RareXBackApplication {
 
 	public static void main(String[] args) {
