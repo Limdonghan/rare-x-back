@@ -129,13 +129,8 @@ public class AuthService {
         }
 
         // 5. JWT 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(
-                user.getUserId()
-        );
-
-        String refreshToken = jwtTokenProvider.createRefreshToken(
-                user.getUserId()
-        );
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
 
         // 6. 응답 생성
         return LoginResponse.builder()
