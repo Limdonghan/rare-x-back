@@ -29,10 +29,16 @@ public class AdminService {
     public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
-                .orElseThrow(() -> new IllegalArgumentException("해당 브랜드 없음"));
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "존재하지 않는 브랜드 입니다."
+                        ));
 
         Category category = categoryRepository.findById(productCreateRequestDto.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("해당 카테고리 없음"));
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "존재하지 않는 카테고리 입니다."
+                        ));
 
         Product product = Product.builder()
                 .productName(productCreateRequestDto.getProductName())
@@ -50,20 +56,45 @@ public class AdminService {
     public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId){
         //수정할 상품 존재여부 확인
         Product product = productRepository.findById(productId)
-                .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 상품입니다.") );
+                .orElseThrow(()->
+                        new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND,
+                                "상품을 찾을 수 없습니다."
+                        ));
         //수정된 값만 json채워 보내주고, 수정안된 값은 null로 채움
         Brand brand = null;
         if (productUpdateRequestDto.getBrandId() != null) {
             brand = brandRepository.findById(productUpdateRequestDto.getBrandId())
-                    .orElseThrow(() -> new IllegalArgumentException("해당 브랜드 없음"));
+                    .orElseThrow(() -> new CustomException(
+                            ErrorCode.RESOURCE_NOT_FOUND,
+                            "존재하지 않는 브랜드입니다."
+                    ));
         }
+
         Category category = null;
         if (productUpdateRequestDto.getCategoryId() != null) {
             category = categoryRepository.findById(productUpdateRequestDto.getCategoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("해당 카테고리 없음"));
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND,
+                            "존재하지 않는 카테고리 입니다."
+                    ));
         }
         //엔티티 업데이트
         product.updateProductInfo(productUpdateRequestDto, brand, category);
+    }
+
+    //상품 삭제
+    public void deleteProduct (Long productId) {
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND,
+                                "상품을 찾을 수 없습니다."
+                        )
+                );
+
+        productRepository.deleteById(product.getProductId());
+
     }
 
     //카테고리 등록
