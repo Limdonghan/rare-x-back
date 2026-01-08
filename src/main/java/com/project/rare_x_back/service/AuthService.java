@@ -1,6 +1,5 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponse;
 import com.project.rare_x_back.dto.response.RefreshTokenResponse;
@@ -16,12 +15,9 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.concurrent.TimeUnit;
 
@@ -119,7 +115,7 @@ public class AuthService {
 
         // 2. 탈퇴한 회원 확인
         if (user.getIsDeleted()) {
-            throw new CustomException(ErrorCode.ACCOUNT_DELETED);
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
         }
 
         // 3. 비밀번호 확인 (BCrypt)
@@ -127,8 +123,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // 4. 계정 활성화 확인 (PENDING 상태 허용)
-        // 나중에 이메일 인증 추가 시 ACTIVE만 로그인 가능하도록 변경
+        // 4. 계정 활성화 확인
         if (user.getStatus() != Status.ACTIVE) {
             throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
@@ -183,7 +178,7 @@ public class AuthService {
 
         // 6. 탈퇴한 사용자 확인
         if (user.getIsDeleted()) {
-            throw new CustomException(ErrorCode.ACCOUNT_DELETED);
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
         }
 
         // 7. 계정 상태 확인
