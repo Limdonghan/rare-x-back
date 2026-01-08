@@ -31,6 +31,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -143,12 +144,16 @@ public class AuthService {
                 .build();
     }
 
-
+    // 로그아웃 (Refresh Token 삭제 + Access Token 블랙리스트)
     @Transactional
-    public void logout(Long userId) {
-        // Redis에서 Refresh Token 삭제
-        String key = REFRESH_TOKEN_PREFIX + userId;
-        redisTemplate.delete(key);
+    public void logout(Long userId, String accessToken) {
+        // 1. Refresh Token 삭제
+        String refreshKey = REFRESH_TOKEN_PREFIX + userId;
+        redisTemplate.delete(refreshKey);
+
+        // 2. Access Token 블랙리스트에 추가
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        tokenBlacklistService.addToBlacklist(accessToken, expiration);
     }
 
     // Refresh Token으로 Access Token 갱신

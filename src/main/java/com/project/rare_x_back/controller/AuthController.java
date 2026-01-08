@@ -11,10 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -68,12 +65,15 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader("Authorization") String authHeader) {
 
-        authService.logout(userId);
+        // "Bearer " 제거
+        String accessToken = authHeader.substring(7);
+
+        authService.logout(userId, accessToken);
         return ResponseEntity.ok(ApiResponse.success("로그아웃 되었습니다"));
     }
-
 
     // Access Token 갱신
     @PostMapping("/refresh")

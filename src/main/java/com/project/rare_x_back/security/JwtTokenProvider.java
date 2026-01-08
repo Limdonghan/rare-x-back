@@ -78,4 +78,22 @@ public class JwtTokenProvider {
             return false;   // 위조
         }
     }
+
+    // 토큰의 남은 만료 시간 조회 (밀리초)
+    public long getExpiration(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Date expiration = claims.getExpiration();
+            long now = System.currentTimeMillis();
+
+            return expiration.getTime() - now;
+        } catch (JwtException | IllegalArgumentException e) {
+            return 0;
+        }
+    }
 }

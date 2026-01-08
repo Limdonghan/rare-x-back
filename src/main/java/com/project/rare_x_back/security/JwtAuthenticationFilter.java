@@ -1,6 +1,7 @@
 package com.project.rare_x_back.security;
 
 import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {         // OncePerRequestFilter : 모든 HTTP 요청마다 한 번씩 실행(요청 → 필터 → Controller 순서)
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -37,6 +39,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
 
             // 2. 토큰이 있고 유효한 경우
             if (token != null && jwtTokenProvider.validateToken(token)) {
+
+                // 블랙리스트 확인
+                if (tokenBlacklistService.isBlacklisted(token)) {
+                    log.debug("블랙리스트 토큰: {}", token.substring(0, 20));
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 // 3. 토큰에서 userId 추출
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
