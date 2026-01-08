@@ -1,6 +1,8 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.BrandListResponseDto;
+import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
@@ -12,7 +14,11 @@ import com.project.rare_x_back.repository.ProductRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -101,6 +107,21 @@ public class AdminService {
 
     }
 
+    //카테고리 조회
+    public List<CategoryListResponseDto> getAllCategory () {
+        //브랜드 전체 조회
+        List<Category> results = categoryRepository.findAll();
+        List<CategoryListResponseDto> response = new ArrayList<>();
+
+        for(Category category : results){
+            CategoryListResponseDto newResult = new CategoryListResponseDto(
+                    category.getCategoryName()
+            );
+            response.add(newResult);
+        }
+        return response;
+    }
+
     //카테고리 등록
     public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
 
@@ -132,6 +153,21 @@ public class AdminService {
         categoryRepository.deleteById(category.getCategoryId());
     }
 
+    //브랜드 조회
+    public List<BrandListResponseDto> getAllBrand (Pageable pageable) {
+        //브랜드 전체 조회
+        List<Brand> results = brandRepository.findBrandsByIsDeletedFalse(pageable);
+        List<BrandListResponseDto> response = new ArrayList<>();
+
+        for(Brand brand : results){
+            BrandListResponseDto newResult = new BrandListResponseDto(
+                    brand.getBrandName()
+            );
+            response.add(newResult);
+        }
+        return response;
+    }
+
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
 
@@ -150,4 +186,15 @@ public class AdminService {
                 ));
         brand.updateBrandInfo(brandUpdateRequestDto.getBrandName());
     }
+
+    //브랜드 삭제
+    public void deleteBrand(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "브랜드를 찾을 수 없습니다."
+                ));
+        brandRepository.deleteById(brand.getBrandId());
+    }
+
 }
