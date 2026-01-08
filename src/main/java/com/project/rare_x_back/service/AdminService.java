@@ -113,6 +113,27 @@ public class AdminService {
         categoryRepository.save(category);
     }
 
+    //카테고리 수정
+    public void updateCategory (CategoryUpdateRequestDto categoryUpdateRequestDto, Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "카테고리를 찾을 수 없습니다."
+                ));
+        category.updateCategoryInfo(categoryUpdateRequestDto.getCategoryName());
+    }
+
+    //카테고리 삭제
+    public void deleteCategory (Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(()->
+                        new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND,
+                                "카테고리를 찾을 수 없습니다.")
+                );
+        categoryRepository.deleteById(category.getCategoryId());
+    }
+
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
 
@@ -120,5 +141,15 @@ public class AdminService {
                 .brandName(brandCreateRequestDto.getBrandName())
                 .build();
         brandRepository.save(brand);
+    }
+
+    //브랜드 수정
+    public void updateBrand (BrandUpdateRequestDto brandUpdateRequestDto, Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "브랜드를 찾을 수 없습니다."
+                ));
+        brand.updateBrandInfo(brandUpdateRequestDto.getBrandName());
     }
 }

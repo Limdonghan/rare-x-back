@@ -36,4 +36,8 @@ public class Brand {
     ) {
         this.brandName = brandName;
     }
+
+    public void updateBrandInfo(String brandName) {
+        this.brandName=brandName;
+    }
 }
