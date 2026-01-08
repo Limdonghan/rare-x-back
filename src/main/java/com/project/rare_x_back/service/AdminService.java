@@ -1,12 +1,11 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.BrandCreateRequestDto;
-import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
-import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
-import com.project.rare_x_back.dto.request.ProductUpdateRequestDto;
+import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
 import com.project.rare_x_back.repository.ProductRepository;
@@ -14,6 +13,7 @@ import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -55,7 +55,7 @@ public class AdminService {
     //상품 정보 수정
     public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId){
         //수정할 상품 존재여부 확인
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(()->
                         new CustomException(
                                 ErrorCode.RESOURCE_NOT_FOUND,
@@ -79,7 +79,13 @@ public class AdminService {
                     ));
         }
         //엔티티 업데이트
-        product.updateProductInfo(productUpdateRequestDto, brand, category);
+        product.updateProductInfo(
+                productUpdateRequestDto.getProductName(),
+                productUpdateRequestDto.getProductDescription(),
+                productUpdateRequestDto.getRetailPrice(),
+                brand,
+                category
+        );
     }
 
     //상품 삭제

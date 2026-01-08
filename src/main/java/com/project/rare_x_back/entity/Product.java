@@ -67,21 +67,28 @@ public class Product {
         this.category = category;
     }
 
-    public void updateProductInfo(ProductUpdateRequestDto productUpdateRequestDto, Brand brand, Category category) {
-        // null이면 기존 값 유지
-        if (productUpdateRequestDto.getProductName() != null) {
-            this.productName = productUpdateRequestDto.getProductName();
+    public void updateProductInfo(
+            String productName,
+            String productDescription,
+            Integer retailPrice,
+            Brand brand,
+            Category category
+    ) {
+        if (productName != null) {
+            this.productName = productName;
         }
-        if (productUpdateRequestDto.getProductDescription() != null) {
-            this.productDescription = productUpdateRequestDto.getProductDescription();
+        if (productDescription != null) {
+            this.productDescription = productDescription;
         }
-        if (productUpdateRequestDto.getRetailPrice() != null) {
-            if (productUpdateRequestDto.getRetailPrice() < 0) {
-                throw new IllegalArgumentException("가격은 0 이상");
-            }
-            this.retailPrice = productUpdateRequestDto.getRetailPrice();
+        if (retailPrice != null) {
+            this.retailPrice = retailPrice;
         }
-        if (brand != null) this.brand = brand;
-        if (category != null) this.category = category;
+        if (brand != null) {
+            this.brand = brand;
+        }
+        if (category != null) {
+            this.category = category;
+        }
     }
+
 }
