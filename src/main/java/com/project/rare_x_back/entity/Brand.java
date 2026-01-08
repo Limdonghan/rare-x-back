@@ -38,6 +38,6 @@ public class Brand {
     }
 
     public void updateBrandInfo(String brandName) {
-        this.brandName=brandName;
+        this.brandName = brandName;
     }
 }

@@ -7,13 +7,13 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class ProductCreateRequestDto {
-    @NotNull(message = "브랜드는 필수 선택해야합니다.")
+    @NotNull(message = "브랜드는 필수로 선택해야 합니다.")
     private Long brandId;
 
-    @NotNull(message = "카테고리는 필수 선택해야합니다.")
+    @NotNull(message = "카테고리는 필수로 선택해야 합니다.")
     private Long categoryId;
 
-    @NotBlank(message = "상품명은 필수 입니다.")
+    @NotBlank(message = "상품명은 필수입니다.")
     @Size(max = 20, message = "상품명은 20자 이내여야 합니다.")
     private String productName;
 

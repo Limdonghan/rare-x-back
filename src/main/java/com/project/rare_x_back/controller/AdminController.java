@@ -6,7 +6,6 @@ import com.project.rare_x_back.service.AdminService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +39,7 @@ public class AdminController {
     @DeleteMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> deleteProduct (@PathVariable Long productId) {
         adminService.deleteProduct(productId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.success("상품 삭제가 완료되었습니다."));
+        return ResponseEntity.ok(ApiResponse.success("상품 삭제가 완료되었습니다."));
     }
 
 
@@ -62,9 +61,9 @@ public class AdminController {
 
     //카테고리 삭제
     @DeleteMapping("/categories/{categoryId}")
-    public ResponseEntity <ApiResponse<Void>> deleteCategory (@PathVariable Long categoryId) {
+    public ResponseEntity<ApiResponse<Void>> deleteCategory (@PathVariable Long categoryId) {
         adminService.deleteCategory(categoryId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.success("카테고리 삭제가 완료되었습니다."));
+        return ResponseEntity.ok(ApiResponse.success("카테고리 삭제가 완료되었습니다."));
     }
 
     //브랜드 추가

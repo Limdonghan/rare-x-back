@@ -10,10 +10,8 @@ import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Slf4j

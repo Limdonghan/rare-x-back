@@ -1,6 +1,5 @@
 package com.project.rare_x_back.entity;
 
-import com.project.rare_x_back.dto.request.ProductUpdateRequestDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
