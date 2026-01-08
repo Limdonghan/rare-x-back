@@ -1,9 +1,6 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.BrandCreateRequestDto;
-import com.project.rare_x_back.dto.request.CategoryCreateRequestDto;
-import com.project.rare_x_back.dto.request.ProductCreateRequestDto;
-import com.project.rare_x_back.dto.request.ProductUpdateRequestDto;
+import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
@@ -13,7 +10,6 @@ import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,7 +53,7 @@ public class AdminService {
     //상품 정보 수정
     public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId){
         //수정할 상품 존재여부 확인
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(()->
                         new CustomException(
                                 ErrorCode.RESOURCE_NOT_FOUND,
@@ -81,7 +77,13 @@ public class AdminService {
                     ));
         }
         //엔티티 업데이트
-        product.updateProductInfo(productUpdateRequestDto, brand, category);
+        product.updateProductInfo(
+                productUpdateRequestDto.getProductName(),
+                productUpdateRequestDto.getProductDescription(),
+                productUpdateRequestDto.getRetailPrice(),
+                brand,
+                category
+        );
     }
 
     //상품 삭제
@@ -109,6 +111,27 @@ public class AdminService {
         categoryRepository.save(category);
     }
 
+    //카테고리 수정
+    public void updateCategory (CategoryUpdateRequestDto categoryUpdateRequestDto, Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "카테고리를 찾을 수 없습니다."
+                ));
+        category.updateCategoryInfo(categoryUpdateRequestDto.getCategoryName());
+    }
+
+    //카테고리 삭제
+    public void deleteCategory (Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(()->
+                        new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND,
+                                "카테고리를 찾을 수 없습니다.")
+                );
+        categoryRepository.deleteById(category.getCategoryId());
+    }
+
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
 
@@ -116,5 +139,15 @@ public class AdminService {
                 .brandName(brandCreateRequestDto.getBrandName())
                 .build();
         brandRepository.save(brand);
+    }
+
+    //브랜드 수정
+    public void updateBrand (BrandUpdateRequestDto brandUpdateRequestDto, Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "브랜드를 찾을 수 없습니다."
+                ));
+        brand.updateBrandInfo(brandUpdateRequestDto.getBrandName());
     }
 }

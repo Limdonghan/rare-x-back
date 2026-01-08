@@ -1,5 +1,6 @@
 package com.project.rare_x_back.entity;
 
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -27,6 +28,10 @@ public class Category {
 
     @Builder
     public Category(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
+    public void updateCategoryInfo (String categoryName) {
         this.categoryName = categoryName;
     }
 
