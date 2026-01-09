@@ -48,3 +48,6 @@ out/
 ### Application Properties (민감정보) ###
 application-*.properties
 !application.properties
+
+## static ##
+/src/main/resources/static/**
