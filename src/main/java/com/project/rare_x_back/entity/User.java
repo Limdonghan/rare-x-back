@@ -11,6 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+
 @Entity
 @Table(name = "users")
 @NoArgsConstructor
@@ -34,9 +35,6 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "phone", nullable = false, length = 20)
-    private String phone;
-
     @Column(name = "provider_type", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
     private ProviderType providerType;
@@ -45,9 +43,15 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    @Column(name = "status", nullable = false, length = 10)
+    @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private Status status;
+
+    @Column(name = "point", nullable = false)
+    private Integer point;
+
+    @Column(name = "profile_url", length = 500)
+    private String profileUrl;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;

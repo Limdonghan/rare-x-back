@@ -1,7 +1,9 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.SignUpRequest;
-import com.project.rare_x_back.dto.response.SignUpResponse;
+import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.LoginResponseDto;
+import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
+import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.ProviderType;
 import com.project.rare_x_back.enums.Role;
@@ -9,30 +11,47 @@ import com.project.rare_x_back.enums.Status;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor    // final 필드를 가진 생성자 만들기
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    // 회원등록
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
+
+    // 회원가입
     @Transactional
-    public SignUpResponse signUP(SignUpRequest request) {
+    public SignUpResponseDto signUp(SignUpRequestDto request) {
 
-         // 1. 비밀번호 일치 검증
-        if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
+        // 1. 이메일 인증 여부 확인 추가
+        if (!emailService.isVerified(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        // 2. 이메일 중복 확인
+        // 2. 이메일 중복 검사
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_DUPLICATED);
+        }
+
+        // 3. 비밀번호 확인
+        if (!request.getPassword().equals(request.getPasswordConfirm())) {
+            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
         // 3. User 엔티티 생성
@@ -40,22 +59,136 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
-                .phone(request.getPhone().replaceAll("-", ""))  // 하이픈 제거
                 .providerType(ProviderType.LOCAL)
+                .point(0)
                 .role(Role.USER)
-                .status(Status.PENDING)
+                .status(Status.ACTIVE)
                 .isDeleted(false)
                 .build();
 
         userRepository.save(user);
 
-        // 4. 응답 DTO 생성 (빌더 패턴)
-        SignUpResponse response = SignUpResponse.builder()
+        // 4. 응답 DTO 생성
+        return SignUpResponseDto.builder()
                 .email(user.getEmail())
                 .name(user.getName())
-                .message("회원가입이 완료되었습니다")
                 .build();
+    }
 
-        return response;
+    // 인증번호 발송 (회원가입 전 이메일 인증용)
+    @Transactional(readOnly = true)
+    public void sendVerificationCode(EmailSendRequestDto request) {
+        // 이미 가입된 이메일인지 확인
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_DUPLICATED);
+        }
+
+        // 인증번호 발송
+        emailService.sendVerificationCode(request.getEmail());
+    }
+
+    // 이메일 인증 (인증번호 확인만)
+    @Transactional
+    public void verifyEmail(EmailVerifyRequestDto request) {
+        // 인증번호 검증
+        boolean isValid = emailService.verifyCode(request.getEmail(), request.getCode());
+
+        if (!isValid) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
+        }
+    }
+
+    // 로그인
+    @Transactional(readOnly = true)
+    public LoginResponseDto login(LoginRequestDto request) {
+
+        // 1. 이메일로 사용자 조회
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 탈퇴한 회원 확인
+        if (user.getIsDeleted()) {
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
+        }
+
+        // 3. 비밀번호 확인 (BCrypt)
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        // 4. 계정 활성화 확인
+        if (user.getStatus() != Status.ACTIVE) {
+            throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+
+        // 5. JWT 토큰 생성
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+
+        // 6. Refresh Token을 Redis에 저장 (7일)
+        String key = REFRESH_TOKEN_PREFIX + user.getUserId();
+        redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
+
+        // 7. 응답 생성
+        return LoginResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    // 로그아웃 (Refresh Token 삭제 + Access Token 블랙리스트)
+    @Transactional
+    public void logout(Long userId, String accessToken) {
+        // 1. Refresh Token 삭제
+        String refreshKey = REFRESH_TOKEN_PREFIX + userId;
+        redisTemplate.delete(refreshKey);
+
+        // 2. Access Token 블랙리스트에 추가
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        tokenBlacklistService.addToBlacklist(accessToken, expiration);
+    }
+
+    // Refresh Token으로 Access Token 갱신
+    @Transactional(readOnly = true)
+    public RefreshTokenResponseDto refreshToken(RefreshTokenRequestDto request) {
+
+        // 1. Refresh Token 유효성 검증 (JWT 자체)
+        if (!jwtTokenProvider.validateToken(request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserIdFromToken(request.getRefreshToken());
+
+        // 3. Redis에서 저장된 Refresh Token 확인
+        String key = REFRESH_TOKEN_PREFIX + userId;
+        String savedRefreshToken = redisTemplate.opsForValue().get(key);
+
+        // 4. Redis에 없거나 불일치 → 무효한 토큰
+        if (savedRefreshToken == null || !savedRefreshToken.equals(request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 5. 사용자 존재 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 6. 탈퇴한 사용자 확인
+        if (user.getIsDeleted()) {
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
+        }
+
+        // 7. 계정 상태 확인
+        if (user.getStatus() != Status.ACTIVE) {
+            throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+
+        // 8. 새로운 Access Token 생성
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
+
+        return  RefreshTokenResponseDto.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(request.getRefreshToken())
+                .build();
     }
 }
