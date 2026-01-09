@@ -5,6 +5,7 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponse;
 import com.project.rare_x_back.dto.response.RefreshTokenResponse;
 import com.project.rare_x_back.dto.response.SignUpResponse;
+import com.project.rare_x_back.security.JwtTokenProvider;
 import com.project.rare_x_back.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     // 회원가입
     @PostMapping("/signup")
@@ -63,13 +65,14 @@ public class AuthController {
                 .ok(ApiResponse.success(response, "로그인 성공"));
     }
 
+    // 로그아웃
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @AuthenticationPrincipal Long userId,
             @RequestHeader("Authorization") String authHeader) {
 
         // "Bearer " 제거
-        String accessToken = authHeader.substring(7);
+        String accessToken = jwtTokenProvider.resolveToken(authHeader);
 
         authService.logout(userId, accessToken);
         return ResponseEntity.ok(ApiResponse.success("로그아웃 되었습니다"));

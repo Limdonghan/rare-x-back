@@ -102,7 +102,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        // 3. 상태 변경 (PENDING → ACTIVE) // 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
+        // 3. 상태 변경 (PENDING → ACTIVE)      TODO 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
         user.setStatus(Status.ACTIVE);
     }
 

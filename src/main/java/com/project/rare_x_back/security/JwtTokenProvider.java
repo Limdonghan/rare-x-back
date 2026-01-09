@@ -96,4 +96,12 @@ public class JwtTokenProvider {
             return 0;
         }
     }
+
+    // Authorization 헤더에서 토큰 추출 ("Bearer {token}" → "{token}")
+    public String resolveToken(String bearerToken) {
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
 }
