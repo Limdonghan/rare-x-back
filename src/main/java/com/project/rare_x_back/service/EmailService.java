@@ -24,8 +24,9 @@ public class EmailService {
     @Value("${spring.mail.username}")  // ← 추가!
     private String fromEmail;
 
-    private static final String EMAIL_PREFIX = "email:verify:";
-    private static final int CODE_LENGTH = 6;
+    private static final String EMAIL_PREFIX = "email:";
+    private static final String VERIFIED_PREFIX = "verified:";  // 추가!
+
     private static final long CODE_EXPIRATION_MINUTES = 5;
 
 
@@ -70,22 +71,25 @@ public class EmailService {
 
     //  이메일 인증번호 검증
     public boolean verifyCode(String email, String code) {
-
         String key = EMAIL_PREFIX + email;
         String savedCode = redisTemplate.opsForValue().get(key);
 
-        // 인증번호 확인
-        if (savedCode == null) {
-            return false;
-        }
+        if (savedCode != null && savedCode.equals(code)) {
+            redisTemplate.delete(key);  // 인증번호 삭제
 
-        // 인증 성공 시 Redis에서 삭제
-        if (savedCode.equals(code)) {
-            redisTemplate.delete(key);
+            // 인증 완료 표시 (10분간 유효)
+            String verifiedKey = VERIFIED_PREFIX + email;
+            redisTemplate.opsForValue().set(verifiedKey, "true", 10, TimeUnit.MINUTES);
+
             return true;
         }
-
         return false;
+    }
+
+    // 이메일 인증 여부 확인
+    public boolean isVerified(String email) {
+        String verifiedKey = VERIFIED_PREFIX + email;
+        return redisTemplate.hasKey(verifiedKey);
     }
 
     //  6자리 랜덤 인증번호 생성

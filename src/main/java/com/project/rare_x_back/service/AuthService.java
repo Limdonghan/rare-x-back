@@ -1,9 +1,9 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.*;
-import com.project.rare_x_back.dto.response.LoginResponse;
-import com.project.rare_x_back.dto.response.RefreshTokenResponse;
-import com.project.rare_x_back.dto.response.SignUpResponse;
+import com.project.rare_x_back.dto.response.LoginResponseDto;
+import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
+import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.ProviderType;
 import com.project.rare_x_back.enums.Role;
@@ -37,16 +37,21 @@ public class AuthService {
 
     // 회원가입
     @Transactional
-    public SignUpResponse signUp(SignUpRequest request) {
+    public SignUpResponseDto signUp(SignUpRequestDto request) {
 
-         // 1. 비밀번호 일치 검증
-        if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
+        // 1. 이메일 인증 여부 확인 추가
+        if (!emailService.isVerified(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        // 2. 이메일 중복 확인
+        // 2. 이메일 중복 검사
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_DUPLICATED);
+        }
+
+        // 3. 비밀번호 확인
+        if (!request.getPassword().equals(request.getPasswordConfirm())) {
+            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
         // 3. User 엔티티 생성
@@ -55,60 +60,47 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .providerType(ProviderType.LOCAL)
+                .point(0)
                 .role(Role.USER)
-                .status(Status.PENDING)  // 이메일 인증 전 상태
+                .status(Status.ACTIVE)
                 .isDeleted(false)
                 .build();
 
         userRepository.save(user);
 
         // 4. 응답 DTO 생성
-        return SignUpResponse.builder()
+        return SignUpResponseDto.builder()
                 .email(user.getEmail())
                 .name(user.getName())
-                .message("회원가입이 완료되었습니다.  이메일 인증을 진행해주세요.")
                 .build();
     }
 
-    // 이메일 인증번호 발송
+    // 인증번호 발송 (회원가입 전 이메일 인증용)
     @Transactional(readOnly = true)
-    public void sendVerificationCode(EmailSendRequest request) {
-
-        // 1. 사용자 존재 확인
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        // 2. 이미 인증된 경우
-        if (user.getStatus() == Status.ACTIVE) {
-            throw new CustomException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+    public void sendVerificationCode(EmailSendRequestDto request) {
+        // 이미 가입된 이메일인지 확인
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_DUPLICATED);
         }
 
-        // 3. 인증번호 발송
+        // 인증번호 발송
         emailService.sendVerificationCode(request.getEmail());
     }
 
-    // 이메일 인증
+    // 이메일 인증 (인증번호 확인만)
     @Transactional
-    public void verifyEmail(EmailVerifyRequest request) {
-
-        // 1. 사용자 조회
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        // 2. 인증번호 검증
+    public void verifyEmail(EmailVerifyRequestDto request) {
+        // 인증번호 검증
         boolean isValid = emailService.verifyCode(request.getEmail(), request.getCode());
 
         if (!isValid) {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
-
-        // 3. 상태 변경 (PENDING → ACTIVE)      TODO 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
-        user.setStatus(Status.ACTIVE);
     }
 
     // 로그인
     @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponseDto login(LoginRequestDto request) {
 
         // 1. 이메일로 사용자 조회
         User user = userRepository.findByEmail(request.getEmail())
@@ -138,7 +130,7 @@ public class AuthService {
         redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
 
         // 7. 응답 생성
-        return LoginResponse.builder()
+        return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
@@ -158,7 +150,7 @@ public class AuthService {
 
     // Refresh Token으로 Access Token 갱신
     @Transactional(readOnly = true)
-    public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
+    public RefreshTokenResponseDto refreshToken(RefreshTokenRequestDto request) {
 
         // 1. Refresh Token 유효성 검증 (JWT 자체)
         if (!jwtTokenProvider.validateToken(request.getRefreshToken())) {
@@ -194,7 +186,7 @@ public class AuthService {
         // 8. 새로운 Access Token 생성
         String newAccessToken = jwtTokenProvider.createAccessToken(userId);
 
-        return  RefreshTokenResponse.builder()
+        return  RefreshTokenResponseDto.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(request.getRefreshToken())
                 .build();
