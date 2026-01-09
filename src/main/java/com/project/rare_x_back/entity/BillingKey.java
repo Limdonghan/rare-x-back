@@ -31,8 +31,8 @@ public class BillingKey {
     @Column(name = "card_company")
     private String cardCompany;     /// 카드사 정보 (예: 현대, 삼성)
 
-    @Column(name = "card_number")
-    private String cardNumber;      /// 마스킹된 카드번호 (예: 4221-****-****-1234)
+    @Column(name = "card_number_last4")
+    private String cardNumber;      /// 마스킹된 카드번호 (예: 4221-****-****-1234) 뒷자리 4자리
 
     @CreatedDate
     @Column(name = "created_at")

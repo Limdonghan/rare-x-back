@@ -4,14 +4,11 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/payment")
+@RequestMapping("/api/payments")
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -23,7 +20,7 @@ public class PaymentController {
 
     @PostMapping("/billing/register")
     public ApiResponse<?> registerCard (@RequestBody BillingKeyRequestDto requestDto,
-                                        @RequestBody String email) {
+                                        @RequestParam String email) {
 
         //paymentService.registerCard(userId, authKey, customerKey,email);
 

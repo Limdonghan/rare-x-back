@@ -59,12 +59,14 @@ public class PaymentService {
             String billingKey = (String) response.get("billingKey");
             Map cardInfo = (Map) response.get("card");
 
+            String cardCompany = String.valueOf(response.get("cardCompany"));
+            String cardNumber = String.valueOf(cardInfo.get("number")).substring(12,16);
             /// 4. DB 저장
             BillingKey build = BillingKey.builder()
                     .user(user)
                     .billingKey(billingKey)
-                    .cardCompany(cardInfo.get("company").toString())
-                    .cardNumber(String.valueOf(cardInfo.get("number")))
+                    .cardCompany(cardCompany)
+                    .cardNumber(cardNumber)
                     .build();
 
             log.info("카드 등록 완료 - User: {}, Company: {}", user.getName(), cardInfo.get("company"));
