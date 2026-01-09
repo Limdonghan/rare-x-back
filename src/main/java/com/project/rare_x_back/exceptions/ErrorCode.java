@@ -26,7 +26,10 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다"),
 
     // 찾는 데이터가 없을 시 에러
-    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리소스가 존재하지 않습니다.");
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리소스가 존재하지 않습니다."),
+
+    // 잘못된 요청
+    BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 
     private final String message;
     private final HttpStatus status;
