@@ -12,9 +12,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class SignUpRequest {
+public class SignUpRequestDto {
 
-    @NotBlank(message = "이메일을 입력해주세요22")
+    @NotBlank(message = "이메일을 입력해주세요")
     @Email(message = "올바른 이메일 형식이 아닙니다")
     private String email;
 

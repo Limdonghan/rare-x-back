@@ -66,17 +66,6 @@ public class JwtTokenProvider {
         return Long.parseLong(claims.getSubject());
     }
 
-    // 토큰에서 role 추출
-    public String getRoleFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.get("role", String.class);
-    }
-
     // 토큰 유효성 검증
     public boolean validateToken(String token) {
         try {
@@ -88,5 +77,31 @@ public class JwtTokenProvider {
         } catch (JwtException | IllegalArgumentException e) {
             return false;   // 위조
         }
+    }
+
+    // 토큰의 남은 만료 시간 조회 (밀리초)
+    public long getExpiration(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Date expiration = claims.getExpiration();
+            long now = System.currentTimeMillis();
+
+            return expiration.getTime() - now;
+        } catch (JwtException | IllegalArgumentException e) {
+            return 0;
+        }
+    }
+
+    // Authorization 헤더에서 토큰 추출 ("Bearer {token}" → "{token}")
+    public String resolveToken(String bearerToken) {
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }
