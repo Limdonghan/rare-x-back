@@ -1,6 +1,5 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponse;
 import com.project.rare_x_back.dto.response.RefreshTokenResponse;
@@ -16,12 +15,9 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.concurrent.TimeUnit;
 
@@ -35,6 +31,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -105,7 +102,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        // 3. 상태 변경 (PENDING → ACTIVE) // 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
+        // 3. 상태 변경 (PENDING → ACTIVE)      TODO 회원가입 할 때 인증하고 로그인하면 필요없음(나중에 DB 수정하면 바꿔야함. 1/7 피드백)
         user.setStatus(Status.ACTIVE);
     }
 
@@ -119,7 +116,7 @@ public class AuthService {
 
         // 2. 탈퇴한 회원 확인
         if (user.getIsDeleted()) {
-            throw new CustomException(ErrorCode.ACCOUNT_DELETED);
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
         }
 
         // 3. 비밀번호 확인 (BCrypt)
@@ -127,8 +124,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // 4. 계정 활성화 확인 (PENDING 상태 허용)
-        // 나중에 이메일 인증 추가 시 ACTIVE만 로그인 가능하도록 변경
+        // 4. 계정 활성화 확인
         if (user.getStatus() != Status.ACTIVE) {
             throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
@@ -148,12 +144,16 @@ public class AuthService {
                 .build();
     }
 
-
+    // 로그아웃 (Refresh Token 삭제 + Access Token 블랙리스트)
     @Transactional
-    public void logout(Long userId) {
-        // Redis에서 Refresh Token 삭제
-        String key = REFRESH_TOKEN_PREFIX + userId;
-        redisTemplate.delete(key);
+    public void logout(Long userId, String accessToken) {
+        // 1. Refresh Token 삭제
+        String refreshKey = REFRESH_TOKEN_PREFIX + userId;
+        redisTemplate.delete(refreshKey);
+
+        // 2. Access Token 블랙리스트에 추가
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        tokenBlacklistService.addToBlacklist(accessToken, expiration);
     }
 
     // Refresh Token으로 Access Token 갱신
@@ -183,7 +183,7 @@ public class AuthService {
 
         // 6. 탈퇴한 사용자 확인
         if (user.getIsDeleted()) {
-            throw new CustomException(ErrorCode.ACCOUNT_DELETED);
+            throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
         }
 
         // 7. 계정 상태 확인
