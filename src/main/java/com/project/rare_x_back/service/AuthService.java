@@ -76,7 +76,7 @@ public class AuthService {
     }
 
     // 인증번호 발송 (회원가입 전 이메일 인증용)
-    @Transactional(readOnly = true)
+    // @Transactional(readOnly = true)
     public void sendVerificationCode(EmailSendRequestDto request) {
         // 이미 가입된 이메일인지 확인
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -133,6 +133,7 @@ public class AuthService {
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .name(user.getName())
                 .build();
     }
 
