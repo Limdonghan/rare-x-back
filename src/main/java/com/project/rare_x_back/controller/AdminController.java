@@ -5,12 +5,15 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 @AllArgsConstructor
@@ -19,6 +22,17 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final S3ImageService s3ImageService;
+
+    //s3 이미지 업로드
+    @PostMapping("/products/{productId}/images")
+    public ResponseEntity<ApiResponse<String>> uploadProductImage(
+            @PathVariable Long productId,
+            @RequestParam("image")MultipartFile image
+            ) {
+        String imageUrl = adminService.saveProductImage(productId, image);
+        return ResponseEntity.ok(ApiResponse.success(imageUrl,"상품 이미지 등록이 완료되었습니다."));
+    }
 
     //상품 등록
     @PostMapping("/products")
@@ -33,9 +47,11 @@ public class AdminController {
     @PatchMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductUpdateRequestDto productUpdateRequestDto
+            @RequestPart("data") @Valid ProductUpdateRequestDto productUpdateRequestDto,
+            @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
+            @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages
     ) {
-        adminService.updateProduct(productUpdateRequestDto, productId);
+        adminService.updateProduct(productUpdateRequestDto, productId, deleteIds, newImages);
         return ResponseEntity.ok(ApiResponse.success("상품 정보 수정이 완료되었습니다."));
     }
 

@@ -6,16 +6,19 @@ import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
+import com.project.rare_x_back.entity.ProductImage;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.BrandRepository;
 import com.project.rare_x_back.repository.CategoryRepository;
+import com.project.rare_x_back.repository.ProductImageRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,8 @@ public class AdminService {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
+    private final S3ImageService s3ImageService;
+    private final ProductImageRepository productImageRepository;
 
     //상품 등록
     public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
@@ -57,7 +62,9 @@ public class AdminService {
     }
 
     //상품 정보 수정
-    public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId){
+    public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId,
+                              List<Long> deleteImageIds, List<MultipartFile> newFiles
+    ){
         //수정할 상품 존재여부 확인
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(()->
@@ -90,9 +97,34 @@ public class AdminService {
                 brand,
                 category
         );
+        //이미지 선택 삭제 (deleteImageIds 있을 때만)
+        if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
+            for (Long id : deleteImageIds) {      //DB에서 이미지 정보 조회
+                ProductImage productImage = productImageRepository.findById(id)
+                        .orElseThrow(() -> new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND, "삭제할 이미지를 찾을 수 없습니다."));
+                //s3에서 실제 파일 삭제
+                s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                //DB에서 이미지 데이터 삭제
+                productImageRepository.delete(productImage);
+            }
+        }
+        //새 이미지 추가 (newFiles가 있을 때만)
+        if (newFiles != null && !newFiles.isEmpty()) {
+            for (MultipartFile file : newFiles) {
+                //s3에 업로드
+                String url = s3ImageService.uploadProductImage(file);
+                //DB 저장 및 연관관계 설정
+                ProductImage newProdImg = ProductImage.builder()
+                        .imageUrl(url)
+                        .product(product)
+                        .build();
+                productImageRepository.save(newProdImg);
+            }
+        }
     }
 
-    //상품 삭제
+    //상품 삭제 (연결된 s3이미지도 같이 삭제 추가)
     public void deleteProduct (Long productId) {
 
         Product product = productRepository.findById(productId)
@@ -100,10 +132,33 @@ public class AdminService {
                         new CustomException(
                                 ErrorCode.RESOURCE_NOT_FOUND,
                                 "상품을 찾을 수 없습니다."
-                        )
-                );
+                        ));
+        //s3에서 실제 파일 삭제 (반드시 s3이미지 부터 지워야 함)
+        for (ProductImage productImage : product.getImages()) {
+            s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+        }
+        productRepository.delete(product);
+    }
 
-        productRepository.deleteById(product.getProductId());
+    //상품 이미지 등록
+    public String saveProductImage(Long productId, MultipartFile file) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "상품을 찾을 수 없습니다."
+                        ));
+        //s3에 이미지 파일 업로드(물리적 저장)
+        // -> 여기서 s3이미지 서비스안에 이미지 파일 검증, key생성 메소드 작동됨.
+        String imageUrl = s3ImageService.uploadProductImage(file);
+
+        ProductImage productImage = ProductImage.builder()
+                .imageUrl(imageUrl)
+                .product(product)
+                .build();
+
+        productImageRepository.save(productImage);
+
+        return imageUrl;
 
     }
 
