@@ -12,6 +12,7 @@ import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.repository.StorageRequestRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,11 @@ public class StorageRequestService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
+    @Value("${inspection-center.address}")
+    private String inspectionCenterAddress;
+
+    @Value("${inspection-center.zipcode}")
+    private String inspectionCenterZipcode;
 
     // 보관 판매 신청
     @Transactional
@@ -48,6 +54,6 @@ public class StorageRequestService {
         StorageRequest saved = storageRequestRepository.save(storageRequest);
 
         // 5. 응답 반환
-        return StorageRequestResponseDto.from(saved);
+        return StorageRequestResponseDto.from(saved, inspectionCenterAddress, inspectionCenterZipcode);
     }
 }

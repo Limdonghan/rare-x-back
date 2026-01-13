@@ -18,7 +18,13 @@ public class StorageRequestResponseDto {
     private StorageRequestStatus status;
     private LocalDateTime createdAt;
 
-    public static StorageRequestResponseDto from(StorageRequest storageRequest) {
+    // 검수센터 정보 추가
+    private String inspectionCenterAddress;
+    private String inspectionCenterZipcode;
+
+    public static StorageRequestResponseDto from(StorageRequest storageRequest,
+                                                 String inspectionCenterAddress,
+                                                 String inspectionCenterZipcode) {
         return StorageRequestResponseDto.builder()
                 .storageRequestId(storageRequest.getStorageRequestId())
                 .productId(storageRequest.getProduct().getProductId())
@@ -26,6 +32,8 @@ public class StorageRequestResponseDto {
                 .brandName(storageRequest.getProduct().getBrand().getBrandName())
                 .status(storageRequest.getStatus())
                 .createdAt(storageRequest.getCreatedAt())
+                .inspectionCenterAddress(inspectionCenterAddress)
+                .inspectionCenterZipcode(inspectionCenterZipcode)
                 .build();
     }
 }
