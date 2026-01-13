@@ -1,12 +1,9 @@
 package com.project.rare_x_back.entity;
 
-import com.project.rare_x_back.enums.TossPaymentMethod;
-import com.project.rare_x_back.enums.TossPaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.annotation.CreatedDate;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Getter @Setter
@@ -38,20 +35,21 @@ public class Payment {
     @Column (name = "amount")
     private int amount;                             /// 결제 금액
 
-    @Enumerated(EnumType.STRING)
+//    @Enumerated(EnumType.STRING)
     @Column (name = "toss_payment_method")
-    private TossPaymentMethod tossPaymentMethod;    /// 결제 방식
+    private String tossPaymentMethod;    /// 결제 방식
 
-    @Enumerated(EnumType.STRING)
+//    @Enumerated(EnumType.STRING)
     @Column (name = "status")
-    private TossPaymentStatus tossPaymentStatus;    /// 결제 상태
+    private String tossPaymentStatus;    /// 결제 상태
 
-    @CreatedDate
+    /// [수정] TossPayment API 시각 받아오기, 타임존 받아오기위해 타입 변경
     @Column (name = "approved_at")
-    private LocalDateTime approvedAt;               /// 결제 요청 시기
+    private OffsetDateTime approvedAt;               /// 결제 요청 시기
 
+    /// [수정] TossPayment API 시각 받아오기, 타임존 받아오기위해 타입 변경
     @Column (name = "requested_at")
-    private LocalDateTime requestedAt;              /// 결제 승인 시간
+    private OffsetDateTime requestedAt;              /// 결제 승인 시간
 
 
 }

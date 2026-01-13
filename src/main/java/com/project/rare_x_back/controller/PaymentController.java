@@ -1,6 +1,7 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -25,5 +26,16 @@ public class PaymentController {
         //paymentService.registerCard(userId, authKey, customerKey,email);
 
         return ApiResponse.success(paymentService.registerCard(requestDto,email));
+    }
+
+    /**
+     * [자동 결제 요청 API]
+     * 등록된 카드로 즉시 결제를 진행합니다.
+     * 요청 예시: POST /api/payments/billing/pay?email=buyer1@test.com
+     */
+    @PostMapping("/billing/pay")
+    public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto,
+                                            @RequestParam String email) {
+        return ApiResponse.success(paymentService.payWithBillingKey(requestDto, email));
     }
 }
