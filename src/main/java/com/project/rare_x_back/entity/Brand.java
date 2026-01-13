@@ -17,7 +17,7 @@ public class Brand {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long brandId;
 
-    @Column(name = "brand_name", nullable = false)
+    @Column(name = "name", nullable = false)
     private String brandName;
 
     @Column(name = "is_deleted", nullable = true)

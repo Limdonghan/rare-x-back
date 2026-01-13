@@ -3,6 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
+import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
@@ -16,6 +17,7 @@ import com.project.rare_x_back.repository.ProductRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,6 +61,53 @@ public class AdminService {
 
         productRepository.save(product);
 
+    }
+
+    //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
+    public Page<ProductListResponseDto> getAllProducts(Pageable pageable) {
+        // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
+        Page<Product> productPage = productRepository.findAll(pageable);
+        // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
+        return productPage.map(product -> {
+            // 썸네일 이미지 URL 추출(없으면 null,썸네일 이미지는 상품 하나에 연결된 모든 이미지 리스트 중 0번 인덱스)
+            String firstImageUrl = null;
+            if (product.getImages() != null && !product.getImages().isEmpty()) {
+                firstImageUrl = product.getImages().get(0).getImageUrl();
+            }
+            // DTO에 담음
+            return ProductListResponseDto.builder()
+                    .productId(product.getProductId())
+                    .productName(product.getProductName())
+                    .productDescription(product.getProductDescription())
+                    .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "등록된 브랜드가 없습니다.")
+                    .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "등록된 카테고리가 없습니다.")
+                    .imageUrl(firstImageUrl)
+                    .build();
+        });
+    }
+
+    //상품 상세 조회
+    public ProductListResponseDto getDetailProduct(Long productId){
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
+                .orElseThrow(()->
+                        new CustomException(
+                                ErrorCode.RESOURCE_NOT_FOUND,
+                                "상품을 찾을 수 없습니다."
+                        ));
+
+        // 이미지 객체 리스트를 URL만 있는 문자열 리스트로 변환
+        List<String> imageUrls = product.getImages().stream()
+                .map(ProductImage :: getImageUrl)
+                .toList();
+
+        return ProductListResponseDto.builder()
+                .productId(productId)
+                .productName(product.getProductName())
+                .productDescription(product.getProductDescription())
+                .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "등록된 브랜드가 없습니다.")
+                .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "등록된 카테고리가 없습니다.")
+                .imageUrls(imageUrls)
+                .build();
     }
 
     //상품 정보 수정
@@ -141,25 +190,27 @@ public class AdminService {
     }
 
     //상품 이미지 등록
-    public String saveProductImage(Long productId, MultipartFile file) {
+    public List<String> saveProductImage(Long productId, List<MultipartFile> images) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CustomException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         "상품을 찾을 수 없습니다."
                         ));
-        //s3에 이미지 파일 업로드(물리적 저장)
-        // -> 여기서 s3이미지 서비스안에 이미지 파일 검증, key생성 메소드 작동됨.
-        String imageUrl = s3ImageService.uploadProductImage(file);
-
-        ProductImage productImage = ProductImage.builder()
-                .imageUrl(imageUrl)
-                .product(product)
-                .build();
-
-        productImageRepository.save(productImage);
-
-        return imageUrl;
-
+        //저장된 url 담을 빈그릇 생성
+        List<String> saveUrls = new ArrayList<>();
+        //받은 이미지 리스트를 for-each로 하나씩 꺼냄.
+        for (MultipartFile file : images) {
+            if (!file.isEmpty()) {
+                String imageUrl = s3ImageService.uploadProductImage(file);
+                ProductImage productImage = ProductImage.builder()
+                        .imageUrl(imageUrl)
+                        .product(product)
+                        .build();
+                productImageRepository.save(productImage); //저장
+                saveUrls.add(imageUrl); //빈그릇에 담기
+            }
+        }
+        return saveUrls;
     }
 
     //카테고리 조회

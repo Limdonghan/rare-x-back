@@ -4,10 +4,12 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
+import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.service.AdminService;
 import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +28,12 @@ public class AdminController {
 
     //s3 이미지 업로드
     @PostMapping("/products/{productId}/images")
-    public ResponseEntity<ApiResponse<String>> uploadProductImage(
+    public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
-            @RequestParam("image")MultipartFile image
+            @RequestPart("images")List<MultipartFile> images
             ) {
-        String imageUrl = adminService.saveProductImage(productId, image);
-        return ResponseEntity.ok(ApiResponse.success(imageUrl,"상품 이미지 등록이 완료되었습니다."));
+        List<String> imageUrls = adminService.saveProductImage(productId, images);
+        return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
     }
 
     //상품 등록
@@ -41,6 +43,20 @@ public class AdminController {
         adminService.createProduct(productCreateRequestDto);
         // 성공 응답(201 Created)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("상품 등록이 완료되었습니다."));
+    }
+
+    //상품 전체 조회
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<Page<ProductListResponseDto>>> getAllProduct(Pageable pageable){
+        Page<ProductListResponseDto> response = adminService.getAllProducts(pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    //상품 상세 조회
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<ApiResponse<ProductListResponseDto>> getDetailProduct(@PathVariable Long productId) {
+        ProductListResponseDto response = adminService.getDetailProduct(productId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     //상품 정보 수정
