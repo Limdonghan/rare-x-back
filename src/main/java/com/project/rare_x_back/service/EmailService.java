@@ -42,7 +42,6 @@ public class EmailService {
         // 2. Redis에 저장 (5분 유효)
         String key = EMAIL_PREFIX + email;
         redisTemplate.opsForValue().set(key, code, CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
-        log.info("Redis 저장 완료: key={}", redisTemplate.opsForValue().get(key)); // 로그 확인용
 
         // 3. 이메일 발송
         try {
