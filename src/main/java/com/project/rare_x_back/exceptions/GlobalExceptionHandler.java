@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
 
     // 기타 예외 처리
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handelException(Exception e) {
+    public ResponseEntity<ApiResponse<Void>> handleException (Exception e) {
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
