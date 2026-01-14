@@ -63,10 +63,34 @@ public class AdminService {
 
     }
 
+    //상품 이미지 등록
+    public List<String> saveProductImage(Long productId, List<MultipartFile> images) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "상품을 찾을 수 없습니다."
+                ));
+        //저장된 url 담을 빈그릇 생성
+        List<String> saveUrls = new ArrayList<>();
+        //받은 이미지 리스트를 for-each로 하나씩 꺼냄.
+        for (MultipartFile file : images) {
+            if (!file.isEmpty()) {
+                String imageUrl = s3ImageService.uploadProductImage(file);
+                ProductImage productImage = ProductImage.builder()
+                        .imageUrl(imageUrl)
+                        .product(product)
+                        .build();
+                productImageRepository.save(productImage); //저장
+                saveUrls.add(imageUrl); //빈그릇에 담기
+            }
+        }
+        return saveUrls;
+    }
+
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
     public Page<ProductListResponseDto> getAllProducts(Pageable pageable) {
         // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
-        Page<Product> productPage = productRepository.findAll(pageable);
+        Page<Product> productPage = productRepository.findAllByIsDeletedFalse(pageable);
         // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
         return productPage.map(product -> {
             // 썸네일 이미지 URL 추출(없으면 null,썸네일 이미지는 상품 하나에 연결된 모든 이미지 리스트 중 0번 인덱스)
@@ -154,6 +178,8 @@ public class AdminService {
                                 ErrorCode.RESOURCE_NOT_FOUND, "삭제할 이미지를 찾을 수 없습니다."));
                 //s3에서 실제 파일 삭제
                 s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                //product의 리스트에서 삭제
+                product.getImages().remove(productImage);
                 //DB에서 이미지 데이터 삭제
                 productImageRepository.delete(productImage);
             }
@@ -183,34 +209,14 @@ public class AdminService {
                                 "상품을 찾을 수 없습니다."
                         ));
         //s3에서 실제 파일 삭제 (반드시 s3이미지 부터 지워야 함)
-        for (ProductImage productImage : product.getImages()) {
-            s3ImageService.deleteImageByUrl(productImage.getImageUrl());
-        }
-        productRepository.delete(product);
-    }
-
-    //상품 이미지 등록
-    public List<String> saveProductImage(Long productId, List<MultipartFile> images) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "상품을 찾을 수 없습니다."
-                        ));
-        //저장된 url 담을 빈그릇 생성
-        List<String> saveUrls = new ArrayList<>();
-        //받은 이미지 리스트를 for-each로 하나씩 꺼냄.
-        for (MultipartFile file : images) {
-            if (!file.isEmpty()) {
-                String imageUrl = s3ImageService.uploadProductImage(file);
-                ProductImage productImage = ProductImage.builder()
-                        .imageUrl(imageUrl)
-                        .product(product)
-                        .build();
-                productImageRepository.save(productImage); //저장
-                saveUrls.add(imageUrl); //빈그릇에 담기
+        if(product.getImages() != null) {
+            for (ProductImage productImage : product.getImages()) {
+                s3ImageService.deleteImageByUrl(productImage.getImageUrl());
             }
+            product.getImages().clear(); //디비에서도 row 삭제
         }
-        return saveUrls;
+
+        product.updateIsDeleted(true);
     }
 
     //카테고리 조회

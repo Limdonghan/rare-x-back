@@ -99,4 +99,10 @@ public class Product {
         }
     }
 
+    //IsDeletedTrue
+    public void updateIsDeleted (boolean isDeleted) {
+        this.isDeleted = isDeleted;
+        this.deletedAt = LocalDateTime.now();
+    }
+
 }

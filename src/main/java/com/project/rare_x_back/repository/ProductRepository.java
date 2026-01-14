@@ -13,7 +13,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"brand", "category", "images"})
     Optional<Product> findByProductIdAndIsDeletedFalse(Long productId);
 
-    @Override
     @EntityGraph(attributePaths = {"images"})
-    Page<Product> findAll(Pageable pageable);
+    Page<Product> findAllByIsDeletedFalse(Pageable pageable);
 }
