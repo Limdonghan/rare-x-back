@@ -36,11 +36,11 @@ public class StorageRequestService {
     public StorageRequestResponseDto createStorageRequest(Long userId, StorageRequestCreateDto request) {
 
         // 1. 사용자 조회
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByUserIdAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 상품 조회
-        Product product = productRepository.findById(request.getProductId())
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
         // 3. 보관 신청 생성
