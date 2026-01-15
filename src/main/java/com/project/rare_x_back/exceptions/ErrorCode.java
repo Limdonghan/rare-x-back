@@ -38,6 +38,7 @@ public enum ErrorCode {
     // 찾는 데이터가 없을 시 에러
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리소스가 존재하지 않습니다.");
 
+
     private final String message;
     private final HttpStatus status;
 
