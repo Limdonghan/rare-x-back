@@ -48,12 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                     return;
                 }
 
-                // 3. 토큰에서 userId 추출
+                // 3. 토큰에서 userId 추출,  role 추출
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                String role = jwtTokenProvider.getRoleFromToken(token);
 
-                // 4. Spring Security 인증 객체 생성 (기본 USER 권한)
+                // 4. Spring Security 인증 객체 생성 (실제 role 사용)
                 List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_USER")
+                        new SimpleGrantedAuthority("ROLE_" + role)
                 );
 
                 UsernamePasswordAuthenticationToken authentication =
@@ -70,7 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                 // 5. SecurityContext에 인증 정보 저장
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("JWT 인증 성공: userId={}", userId);
+                log.debug("JWT 인증 성공: userId={}, role={}", userId, role);
             }
 
         } catch (CustomException e) {
