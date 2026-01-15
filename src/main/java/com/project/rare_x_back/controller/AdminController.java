@@ -2,12 +2,18 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.InspectionResponseDto;
+import com.project.rare_x_back.enums.InspectionStatus;
+import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.InspectionService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @AllArgsConstructor
 @RestController
@@ -15,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final AdminService adminService;
+    private final InspectionService inspectionService;
 
     //상품 등록
     @PostMapping("/products")
@@ -79,5 +86,36 @@ public class AdminController {
             @Valid @RequestBody BrandUpdateRequestDto brandUpdateRequestDto) {
         adminService.updateBrand(brandUpdateRequestDto, brandId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success("브랜드 정보 수정이 완료되었습니다."));
+    }
+
+    // 전체 검수 목록 조회 (보관 + 주문)
+    @GetMapping("/inspections")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getAllInspections(
+            @RequestParam(required = false) InspectionStatus status) {
+
+        List<InspectionResponseDto> response = inspectionService.getAllInspections(status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 보관 검수 목록 조회
+     * - status 없으면 전체 조회
+     * - status 있으면 해당 상태만 조회 (PENDING_INSPECTION, INSPECTING, PASSED, FAILED)
+     */
+    @GetMapping("/inspections/storage")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getStorageInspections(
+            @RequestParam(required = false)InspectionStatus status) {   // required = false : 사용자가 필터를 선택하면 필터링된 값을 보여주고, 선택하지 않으면 전체를 보여줌
+
+        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 주문 검수 목록 조회
+    @GetMapping("/inspections/order")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getOrderInspections(
+            @RequestParam(required = false) InspectionStatus status) {
+
+        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

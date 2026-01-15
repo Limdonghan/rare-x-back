@@ -32,6 +32,25 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     List<Inspection> findByTypeAndStatusWithDetails(@Param("type") InspectionType type, // @Param은 쿼리문 안의 :type 자리에 메서드 파라미터로 들어온 type 변수 값을 집어넣어 주는 연결고리
                                                     @Param("status") InspectionStatus status);      // 특정 타입이면서 특정 상태(예: 검수 대기 중인 보관 검수)인 것만 필터링
 
+    // 전체 목록 조회 (타입 무관)
+    @Query("SELECT i FROM Inspection i " +
+            "LEFT JOIN FETCH i.storageRequest sr " +
+            "LEFT JOIN FETCH sr.product p " +
+            "LEFT JOIN FETCH p.brand " +
+            "LEFT JOIN FETCH sr.user " +
+            "ORDER BY i.createdAt ASC")
+    List<Inspection> findAllWithDetails();
+
+    // 상태별 전체 조회 (타입 무관)
+    @Query("SELECT i FROM Inspection i " +
+            "LEFT JOIN FETCH i.storageRequest sr " +
+            "LEFT JOIN FETCH sr.product p " +
+            "LEFT JOIN FETCH p.brand " +
+            "LEFT JOIN FETCH sr.user " +
+            "WHERE i.status = :status " +
+            "ORDER BY i.createdAt ASC")
+    List<Inspection> findByStatusWithDetails(@Param("status") InspectionStatus status);
+
     // 상태별 카운트
     long countByTypeAndStatus(InspectionType type, InspectionStatus status);    // 조건에 맞는 데이터가 **몇 개인지만 숫자(long)**로 반환 (ex : 현재 검수 대기 중인 물량 5건)
 }
