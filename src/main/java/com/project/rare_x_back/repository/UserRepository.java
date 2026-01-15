@@ -13,6 +13,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 이메일로 존재 여부 확인 (boolean 타입은 null 불가능, Optional 감쌀 필요 없음)
     boolean existsByEmail(String email);
 
-    // 삭제되지 않은 사용자 조회
-    Optional<User> findByEmailAndIsDeletedFalse(String email);
+    // 삭제되지 않은 유저만 조회
+    Optional<User> findByUserIdAndIsDeletedFalse(Long userId);
 }
