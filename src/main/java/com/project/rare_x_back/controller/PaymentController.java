@@ -6,7 +6,11 @@ import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,8 +25,8 @@ public class PaymentController {
      */
     @PostMapping("/billing/register")
     public ApiResponse<?> registerCard (@RequestBody BillingKeyRequestDto requestDto,
-                                        @RequestParam String email) {
-        return ApiResponse.success(paymentService.registerCard(requestDto,email));
+                                        @AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(paymentService.registerCard(requestDto, userId));
     }
 
     /**
@@ -32,8 +36,8 @@ public class PaymentController {
      */
     @PostMapping("/billing/pay")
     public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto,
-                                            @RequestParam String email) {
-        return ApiResponse.success(paymentService.payWithBillingKey(requestDto, email));
+                                            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(paymentService.payWithBillingKey(requestDto,userId));
     }
 
 
@@ -43,7 +47,7 @@ public class PaymentController {
      */
     @PostMapping("/confirm")
     public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
-                                         @RequestParam String email) {
-        return ApiResponse.success(paymentService.confirmPayment(requestDto, email));
+                                         @AuthenticationPrincipal Long userId) {
+        return ApiResponse.success(paymentService.confirmPayment(requestDto,userId));
     }
 }
