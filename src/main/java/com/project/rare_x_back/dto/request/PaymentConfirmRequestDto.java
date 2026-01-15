@@ -1,11 +1,9 @@
 package com.project.rare_x_back.dto.request;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
-@AllArgsConstructor
 @NoArgsConstructor
 public class PaymentConfirmRequestDto {
     private String paymentKey;      /// 토스가 발급한 결제 키

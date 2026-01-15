@@ -8,5 +8,6 @@ import lombok.NoArgsConstructor;
 public class AutoPaymentRequestDto {
     private String orderId;     /// 주문 ID
     private String orderName;   /// 주문명
+    private String paymentKey;
     private int amount;         /// 결제 금액
 }

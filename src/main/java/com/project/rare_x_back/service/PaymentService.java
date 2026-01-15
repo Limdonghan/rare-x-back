@@ -2,6 +2,7 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
+import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.entity.BillingKey;
 import com.project.rare_x_back.entity.Payment;
 import com.project.rare_x_back.entity.User;
@@ -30,7 +31,7 @@ public class PaymentService {
 
     /**
      * 카드 등록 (빌링키 발급)
-     * 프론트에서 받은 authKey로 실제 결제 가능한 billingKey를 받아와 저장합니다.
+     * 프론트에서 받은 authKey로 실제 결제 가능한 billingKey를 받아와 저장
      */
     @Transactional
     public BillingKey registerCard(BillingKeyRequestDto billingKeyRequestDto,String email) {
@@ -66,7 +67,6 @@ public class PaymentService {
             String customerKey = String.valueOf(response.get("customerKey"));
             String cardCompany = String.valueOf(response.get("cardCompany"));
             String cardNumber = String.valueOf(cardInfo.get("number")).substring(12,16);
-//            OffsetDateTime authenticatedAt = (OffsetDateTime) response.get("authenticatedAt");
             OffsetDateTime authenticatedAt = OffsetDateTime.parse((String) response.get("authenticatedAt"));
 
             /// 4. DB 저장
@@ -93,6 +93,13 @@ public class PaymentService {
      * 저장된 빌링키를 사용하여 비밀번호 없이 즉시 결제 승인 요청
      * */
     public Payment payWithBillingKey (AutoPaymentRequestDto autoPaymentRequestDto, String email) {
+
+        /// [중복 검사] 이미 저장된 결제인지 확인
+        if (paymentRepository.findByTossPaymentKey(autoPaymentRequestDto.getPaymentKey()).isPresent()) {
+            /// 이미 저장되어 있다면 에러를 내지 말고, 저장된 정보를 그대로 반환 (또는 에러 처리)
+            return paymentRepository.findByTossPaymentKey(autoPaymentRequestDto.getPaymentKey()).get();
+        }
+
         /// 1. 유저 확인
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
 
@@ -113,33 +120,84 @@ public class PaymentService {
                     .bodyToMono(Map.class)                      /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
 
-
-            /// API에서 값 꺼내서 Enum으로 변환 (Mapping)
-
-            String method = String.valueOf(response.get("method"));
-            String status = String.valueOf(response.get("status"));
-            OffsetDateTime requestedAt = OffsetDateTime.parse((String) response.get("requestedAt"));
-
-            /// 4. 결제 성공 후 DB에 결제내역 저장 (Payment 엔티티)
-            Payment build = Payment.builder()
-                    .orderId(1L)
-                    .tossOrderId(autoPaymentRequestDto.getOrderId())
-                    .tossPaymentKey(autoPaymentRequestDto.getOrderId())
-                    .amount(autoPaymentRequestDto.getAmount())
-                    .tossPaymentMethod(method)
-                    .tossPaymentStatus(status)
-                    .requestedAt(requestedAt)
-                    .build();
-
-            log.info("자동 결제 성공 - User: {}, Amount: {}", user.getName(), autoPaymentRequestDto.getAmount());
-
-            return paymentRepository.save(build);
+            /// TODO: 실제 Order ID 연동
+            return responseMappingWithSave(response,1L);
         }catch (Exception e){
             log.error(e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
 
     }
+
+    /**
+     * 즉시 결제
+     * 프론트에서 결제창을 통해 인증된 건을 최종 승인(Confirm)
+     * */
+    public Payment confirmPayment (PaymentConfirmRequestDto paymentConfirmRequestDto, String email) {
+
+        /// [중복 검사] 이미 저장된 결제인지 확인
+        if (paymentRepository.findByTossPaymentKey(paymentConfirmRequestDto.getPaymentKey()).isPresent()) {
+            /// 이미 저장되어 있다면 에러를 내지 말고, 저장된 정보를 그대로 반환 (또는 에러 처리)
+            return paymentRepository.findByTossPaymentKey(paymentConfirmRequestDto.getPaymentKey()).get();
+        }
+
+        /// 1. 유저 검증
+        userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
+
+        try{
+            /// 2. 토스 API 호출
+            Map response = webClient.post()
+                    .uri("payments/confirm")
+                    .bodyValue(Map.of(
+                            "paymentKey", paymentConfirmRequestDto.getPaymentKey(),
+                            "orderId", paymentConfirmRequestDto.getOrderId(),
+                            "amount", paymentConfirmRequestDto.getAmount()
+                    ))                                          /// Request Body 설정
+                    .retrieve()                                 /// 실제 HTTP 요청 실행
+                    .bodyToMono(Map.class)                      /// 응답을 Map으로 반환
+                    .block();                                   /// 동기식으로 대기
+
+            /// TODO: 실제 Order ID 연동
+            return responseMappingWithSave(response,2L);
+
+        }catch (Exception e){
+            log.error(e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    /**
+     * 공통 메서드 처리
+     * TODO: Oreder Entity 생성 후 수정
+     * */
+    private Payment responseMappingWithSave (Map response, Long orderId) {
+        Map cardInfo = (Map) response.get("card");
+
+        /// Response 값 매핑
+        String tossOrderId = String.valueOf(response.get("orderId"));
+        String tossPaymentKey = String.valueOf(response.get("paymentKey"));
+        int amount= (Integer) cardInfo.get("amount");
+        String method = String.valueOf(response.get("method"));
+        String status = String.valueOf(response.get("status"));
+        String type = String.valueOf(response.get("type"));
+        OffsetDateTime requestedAt = OffsetDateTime.parse((String) response.get("requestedAt"));
+        OffsetDateTime approvedAt = OffsetDateTime.parse((String) response.get("approvedAt"));
+
+        /// DB 저장
+        Payment build = Payment.builder()
+                .orderId(orderId)
+                .tossOrderId(tossOrderId)
+                .tossPaymentKey(tossPaymentKey)
+                .amount(amount)
+                .method(method)
+                .status(status)
+                .type(type)
+                .requestedAt(requestedAt)
+                .approvedAt(approvedAt)
+                .build();
+        return paymentRepository.save(build);
+    }
+
 
 
 

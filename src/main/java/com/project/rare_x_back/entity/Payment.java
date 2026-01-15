@@ -35,21 +35,22 @@ public class Payment {
     @Column (name = "amount")
     private int amount;                             /// 결제 금액
 
-//    @Enumerated(EnumType.STRING)
-    @Column (name = "toss_payment_method")
-    private String tossPaymentMethod;    /// 결제 방식
+    @Column (name = "method")
+    private String method;    /// 결제 방식
 
-//    @Enumerated(EnumType.STRING)
     @Column (name = "status")
-    private String tossPaymentStatus;    /// 결제 상태
+    private String status;    /// 결제 상태
 
-    /// [수정] TossPayment API 시각 받아오기, 타임존 받아오기위해 타입 변경
-    @Column (name = "approved_at")
-    private OffsetDateTime approvedAt;               /// 결제 요청 시기
+    /// [추가] 결제 타입 추가 ex) 일반결제, 자동결제
+    @Column (name = "type")
+    private String type;                 /// 결제 타입
 
     /// [수정] TossPayment API 시각 받아오기, 타임존 받아오기위해 타입 변경
     @Column (name = "requested_at")
-    private OffsetDateTime requestedAt;              /// 결제 승인 시간
+    private OffsetDateTime requestedAt;              /// 결제가 일어난 날짜와 시간 정보
 
+    /// [수정] TossPayment API 시각 받아오기, 타임존 받아오기위해 타입 변경
+    @Column (name = "approved_at")
+    private OffsetDateTime approvedAt;               /// 결제 승인이 일어난 날짜와 시간 정보
 
 }
