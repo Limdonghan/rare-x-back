@@ -24,6 +24,10 @@ public class Inspection {
     @Column(name = "inspection_id")
     private Long inspectionId;
 
+    // TODO: Order 엔티티 생성 후 @ManyToOne 관계로 변경
+    // @ManyToOne(fetch = FetchType.LAZY)
+    // @JoinColumn(name = "order_id")
+    // private Order order;
     // 주문 검수용 (NULL 가능)
     @Column(name = "order_id")
     private Long orderId;
