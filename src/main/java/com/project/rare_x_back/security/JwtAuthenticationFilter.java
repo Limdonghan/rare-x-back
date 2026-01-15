@@ -52,11 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
                 String role = jwtTokenProvider.getRoleFromToken(token);
 
-                // role이 null이면 기본값 USER
-                if (role == null) {
-                    role = "USER";
-                }
-
                 // 4. Spring Security 인증 객체 생성 (실제 role 사용)
                 List<SimpleGrantedAuthority> authorities = List.of(
                         new SimpleGrantedAuthority("ROLE_" + role)

@@ -74,9 +74,16 @@ public class JwtTokenProvider {
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload();
+                .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
 
-        return claims.get("role", String.class);
+        String role = claims.get("role", String.class);
+
+        // Role 정보가 없으면 기본값 "USER" 반환 (방어 코드)
+        if (role == null || role.isEmpty()) {
+            return "USER";
+        }
+
+        return role;
     }
 
     // 토큰 유효성 검증
