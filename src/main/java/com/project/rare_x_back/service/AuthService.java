@@ -76,7 +76,6 @@ public class AuthService {
     }
 
     // 인증번호 발송 (회원가입 전 이메일 인증용)
-    @Transactional(readOnly = true)
     public void sendVerificationCode(EmailSendRequestDto request) {
         // 이미 가입된 이메일인지 확인
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -122,8 +121,8 @@ public class AuthService {
         }
 
         // 5. JWT 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getRole().name());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getRole().name());
 
         // 6. Refresh Token을 Redis에 저장 (7일)
         String key = REFRESH_TOKEN_PREFIX + user.getUserId();
@@ -133,6 +132,7 @@ public class AuthService {
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .name(user.getName())
                 .build();
     }
 
@@ -184,7 +184,7 @@ public class AuthService {
         }
 
         // 8. 새로운 Access Token 생성
-        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId, user.getRole().name());
 
         return  RefreshTokenResponseDto.builder()
                 .accessToken(newAccessToken)

@@ -15,6 +15,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -29,6 +34,8 @@ public class SecurityConfig {
         http
                 // CSRF 비활성화 (JWT 사용)
                 .csrf(AbstractHttpConfigurer::disable)
+
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ CORS 설정 추가
 
                 // 세션 사용 안 함 (JWT 사용)
                 .sessionManagement(session ->
@@ -45,6 +52,8 @@ public class SecurityConfig {
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
                                 "api/admin/**" //테스트 위해 임시로 씀.
+                                        "/*.html",
+                                "/favicon.ico"
                         ).permitAll()
 
                         // 그 외 모든 요청은 인증 필요
@@ -94,7 +103,20 @@ public class SecurityConfig {
 
         return http.build();
     }
+    // ✅ CORS 허용 설정 (모든 요청 허용)
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:5500")); // 프론트엔드 주소 (필요시 "*"로 변경 가능하지만 credentials true일 땐 구체적이어야 함)
+        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (테스트용)
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
 
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

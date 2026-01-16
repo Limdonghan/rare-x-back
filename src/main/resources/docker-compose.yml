@@ -11,11 +11,12 @@ services:
     networks:
       - redis-network
 
-  redisinsight:
+  # Redis-GUI
+  redis-insight:
     image: redis/redisinsight:latest
-    container_name: simple-redisinsight
+    container_name: simple-redis-insight
     ports:
-      - 5540:5540
+      - "5540:5540"
     networks:
       - redis-network
     depends_on:
