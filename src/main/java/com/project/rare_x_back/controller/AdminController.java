@@ -2,16 +2,23 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.BrandListResponseDto;
+import com.project.rare_x_back.dto.response.CategoryListResponseDto;
+import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.S3ImageService;
 import com.project.rare_x_back.service.InspectionService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,7 +28,18 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final S3ImageService s3ImageService;
     private final InspectionService inspectionService;
+
+    //s3 이미지 업로드
+    @PostMapping("/products/{productId}/images")
+    public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
+            @PathVariable Long productId,
+            @RequestPart("images")List<MultipartFile> images
+            ) {
+        List<String> imageUrls = adminService.saveProductImage(productId, images);
+        return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
+    }
 
     //상품 등록
     @PostMapping("/products")
@@ -32,13 +50,29 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("상품 등록이 완료되었습니다."));
     }
 
+    //상품 전체 조회
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<Page<ProductListResponseDto>>> getAllProduct(Pageable pageable){
+        Page<ProductListResponseDto> response = adminService.getAllProducts(pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    //상품 상세 조회
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<ApiResponse<ProductListResponseDto>> getDetailProduct(@PathVariable Long productId) {
+        ProductListResponseDto response = adminService.getDetailProduct(productId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     //상품 정보 수정
     @PatchMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductUpdateRequestDto productUpdateRequestDto
+            @Valid @RequestPart("data")  ProductUpdateRequestDto productUpdateRequestDto,
+            @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
+            @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages
     ) {
-        adminService.updateProduct(productUpdateRequestDto, productId);
+        adminService.updateProduct(productUpdateRequestDto, productId, deleteIds, newImages);
         return ResponseEntity.ok(ApiResponse.success("상품 정보 수정이 완료되었습니다."));
     }
 
@@ -49,6 +83,12 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("상품 삭제가 완료되었습니다."));
     }
 
+    //카테고리 조회
+    @GetMapping("/categories")
+    public ResponseEntity <ApiResponse<List<CategoryListResponseDto>>> getAllCategory(){
+        List<CategoryListResponseDto> results = adminService.getAllCategory();
+        return ResponseEntity.ok(ApiResponse.success(results));
+    }
 
     //카테고리 추가
     @PostMapping("/categories")
@@ -73,13 +113,21 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("카테고리 삭제가 완료되었습니다."));
     }
 
+    //브랜드 조회
+    @GetMapping("/brands")
+    public ResponseEntity<ApiResponse<List<BrandListResponseDto>>> getAllBrands (Pageable pageable) {
+        List<BrandListResponseDto> results = adminService.getAllBrand(pageable);
+        return ResponseEntity.ok(ApiResponse.success(results));
+    }
+
     //브랜드 추가
     @PostMapping("/brands")
-    public ResponseEntity createBrand(@Valid @RequestBody BrandCreateRequestDto brandCreateRequestDto){
+    public ResponseEntity<ApiResponse<Void>> createBrand(@Valid @RequestBody BrandCreateRequestDto brandCreateRequestDto){
         adminService.createBrand(brandCreateRequestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("브랜드 등록이 완료되었습니다."));
     }
 
+    //브랜드 수정
     @PatchMapping("/brands/{brandId}")
     public ResponseEntity <ApiResponse<Void>> updateBrand(
             @PathVariable Long brandId,
@@ -87,6 +135,14 @@ public class AdminController {
         adminService.updateBrand(brandUpdateRequestDto, brandId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success("브랜드 정보 수정이 완료되었습니다."));
     }
+
+    //브랜드 삭제
+    @DeleteMapping("/brands/{brandId}")
+    public ResponseEntity <ApiResponse<Void>> deleteBrand(@PathVariable Long brandId) {
+        adminService.deleteBrand(brandId);
+        return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
+    }
+
 
     // 전체 검수 목록 조회 (보관 + 주문)
     @GetMapping("/inspections")
