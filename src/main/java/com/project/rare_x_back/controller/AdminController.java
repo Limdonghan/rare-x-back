@@ -118,4 +118,15 @@ public class AdminController {
         List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    /**
+     * 검수 상세 조회
+     */
+    @GetMapping("/inspections/{inspectionId}")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> getInspection(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.getInspection(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

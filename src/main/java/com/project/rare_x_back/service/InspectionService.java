@@ -4,6 +4,8 @@ import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -70,5 +72,21 @@ public class InspectionService {
      */
     public long getInspectionCount(InspectionType type, InspectionStatus status) {
         return inspectionRepository.countByTypeAndStatus(type, status);
+    }
+
+    /**
+     * 검수 상세 조회
+     *
+     * @param inspectionId 검수 ID
+     * @return 검수 상세 정보
+     */
+    public InspectionResponseDto getInspection(Long inspectionId) {
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        "검수 정보를 찾을 수 없습니다."
+                ));
+
+        return InspectionResponseDto.from(inspection);
     }
 }
