@@ -39,7 +39,7 @@ public class PaymentService {
      */
     @Transactional
     public BillingKey registerCard(BillingKeyRequestDto billingKeyRequestDto, Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         /// 3. Billing_Key DB에 기존에 등록한 유저가 있다면 삭제 후 갱신 (또는 추가)
         billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
@@ -117,13 +117,13 @@ public class PaymentService {
                 log.error("기존 paymentKey에 대한 결제 파라미터 불일치: paymentKey={}, existingAmount={}, requestAmount={}, existingOrderId={}, requestOrderId={}",
                         autoPaymentRequestDto.getPaymentKey(),
                         existingPayment.getAmount(), autoPaymentRequestDto.getAmount(),
-                        existingPayment.getOrderId(), autoPaymentRequestDto.getOrderId());
+                        existingPayment.getTossOrderId(), autoPaymentRequestDto.getOrderId());
                 throw new RuntimeException("기존 paymentKey에 대한 결제 정보가 요청과 일치하지 않습니다.");
             }
         }
 
             /// 1. 유저 확인
-            User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
+            User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
             /// 2. DB에서 저장된 빌링키 꺼내오기
             BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new RuntimeException("등록되지 않은 빌링키"));
@@ -174,7 +174,7 @@ public class PaymentService {
         }
 
         /// 1. 유저 검증
-        userRepository.findById(userId).orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
+        userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         try {
             /// 2. 토스 API 호출
@@ -208,15 +208,15 @@ public class PaymentService {
 
     /**
      * 공통 메서드 처리
-     * TODO: Oreder Entity 생성 후 수정
+     * TODO: Order Entity 생성 후 수정
      * */
-    private Payment responseMappingWithSave (Map < String, Object > response, Long orderId){
+    private Payment responseMappingWithSave (Map<String, Object> response, Long orderId){
         Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
 
         /// Response 값 매핑
         String tossOrderId = String.valueOf(response.get("orderId"));
         String tossPaymentKey = String.valueOf(response.get("paymentKey"));
-        int totalAmount = (Integer) cardInfo.get("totalAmount");
+        int amount = (Integer) cardInfo.get("amount");
         String method = String.valueOf(response.get("method"));
         String status = String.valueOf(response.get("status"));
         String type = String.valueOf(response.get("type"));
@@ -228,7 +228,7 @@ public class PaymentService {
                 .orderId(orderId)
                 .tossOrderId(tossOrderId)
                 .tossPaymentKey(tossPaymentKey)
-                .amount(totalAmount)
+                .amount(amount)
                 .method(method)
                 .status(status)
                 .type(type)
