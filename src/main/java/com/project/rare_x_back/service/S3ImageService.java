@@ -4,7 +4,6 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -19,7 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-@Component
 @Service
 public class S3ImageService {
 
@@ -112,7 +110,7 @@ public class S3ImageService {
 
     //잘라낸 key만 뽑아서 s3에서 삭제
     public void deleteImageByUrl (String imageUrl) {
-        String key =extractKeyFromUrl(imageUrl);
+        String key = extractKeyFromUrl(imageUrl);
 
         DeleteObjectRequest delReq = DeleteObjectRequest.builder()
                 .bucket(bucket)

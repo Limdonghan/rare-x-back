@@ -63,7 +63,7 @@ public class AdminController {
     @PatchMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
-            @RequestPart("data") @Valid ProductUpdateRequestDto productUpdateRequestDto,
+            @Valid @RequestPart("data")  ProductUpdateRequestDto productUpdateRequestDto,
             @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
             @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages
     ) {

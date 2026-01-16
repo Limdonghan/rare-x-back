@@ -63,7 +63,7 @@ public class AdminService {
 
     }
 
-    //상품 이미지 등록
+    //상품 이미지 등록 (DB저장 실패 시 S3 롤백 로직 추가)
     public List<String> saveProductImage(Long productId, List<MultipartFile> images) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CustomException(
@@ -71,20 +71,41 @@ public class AdminService {
                         "상품을 찾을 수 없습니다."
                 ));
         //저장된 url 담을 빈그릇 생성
-        List<String> saveUrls = new ArrayList<>();
-        //받은 이미지 리스트를 for-each로 하나씩 꺼냄.
-        for (MultipartFile file : images) {
-            if (!file.isEmpty()) {
+        List<String> uploadUrls = new ArrayList<>(); //s3업로드 성공
+        List<String> saveUrls = new ArrayList<>(); //
+
+        try {
+            for (MultipartFile file : images) { //s3 업로드 + DB저장
+                if (file == null || file.isEmpty()) continue;
+
+                //s3 업로드
                 String imageUrl = s3ImageService.uploadProductImage(file);
+                uploadUrls.add(imageUrl);
+                //DB 저장
                 ProductImage productImage = ProductImage.builder()
                         .imageUrl(imageUrl)
                         .product(product)
                         .build();
-                productImageRepository.save(productImage); //저장
-                saveUrls.add(imageUrl); //빈그릇에 담기
+                productImageRepository.save(productImage);
+                saveUrls.add(imageUrl);
             }
+            return saveUrls;
+
+        } catch (Exception e) {
+            //실패 시 s3 롤백
+            log.error("상품 이미지 저장 실패. S3 롤백 시작", e);
+
+            for (String url : uploadUrls) {
+                try {
+                    s3ImageService.deleteImageByUrl(url);
+                } catch (Exception deleteEx) {
+                    log.error("S3 이미지 삭제 실패: {}", url, deleteEx);
+                }
+            }
+            throw new CustomException(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    "상품 이미지 저장 중 오류가 발생했습니다.");
         }
-        return saveUrls;
     }
 
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
@@ -178,23 +199,23 @@ public class AdminService {
                                 ErrorCode.RESOURCE_NOT_FOUND, "삭제할 이미지를 찾을 수 없습니다."));
                 //s3에서 실제 파일 삭제
                 s3ImageService.deleteImageByUrl(productImage.getImageUrl());
-                //product의 리스트에서 삭제
+                //product의 리스트에서 삭제 (DB row 삭제)
                 product.getImages().remove(productImage);
-                //DB에서 이미지 데이터 삭제
-                productImageRepository.delete(productImage);
             }
         }
         //새 이미지 추가 (newFiles가 있을 때만)
         if (newFiles != null && !newFiles.isEmpty()) {
             for (MultipartFile file : newFiles) {
-                //s3에 업로드
-                String url = s3ImageService.uploadProductImage(file);
-                //DB 저장 및 연관관계 설정
-                ProductImage newProdImg = ProductImage.builder()
-                        .imageUrl(url)
-                        .product(product)
-                        .build();
-                productImageRepository.save(newProdImg);
+                if (!file.isEmpty()) {
+                    //s3에 업로드
+                    String url = s3ImageService.uploadProductImage(file);
+                    //DB 저장 및 연관관계 설정
+                    ProductImage newProdImg = ProductImage.builder()
+                            .imageUrl(url)
+                            .product(product)
+                            .build();
+                    productImageRepository.save(newProdImg);
+                }
             }
         }
     }
@@ -213,7 +234,8 @@ public class AdminService {
             for (ProductImage productImage : product.getImages()) {
                 s3ImageService.deleteImageByUrl(productImage.getImageUrl());
             }
-            product.getImages().clear(); //디비에서도 row 삭제
+            // 연관관계 컬렉션을 비워 orphanRemoval 을 트리거하여 이미지 엔티티를 DB에서 물리적으로 삭제 (상품은 논리 삭제)
+            product.getImages().clear();
         }
 
         product.updateIsDeleted(true);
@@ -221,7 +243,7 @@ public class AdminService {
 
     //카테고리 조회
     public List<CategoryListResponseDto> getAllCategory () {
-        //브랜드 전체 조회
+        //카테고리 전체 조회
         List<Category> results = categoryRepository.findAll();
         List<CategoryListResponseDto> response = new ArrayList<>();
 

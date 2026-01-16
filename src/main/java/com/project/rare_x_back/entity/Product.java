@@ -99,10 +99,14 @@ public class Product {
         }
     }
 
-    //IsDeletedTrue
+    // Update soft-delete status: when deleted, set deletedAt; when restored, clear deletedAt
     public void updateIsDeleted (boolean isDeleted) {
         this.isDeleted = isDeleted;
-        this.deletedAt = LocalDateTime.now();
+        if (isDeleted) {
+            this.deletedAt = LocalDateTime.now();
+        } else {
+            this.deletedAt = null;
+        }
     }
 
 }
