@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 @Entity
 @Getter
 @Builder
+@ToString(exclude = "user")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Table(name = "billing_keys")

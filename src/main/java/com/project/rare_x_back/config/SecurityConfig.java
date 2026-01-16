@@ -51,7 +51,6 @@ public class SecurityConfig {
                                 "/api/auth/email/send",
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
-                                "/api/payments/**",
                                         "/*.html",
                                 "/favicon.ico"
                         ).permitAll()

@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.OffsetDateTime;
 
 @Entity
-@Getter @Setter
+@Getter
 @Builder
 @Table(name = "payments")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,7 +29,7 @@ public class Payment {
     @Column (name = "toss_order_id")
     private String tossOrderId;                     /// 토스 내부에서 관리하는 orderId
 
-    @Column (name = "toss_payment_key")
+    @Column (name = "toss_payment_key", unique = true)
     private String tossPaymentKey;                  /// 토스 결제 키
 
     @Column (name = "amount")

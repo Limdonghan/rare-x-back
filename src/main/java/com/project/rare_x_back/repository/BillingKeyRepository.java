@@ -11,5 +11,5 @@ public interface BillingKeyRepository extends JpaRepository<BillingKey, Long> {
     /// 유저 ID로 빌링키 찾기
     Optional<BillingKey> findByUser(User user);
 
-    BillingKey existsByBillingKey(String billingKey);
+    boolean existsByBillingKey(String billingKey);
 }
