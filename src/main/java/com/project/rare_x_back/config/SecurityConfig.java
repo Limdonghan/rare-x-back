@@ -51,6 +51,7 @@ public class SecurityConfig {
                                 "/api/auth/email/send",
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
+                                "api/admin/**" //테스트 위해 임시로 씀.
                                         "/*.html",
                                 "/favicon.ico"
                         ).permitAll()

@@ -19,7 +19,7 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long categoryId;
 
-    @Column(name = "category_name", nullable = false)
+    @Column(name = "name", nullable = false)
     private String categoryName;
 
     @CreatedDate

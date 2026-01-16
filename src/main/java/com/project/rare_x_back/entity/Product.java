@@ -1,12 +1,17 @@
 package com.project.rare_x_back.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Getter
@@ -43,13 +48,17 @@ public class Product {
     @Column(name = "deleted_at", nullable = true)
     private LocalDateTime deletedAt;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "brand_id")
     private Brand brand;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
+
+    //orphanRemoval = true: 상품이 삭제될 때 이미지 데이터도 같이 삭제됨
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductImage> images = new ArrayList<>();
 
     @Builder
     public Product(
@@ -87,6 +96,16 @@ public class Product {
         }
         if (category != null) {
             this.category = category;
+        }
+    }
+
+    // Update soft-delete status: when deleted, set deletedAt; when restored, clear deletedAt
+    public void updateIsDeleted (boolean isDeleted) {
+        this.isDeleted = isDeleted;
+        if (isDeleted) {
+            this.deletedAt = LocalDateTime.now();
+        } else {
+            this.deletedAt = null;
         }
     }
 
