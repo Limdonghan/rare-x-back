@@ -4,6 +4,7 @@ import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
+import com.project.rare_x_back.enums.StorageRequestStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.InspectionRepository;
@@ -86,6 +87,31 @@ public class InspectionService {
                         ErrorCode.RESOURCE_NOT_FOUND,
                         "검수 정보를 찾을 수 없습니다."
                 ));
+
+        return InspectionResponseDto.from(inspection);
+    }
+
+    /**
+     * 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
+     */
+    @Transactional
+    public InspectionResponseDto confirmArrival(Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 상태 확인
+        if (inspection.getStatus() != InspectionStatus.SHIPPED_TO_WAREHOUSE) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "검수센터로 이동 중인 상태에서만 도착 확인이 가능합니다.");
+        }
+
+        // 3. Inspection 상태 변경
+        inspection.updateStatus(InspectionStatus.PENDING_INSPECTION);
+
+        // 4. StorageRequest 상태도 함께 변경
+        if (inspection.getStorageRequest() != null) {
+            inspection.getStorageRequest().updateStatus(StorageRequestStatus.PENDING_INSPECTION);
+        }
 
         return InspectionResponseDto.from(inspection);
     }
