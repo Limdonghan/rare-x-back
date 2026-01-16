@@ -15,4 +15,5 @@ public class PasswordlessResponseDto {
     private String sessionId;
     private String oneTimeToken;
     private String pushConnectUrl;
+    private String message;
 }

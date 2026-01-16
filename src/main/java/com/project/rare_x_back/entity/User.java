@@ -70,4 +70,5 @@ public class User {
     @Column(name = "passwordless_enabled", nullable = false)
     @Builder.Default
     private Boolean passwordlessEnabled = false;
+
 }

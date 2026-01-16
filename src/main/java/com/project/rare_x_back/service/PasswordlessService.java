@@ -3,10 +3,13 @@ package com.project.rare_x_back.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.rare_x_back.dto.request.PasswordlessRequestDto;
+import com.project.rare_x_back.dto.request.PasswordlessWithdrawRequestDto;
 import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.PasswordlessApiEndpoint;
 import com.project.rare_x_back.exceptions.AuthException;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -26,6 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PasswordlessService {
 
+    private final EmailService emailService;
     @Value("${passwordless.push-connector-url}")
     private String pushConnectorUrl;
 
@@ -42,10 +46,10 @@ public class PasswordlessService {
     @Transactional(readOnly = true)
     public PasswordlessResponseDto verifyManagementAccess(String email, String password) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthException("Invalid ID or password"));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (!passwordEncoder.matches(password,user.getPassword())) {
-            throw new AuthException("Invalid ID or password");
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
         String token = UUID.randomUUID().toString();
@@ -114,24 +118,41 @@ public class PasswordlessService {
 
     //패스워드리스 서비스 해지 (요청)
     @Transactional
-    public PasswordlessResponseDto withdrawPasswordless(PasswordlessRequestDto request) {
-        validateToken(request.getToken());
-
-        User user = userRepository.findByEmail(request.getUserId())
-                .orElseThrow(() -> new AuthException("ID [" + request.getUserId() + "] does not exist"));
+    public PasswordlessResponseDto withdrawPasswordless(PasswordlessWithdrawRequestDto request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(
+                        ErrorCode.USER_NOT_FOUND,
+                        request.getEmail() + "는 존재하지 않는 사용자입니다."));
 
         if (!user.getPasswordlessEnabled()) {
-            throw new AuthException("패스워드리스 서비스를 사용하고 있지 않습니다");
+            throw new CustomException(ErrorCode.PASSWORDLESS_NOT_REGISTERED);
         }
 
-        Map<String, String> params = Map.of("userId", request.getUserId());
-        String response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.WITHDRAWAL_AP, params);
+        passwordlessApiClient.callApi(PasswordlessApiEndpoint.WITHDRAWAL_AP, Map.of("userId", request.getEmail()));
 
-        Object parsedData = parseJsonString(response);
+
+        Map<String, String> params = Map.of("userId", request.getEmail());
+        String response = passwordlessApiClient.callApi(
+                PasswordlessApiEndpoint.WITHDRAWAL_AP, params);
+
+        //임시 비번 생성 및 메일발송 (레디스 저장)
+        String tempPassword = emailService.sendTempPassword(user.getEmail());
+
+        //DB에 임시 패스워드 저장(암호화)
+        String encodedTempPassword = passwordEncoder.encode(tempPassword);
+        userRepository.updatePasswordByEmail(user.getEmail(), encodedTempPassword);
+
+        //패스워드리스 비활성화
+        userRepository.updatePasswordlessStatus(user.getEmail(), false);
+
+        log.info("패스워드리스 해지 완료 : email={}", user.getEmail());
+
+//        Object parsedData = parseJsonString(response);
 
         return PasswordlessResponseDto.builder()
                 .result("OK")
-                .data(parsedData)
+                //.data(parsedData)
+                .message("패스워드리스 해지가 완료 되었습니다. 이메일로 발송된 임시 비밀번호로 로그인해주세요.")
                 .build();
     }
 
@@ -140,7 +161,7 @@ public class PasswordlessService {
     @Transactional(readOnly = true)
     public PasswordlessResponseDto getOneTimeToken(String email) {
         if (!userRepository.existsByEmail(email)) {
-            throw new AuthException("ID [" + email + "] does not exist");
+            throw new AuthException(" [" + email + "] 존재하지 않는 유저입니다.");
         }
 
         String oneTimeToken = passwordlessApiClient.getOneTimeToken(email);

@@ -2,6 +2,7 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.PasswordlessRequestDto;
+import com.project.rare_x_back.dto.request.PasswordlessWithdrawRequestDto;
 import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.service.PasswordlessService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +18,7 @@ public class PasswordlessController {
 
     private final PasswordlessService passwordlessService;
 
-    // 단순 가입 확인
+    // 가입 위한 인증
     @PostMapping("/verify-access")
     public ResponseEntity<ApiResponse<PasswordlessResponseDto>> verifyManagementAccess(
             @RequestParam String email,
@@ -46,7 +47,7 @@ public class PasswordlessController {
     // 패스워드리스 해지 (withdrawalAp)
     @PostMapping("/withdraw")
     public ResponseEntity<ApiResponse<PasswordlessResponseDto>> withdrawPasswordless(
-            @Valid @RequestBody PasswordlessRequestDto request) {
+            @RequestBody PasswordlessWithdrawRequestDto request) {
         PasswordlessResponseDto response = passwordlessService.withdrawPasswordless(request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -79,11 +80,11 @@ public class PasswordlessController {
     }
 
     // 인증 취소
-    @PostMapping("/cancel")
+    @PostMapping("/cancle")
     public ResponseEntity<ApiResponse<PasswordlessResponseDto>> cancelAuthentication(
             @RequestParam String email,
             @RequestParam String sessionId) {
         PasswordlessResponseDto response = passwordlessService.cancelAuthentication(email, sessionId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(response, "인증 요청이 취소되었습니다."));
     }
 }

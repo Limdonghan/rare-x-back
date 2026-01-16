@@ -20,11 +20,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUserIdAndIsDeletedFalse(Long userId);
 
     //비밀번호 업데이트
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("update User u set u.password = :password where u.email = :email")
     void updatePasswordByEmail(@Param("email") String email,
                                @Param("password") String password);
-
 
     //패스워드리스 상태 업데이트
     @Modifying
@@ -32,6 +31,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "WHERE u.email = :email")
     void updatePasswordlessStatus(@Param("email") String email,
                                   @Param("enabled") Boolean enabled);
-
-
 }
