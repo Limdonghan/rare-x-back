@@ -8,5 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PasswordlessWithdrawRequestDto {
-    private String email;
+    private String userId; // email
 }

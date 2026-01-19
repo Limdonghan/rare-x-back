@@ -57,7 +57,7 @@ public class EmailService {
             mailSender.send(message);
 
             log.info("===========================================");
-            log.info("이메일 발송 성공");
+            log.info("이메일 발신 성공");
             log.info("발신자: {}", fromEmail);
             log.info("수신자: {}", email);
             log.info("인증번호: {}", code);
@@ -123,18 +123,16 @@ public class EmailService {
 
     // 임시 비밀번호 생성
     private String generateTempPassword() {
-        String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         String lowerCase = "abcdefghijklmnopqrstuvwxyz";
         String numbers = "0123456789";
         String specialChars = "!@#$^&*";
 
-        String allChars = upperCase + lowerCase + numbers + specialChars;
+        String allChars = lowerCase + numbers + specialChars;
 
         SecureRandom random = new SecureRandom();
         StringBuilder password = new StringBuilder();
 
         //각 타입별 최소 1개씩
-        password.append(upperCase.charAt(random.nextInt(upperCase.length())));
         password.append(lowerCase.charAt(random.nextInt(lowerCase.length())));
         password.append(numbers.charAt(random.nextInt(numbers.length())));
         password.append(specialChars.charAt(random.nextInt(specialChars.length())));
@@ -179,6 +177,7 @@ public class EmailService {
         redisTemplate.opsForValue().set(Key, tempPassword, 30, TimeUnit.MINUTES);
 
         log.info("임시 비밀번호 Redis 저장: email={}, key= {}, 유효시간 = 30분", email, Key);
+        log.info("임시 비밀번호 : {}", tempPassword);
 
         try {
             SimpleMailMessage message = getPlMessage(email, tempPassword);

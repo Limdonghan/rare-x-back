@@ -11,11 +11,13 @@ import com.project.rare_x_back.exceptions.AuthException;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -38,11 +41,14 @@ public class PasswordlessService {
     private final HttpSession httpSession;
     private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RedisTemplate<String, String> redisTemplate;
 
-    private static final int TOKEN_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+    private static final int TOKEN_EXPIRY_MS = 5 * 60 * 1000 * 1000; // 5 minutes
     public static final String LOGIN_USER_EMAIL = "LOGIN_USER_EMAIL";
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
-
+    //등록 위한 본인 확인, 일회용 토큰 발급
     @Transactional(readOnly = true)
     public PasswordlessResponseDto verifyManagementAccess(String email, String password) {
         User user = userRepository.findByEmail(email)
@@ -57,6 +63,8 @@ public class PasswordlessService {
 
         httpSession.setAttribute("passwordlessToken", token);
         httpSession.setAttribute("passwordlessTime", currentTime);
+
+        log.info("일회용 토큰 발급:{}", token);
 
         return PasswordlessResponseDto.builder()
                 .result("OK")
@@ -76,7 +84,7 @@ public class PasswordlessService {
         String response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.IS_AP, params);
 
         Object parsedData = parseJsonString(response);
-
+        log.info("1. 패스워드 등록 여부 확인: {}" , parsedData);
         return PasswordlessResponseDto.builder()
                 .result("OK")
                 .data(parsedData)
@@ -100,13 +108,13 @@ public class PasswordlessService {
 
         String response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.JOIN_AP, params);
 
-        userRepository.updatePasswordlessStatus(
-                user.getEmail(),
-                true);
+        userRepository.updatePasswordlessStatus(user.getEmail(), true);
 
-        log.info("패스워드리스 등록 완료: {}", user.getEmail());
+        log.info("2. 패스워드리스 등록 완료: {}", user.getEmail());
 
         Object parsedData = parseJsonString(response);
+
+        log.info("parsedData:{}", parsedData);
 
         return PasswordlessResponseDto.builder()
                 .result("OK")
@@ -119,19 +127,17 @@ public class PasswordlessService {
     //패스워드리스 서비스 해지 (요청)
     @Transactional
     public PasswordlessResponseDto withdrawPasswordless(PasswordlessWithdrawRequestDto request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.USER_NOT_FOUND,
-                        request.getEmail() + "는 존재하지 않는 사용자입니다."));
+        User user = userRepository.findByEmail(request.getUserId()).orElseThrow(() ->
+                new CustomException(ErrorCode.USER_NOT_FOUND, request.getUserId() + "는 존재하지 않는 사용자입니다."));
 
         if (!user.getPasswordlessEnabled()) {
             throw new CustomException(ErrorCode.PASSWORDLESS_NOT_REGISTERED);
         }
 
-        passwordlessApiClient.callApi(PasswordlessApiEndpoint.WITHDRAWAL_AP, Map.of("userId", request.getEmail()));
+        passwordlessApiClient.callApi(PasswordlessApiEndpoint.WITHDRAWAL_AP, Map.of("userId", request.getUserId()));
 
 
-        Map<String, String> params = Map.of("userId", request.getEmail());
+        Map<String, String> params = Map.of("userId", request.getUserId());
         String response = passwordlessApiClient.callApi(
                 PasswordlessApiEndpoint.WITHDRAWAL_AP, params);
 
@@ -140,18 +146,18 @@ public class PasswordlessService {
 
         //DB에 임시 패스워드 저장(암호화)
         String encodedTempPassword = passwordEncoder.encode(tempPassword);
-        userRepository.updatePasswordByEmail(user.getEmail(), encodedTempPassword);
+        user.passwordUpdate(encodedTempPassword);
 
         //패스워드리스 비활성화
         userRepository.updatePasswordlessStatus(user.getEmail(), false);
 
         log.info("패스워드리스 해지 완료 : email={}", user.getEmail());
 
-//        Object parsedData = parseJsonString(response);
+        Object parsedData = parseJsonString(response);
 
         return PasswordlessResponseDto.builder()
                 .result("OK")
-                //.data(parsedData)
+                .data(parsedData)
                 .message("패스워드리스 해지가 완료 되었습니다. 이메일로 발송된 임시 비밀번호로 로그인해주세요.")
                 .build();
     }
@@ -202,44 +208,83 @@ public class PasswordlessService {
                 .build();
     }
 
-    //사용자가 폰에서 승인했는지 확인
+    //사용자가 폰에서 승인했는지 확인 (Long Polling 60s)
     @Transactional
     public PasswordlessResponseDto checkAuthenticationResult(String email, String sessionId) {
-        if (!userRepository.existsByEmail(email)) {
-            throw new AuthException("ID [" + email + "] does not exist");
-        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthException("ID [" + email + "] does not exist"));
 
         Map<String, String> params = new HashMap<>();
         params.put("userId", email);
         params.put("sessionId", sessionId);
 
-        String response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.RESULT, params);
+        String response = null;
+        Object parsedData = null;
+        long startTime = System.currentTimeMillis();
+        long maxDuration = 60000; // 60 seconds
 
-        try {
-            JsonNode jsonResponse = objectMapper.readTree(response);
-            JsonNode data = jsonResponse.get("data");
+        while (System.currentTimeMillis() - startTime < maxDuration) {
+            try {
+                response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.RESULT, params);
+                JsonNode jsonResponse = objectMapper.readTree(response);
+                JsonNode data = jsonResponse.get("data");
 
-            if (data != null) {
-                String auth = data.get("auth").asText();
-                if ("Y".equals(auth)) {
-                    String newPassword = System.currentTimeMillis() + ":" + email;
-                    String encodedPassword = passwordEncoder.encode(newPassword);
-                    userRepository.updatePasswordByEmail(email, encodedPassword);
-                    httpSession.setAttribute("LOGIN_USER_EMAIL", email);
-                    log.info("Passwordless authentication successful for user: {}", email);
+                if (data != null) {
+                    String auth = data.get("auth").asText();
+                    if ("Y".equals(auth)) {
+                        String newPassword = System.currentTimeMillis() + ":" + email;
+                        String encodedPassword = passwordEncoder.encode(newPassword);
+                        userRepository.updatePasswordByEmail(email, encodedPassword);
+                        httpSession.setAttribute("LOGIN_USER_EMAIL", email);
+                        log.info("Passwordless authentication successful for user: {}", email);
+                        
+                        // 토큰 생성
+                        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
+                        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+
+                        // Refresh Token을 Redis에 저장 (7일)
+                        String key = REFRESH_TOKEN_PREFIX + user.getUserId();
+                        redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
+
+                        parsedData = parseJsonString(response);
+                        return PasswordlessResponseDto.builder()
+                                .result("OK")
+                                .data(parsedData)
+                                .accessToken(accessToken)
+                                .refreshToken(refreshToken)
+                                .name(user.getName())
+                                .role(user.getRole().name())
+                                .build();
+                    }
+                }
+                
+                // Wait for 2 seconds before retrying
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Polling interrupted", e);
+                break;
+            } catch (Exception e) {
+                log.error("Failed to check authentication result", e);
+                // Continue polling even if one request fails? Or break? 
+                // Let's sleep and retry mostly
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
-        } catch (Exception e) {
-            log.error("Failed to parse authentication result", e);
         }
 
-        Object parsedData = parseJsonString(response);
-
+        // If timeout or loop exits without success
+        parsedData = parseJsonString(response); // Return last response
         return PasswordlessResponseDto.builder()
                 .result("OK")
                 .data(parsedData)
                 .build();
     }
+
 
     //로그인 시도 취소
     @Transactional(readOnly = true)
@@ -272,6 +317,7 @@ public class PasswordlessService {
         if (sessionTime == null || System.currentTimeMillis() - sessionTime > TOKEN_EXPIRY_MS) {
             throw new AuthException("Token expired");
         }
+        log.info("토큰 유효 시간:{}",sessionTime);
     }
 
     //로그인 시도한 사용자의 실제 IP 주소 추출 -> 이상 로그인 탐지
@@ -279,6 +325,7 @@ public class PasswordlessService {
         String ip = request.getRemoteAddr();
         return "0:0:0:0:0:0:0:1".equals(ip) ? "127.0.0.1" : ip;
     }
+
 
     /**
      * JSON 문자열을 객체로 변환

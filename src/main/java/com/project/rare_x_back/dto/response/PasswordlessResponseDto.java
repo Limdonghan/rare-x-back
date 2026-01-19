@@ -16,4 +16,10 @@ public class PasswordlessResponseDto {
     private String oneTimeToken;
     private String pushConnectUrl;
     private String message;
+
+    // 성공 시 반환할 토큰 정보
+    private String accessToken;
+    private String refreshToken;
+    private String name;
+    private String role;
 }

@@ -2,6 +2,7 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponseDto;
+import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
 import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
@@ -32,6 +33,7 @@ public class AuthService {
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
     private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordlessService passwordlessService;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -120,7 +122,7 @@ public class AuthService {
         boolean requiresChange = false;
 
         if (passwordMatches) {
-            //  비번이 맞다면 이게 임시 비번상태인지 확인
+            // 비번이 맞다면 이게 임시 비번상태인지 확인
             // 이때는 레디스에 저장된 임시 비밀번호 원문과 비교
             String tempPasswordKey = EmailService.getTempPasswordKey(user.getEmail());
             String storedTemp = redisTemplate.opsForValue().get(tempPasswordKey);
@@ -155,6 +157,10 @@ public class AuthService {
         String key = REFRESH_TOKEN_PREFIX + user.getUserId();
         redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
 
+        // [추가] 패스워드리스용 토큰 발급
+        PasswordlessResponseDto passwordlessResponseDto = passwordlessService.verifyManagementAccess(request.getEmail(), request.getPassword());
+
+        // 7. 응답 생성
         // 8. 응답 생성 (임시 비밀번호 여부포함 추가)
 
         log.info("로그인 성공: email={}", user.getEmail());
@@ -163,6 +169,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .name(user.getName())
+                .passwordlessToken(passwordlessResponseDto.getData())
                 .requiredPasswordChange(requiresChange) //임시비번 여부 반영
                 .build();
     }
@@ -257,8 +264,7 @@ public class AuthService {
 
         // 6. 비밀번호 업데이트
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
-        user.setPassword(encodedNewPassword);
-        //userRepository.updatePasswordByEmail(user.getEmail(), encodedNewPassword);
+        user.passwordUpdate(encodedNewPassword);
 
         // 7. 임시 비밀번호 플래그 삭제 (Redis)
         if (isTempPasswordUser) {
