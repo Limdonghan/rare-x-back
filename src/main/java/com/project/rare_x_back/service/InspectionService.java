@@ -1,5 +1,7 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
+import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.entity.InspectionChecklist;
@@ -158,5 +160,30 @@ public class InspectionService {
         inspectionChecklistRepository.save(checklist);
 
         return InspectionResponseDto.from(inspection);
+    }
+
+    // 체크리스트 조회
+    public InspectionChecklistResponseDto getChecklist(Long inspectionId) {
+        InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
+
+        return InspectionChecklistResponseDto.from(checklist);
+    }
+
+    // 체크리스트 수정
+    @Transactional
+    public InspectionChecklistResponseDto updateChecklist(Long inspectionId, InspectionChecklistRequestDto request) {
+        InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
+
+        checklist.updateChecklist(
+                request.getIsAuthentic(),
+                request.getIsExteriorGood(),
+                request.getIsComponentsComplete(),
+                request.getIsPackagingGood(),
+                request.getIsUnused()
+        );
+
+        return InspectionChecklistResponseDto.from(checklist);
     }
 }

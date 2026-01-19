@@ -2,10 +2,7 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
-import com.project.rare_x_back.dto.response.BrandListResponseDto;
-import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.InspectionResponseDto;
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
@@ -211,5 +208,28 @@ public class AdminController {
 
         InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminId);
         return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
+    }
+
+    /**
+     * 체크리스트 조회
+     */
+    @GetMapping("/inspections/{inspectionId}/checklist")
+    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> getChecklist(
+            @PathVariable Long inspectionId) {
+
+        InspectionChecklistResponseDto response = inspectionService.getChecklist(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 조회 성공"));
+    }
+
+    /**
+     * 체크리스트 수정
+     */
+    @PatchMapping("/inspections/{inspectionId}/checklist")
+    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> updateChecklist(
+            @PathVariable Long inspectionId,
+            @RequestBody InspectionChecklistRequestDto request) {
+
+        InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
     }
 }
