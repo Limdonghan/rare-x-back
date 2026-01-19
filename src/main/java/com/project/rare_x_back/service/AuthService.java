@@ -121,7 +121,7 @@ public class AuthService {
         }
 
         // 5. JWT 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getRole().name());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getRole().name(), user.getEmail());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getRole().name());
 
         // 6. Refresh Token을 Redis에 저장 (7일)
@@ -184,7 +184,7 @@ public class AuthService {
         }
 
         // 8. 새로운 Access Token 생성
-        String newAccessToken = jwtTokenProvider.createAccessToken(userId, user.getRole().name());
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId, user.getRole().name(), user.getEmail());
 
         return  RefreshTokenResponseDto.builder()
                 .accessToken(newAccessToken)
