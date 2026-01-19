@@ -45,4 +45,25 @@ public class StorageRequestController {
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    // 발송 대기 목록 조회 (PENDING 상태)
+    @GetMapping("/pending")
+    public ResponseEntity<ApiResponse<List<StorageRequestResponseDto>>> getPendingStorageRequests(
+            @AuthenticationPrincipal Long userId) {
+
+        List<StorageRequestResponseDto> response = storageRequestService.getPendingStorageRequests(userId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 발송 처리
+    @PostMapping("/{storageRequestId}/ship")
+    public ResponseEntity<ApiResponse<StorageRequestResponseDto>> shipToWarehouse(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long storageRequestId) {
+
+        StorageRequestResponseDto response = storageRequestService.shipToWarehouse(userId, storageRequestId);
+
+        return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다"));
+    }
 }

@@ -6,8 +6,12 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductListResponseDto;
+import com.project.rare_x_back.dto.response.InspectionResponseDto;
+import com.project.rare_x_back.enums.InspectionStatus;
+import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
 import com.project.rare_x_back.service.S3ImageService;
+import com.project.rare_x_back.service.InspectionService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +34,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final S3ImageService s3ImageService;
+    private final InspectionService inspectionService;
 
     //s3 이미지 업로드
     @PostMapping("/products/{productId}/images")
@@ -154,4 +159,57 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
     }
 
+
+    // 전체 검수 목록 조회 (보관 + 주문)
+    @GetMapping("/inspections")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getAllInspections(
+            @RequestParam(required = false) InspectionStatus status) {
+
+        List<InspectionResponseDto> response = inspectionService.getAllInspections(status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 보관 검수 목록 조회
+     * - status 없으면 전체 조회
+     * - status 있으면 해당 상태만 조회 (PENDING_INSPECTION, INSPECTING, PASSED, FAILED)
+     */
+    @GetMapping("/inspections/storage")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getStorageInspections(
+            @RequestParam(required = false)InspectionStatus status) {   // required = false : 사용자가 필터를 선택하면 필터링된 값을 보여주고, 선택하지 않으면 전체를 보여줌
+
+        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 주문 검수 목록 조회
+    @GetMapping("/inspections/order")
+    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getOrderInspections(
+            @RequestParam(required = false) InspectionStatus status) {
+
+        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 검수 상세 조회
+     */
+    @GetMapping("/inspections/{inspectionId}")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> getInspection(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.getInspection(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
+     */
+    @PatchMapping("/inspections/{inspectionId}/confirm-arrival")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> confirmArrival(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.confirmArrival(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "도착 확인이 완료되었습니다"));
+    }
 }
