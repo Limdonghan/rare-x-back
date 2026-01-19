@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -15,10 +16,18 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.multipart.MultipartResolver;
+import org.springframework.web.multipart.support.StandardServletMultipartResolver;
+
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
-@EnableWebSecurity
+@EnableWebSecurity      // (보안 스위치 1) "우리 사이트 출입 통제 시스템(Spring Security)을 가동하겠다!"는 뜻
+@EnableMethodSecurity   // (보안 스위치 2) "메서드마다 개별 잠금장치를 달 수 있게 하겠다!"는 뜻 (예: 특정 기능에 @PreAuthorize 붙이기 가능)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -29,6 +38,8 @@ public class SecurityConfig {
         http
                 // CSRF 비활성화 (JWT 사용)
                 .csrf(AbstractHttpConfigurer::disable)
+
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ CORS 설정 추가
 
                 // 세션 사용 안 함 (JWT 사용)
                 .sessionManagement(session ->
@@ -45,7 +56,11 @@ public class SecurityConfig {
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
                                 "/api/passwordless/**"
+                                "/*.html",
+                                "/favicon.ico"
                         ).permitAll()
+
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
@@ -94,9 +109,28 @@ public class SecurityConfig {
 
         return http.build();
     }
+    // ✅ CORS 허용 설정 (모든 요청 허용)
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:5500")); // 프론트엔드 주소 (필요시 "*"로 변경 가능하지만 credentials true일 땐 구체적이어야 함)
+        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (테스트용)
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
 
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    // 멀티파트 해석기 -> 전송된 파일 데이터를 MultipartFile 객체로 변환하여 컨트롤러에 넘겨줌
+    @Bean
+    public MultipartResolver multipartResolver() {
+        return new StandardServletMultipartResolver();
     }
 }

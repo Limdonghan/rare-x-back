@@ -30,12 +30,14 @@ public class JwtTokenProvider {
     }
 
     //  Access Token 생성
-    public String createAccessToken(Long userId) {
+    public String createAccessToken(Long userId, String role, String email) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + accessTokenValidity);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))    // 사용자 ID
+                .claim("role", role)
+                .claim("email", email)
                 .issuedAt(now)
                 .expiration(validity)   // 만료 시간 (1시간)
                 .signWith(secretKey)    // 시크릿 키 발급
@@ -43,12 +45,13 @@ public class JwtTokenProvider {
     }
 
     //  Refresh Token 생성
-    public String createRefreshToken(Long userId) {
+    public String createRefreshToken(Long userId, String role) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + refreshTokenValidity);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))    // 사용자 ID만
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(validity)   // 만료 시간 (7일)
                 .signWith(secretKey)
@@ -64,6 +67,41 @@ public class JwtTokenProvider {
                 .getPayload();
 
         return Long.parseLong(claims.getSubject());
+    }
+
+    // 토큰에서 role 추출
+    public String getRoleFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
+
+        String role = claims.get("role", String.class);
+
+        // Role 정보가 없으면 기본값 "USER" 반환 (방어 코드)
+        if (role == null || role.isEmpty()) {
+            return "USER";
+        }
+
+        return role;
+    }
+
+    // 토큰에서 email 추출
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
+
+        String email = claims.get("email", String.class);
+
+        if (email == null) {
+            return null;
+        }
+
+        return email;
     }
 
     // 토큰 유효성 검증
