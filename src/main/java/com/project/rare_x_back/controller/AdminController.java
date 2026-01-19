@@ -185,4 +185,15 @@ public class AdminController {
         InspectionResponseDto response = inspectionService.getInspection(inspectionId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    /**
+     * 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
+     */
+    @PatchMapping("/inspections/{inspectionId}/confirm-arrival")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> confirmArrival(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.confirmArrival(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "도착 확인이 완료되었습니다"));
+    }
 }
