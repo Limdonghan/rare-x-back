@@ -5,13 +5,13 @@ import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
+import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.S3ImageService;
 import com.project.rare_x_back.service.InspectionService;
+import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,7 +28,6 @@ import java.util.List;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/api/admin")
-@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
     private final AdminService adminService;
@@ -39,8 +37,8 @@ public class AdminController {
     //s3 이미지 업로드
     @PostMapping("/products/{productId}/images")
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
-            @RequestParam("images")List<MultipartFile> images,
-            @PathVariable Long productId
+            @PathVariable Long productId,
+            @RequestParam("images")List<MultipartFile> images
             ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
@@ -85,7 +83,6 @@ public class AdminController {
         adminService.updateProduct(productUpdateRequestDto, productId, deleteIds, newImages);
         log.info("상품 ID {}이 관리자 ID {}에 의해 수정됨", productId, adminDetails.getUsername()); //수정 기록 로그
         return ResponseEntity.ok(ApiResponse.success("상품 정보 수정이 완료되었습니다."));
-
     }
 
     //상품 삭제

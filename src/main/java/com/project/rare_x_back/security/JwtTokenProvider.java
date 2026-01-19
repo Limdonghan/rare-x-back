@@ -95,7 +95,13 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
 
-        return claims.get("email", String.class);
+        String email = claims.get("email", String.class);
+
+        if (email == null) {
+            return null;
+        }
+
+        return email;
     }
 
     // 토큰 유효성 검증

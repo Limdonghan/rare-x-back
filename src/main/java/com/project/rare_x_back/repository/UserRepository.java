@@ -16,5 +16,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 삭제되지 않은 유저만 조회
     Optional<User> findByUserIdAndIsDeletedFalse(Long userId);
 
-    User findByNameAndIsDeletedFalse (String name);
 }

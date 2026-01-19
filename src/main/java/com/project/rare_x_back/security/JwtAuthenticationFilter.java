@@ -56,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                 String role = jwtTokenProvider.getRoleFromToken(token);
                 String email = jwtTokenProvider.getEmailFromToken(token);
 
-              //   4. Spring Security 인증 객체 생성 (실제 role 사용)
+               // 4. Spring Security 인증 객체 생성 (실제 role 사용)
                List<SimpleGrantedAuthority> authorities = List.of(
                         new SimpleGrantedAuthority("ROLE_" + role)
                );
