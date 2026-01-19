@@ -4,19 +4,20 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
+import com.project.rare_x_back.dto.response.ProductListResponseDto;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.S3ImageService;
 import com.project.rare_x_back.service.InspectionService;
+import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -195,5 +196,20 @@ public class AdminController {
 
         InspectionResponseDto response = inspectionService.confirmArrival(inspectionId);
         return ResponseEntity.ok(ApiResponse.success(response, "도착 확인이 완료되었습니다"));
+    }
+
+    /**
+     * 검수 시작 (PENDING_INSPECTION → INSPECTING)
+     * - 담당자 배정
+     * - 체크리스트 생성
+     * - 시작 시간 기록
+     */
+    @PatchMapping("/inspections/{inspectionId}/start")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> startInspection(
+            @PathVariable Long inspectionId,
+            @AuthenticationPrincipal Long adminId) {
+
+        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminId);
+        return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
     }
 }
