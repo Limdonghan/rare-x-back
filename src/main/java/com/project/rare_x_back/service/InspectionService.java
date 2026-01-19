@@ -3,9 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.InspectionChecklist;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.enums.StorageRequestStatus;
@@ -13,6 +11,7 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.InspectionChecklistRepository;
 import com.project.rare_x_back.repository.InspectionRepository;
+import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +28,7 @@ public class InspectionService {
     private final InspectionRepository inspectionRepository;
     private final InspectionChecklistRepository inspectionChecklistRepository;
     private final UserRepository userRepository;
+    private final StorageItemRepository storageItemRepository;
 
     /**
      * 전체 검수 목록 조회 (타입 무관)
@@ -185,5 +185,41 @@ public class InspectionService {
         );
 
         return InspectionChecklistResponseDto.from(checklist);
+    }
+
+    /**
+     * 검수 합격 처리 (INSPECTING → PASSED)
+     * - STORAGE 타입: storage_requests 상태 동기화 + storage_items 생성
+     */
+    @Transactional
+    public InspectionResponseDto passInspection(Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 상태 확인
+        if (inspection.getStatus() != InspectionStatus.INSPECTING) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "검수 진행 중인 건만 합격 처리할 수 있습니다.");
+        }
+
+        // 3. inspections 상태 변경 (PASSED + inspected_at 기록)
+        inspection.updateStatus(InspectionStatus.PASSED);
+
+        // 4. 타입별 처리
+        if (inspection.getType() == InspectionType.STORAGE) {
+            // storage_requests 상태 동기화
+            StorageRequest storageRequest = inspection.getStorageRequest();
+            storageRequest.updateStatus(StorageRequestStatus.PASSED);
+
+            // storage_items 레코드 생성
+            StorageItem storageItem = StorageItem.builder()
+                    .user(storageRequest.getUser())
+                    .product(storageRequest.getProduct())
+                    .build();
+            storageItemRepository.save(storageItem);
+        }
+        // ORDER 타입은 나중에 구현
+
+        return InspectionResponseDto.from(inspection);
     }
 }
