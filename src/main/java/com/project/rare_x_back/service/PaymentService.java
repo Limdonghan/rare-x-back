@@ -38,8 +38,8 @@ public class PaymentService {
      * 프론트에서 받은 authKey로 실제 결제 가능한 billingKey를 받아와 저장
      */
     @Transactional
-    public BillingKey registerCard(BillingKeyRequestDto billingKeyRequestDto, Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    public BillingKey registerCard(BillingKeyRequestDto billingKeyRequestDto, String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         /// 3. Billing_Key DB에 기존에 등록한 유저가 있다면 삭제 후 갱신 (또는 추가)
         billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
@@ -102,7 +102,7 @@ public class PaymentService {
      * 저장된 빌링키를 사용하여 비밀번호 없이 즉시 결제 승인 요청
      * */
     @Transactional
-    public Payment payWithBillingKey (AutoPaymentRequestDto autoPaymentRequestDto, Long userId) {
+    public Payment payWithBillingKey (AutoPaymentRequestDto autoPaymentRequestDto) {
 
         /// [중복 검사] 이미 저장된 결제인지 확인
         Payment existingPayment = paymentRepository.findByTossPaymentKey(autoPaymentRequestDto.getPaymentKey()).orElse(null);
@@ -123,7 +123,7 @@ public class PaymentService {
         }
 
             /// 1. 유저 확인
-            User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
             /// 2. DB에서 저장된 빌링키 꺼내오기
             BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new RuntimeException("등록되지 않은 빌링키"));
@@ -165,7 +165,7 @@ public class PaymentService {
      * 프론트에서 결제창을 통해 인증된 건을 최종 승인(Confirm)
      * */
     @Transactional
-    public Payment confirmPayment (PaymentConfirmRequestDto paymentConfirmRequestDto, Long userId) {
+    public Payment confirmPayment (PaymentConfirmRequestDto paymentConfirmRequestDto, String userEmail) {
 
         /// [중복 검사] 이미 저장된 결제인지 확인
         if (paymentRepository.findByTossPaymentKey(paymentConfirmRequestDto.getPaymentKey()).isPresent()) {
@@ -174,7 +174,7 @@ public class PaymentService {
         }
 
         /// 1. 유저 검증
-        userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        userRepository.findByEmail(userEmail).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         try {
             /// 2. 토스 API 호출
