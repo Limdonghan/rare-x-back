@@ -80,7 +80,7 @@ public class PasswordlessController {
     }
 
     // 인증 취소
-    @PostMapping("/cancle")
+    @PostMapping("/cancel")
     public ResponseEntity<ApiResponse<PasswordlessResponseDto>> cancelAuthentication(
             @RequestParam String email,
             @RequestParam String sessionId) {

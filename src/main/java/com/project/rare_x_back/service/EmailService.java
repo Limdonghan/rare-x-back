@@ -132,7 +132,7 @@ public class EmailService {
         SecureRandom random = new SecureRandom();
         StringBuilder password = new StringBuilder();
 
-        //각 타입별 최소 1개씩
+        //각 타입별 최소 1개씩 (대문자 제외)
         password.append(lowerCase.charAt(random.nextInt(lowerCase.length())));
         password.append(numbers.charAt(random.nextInt(numbers.length())));
         password.append(specialChars.charAt(random.nextInt(specialChars.length())));
@@ -154,7 +154,7 @@ public class EmailService {
 
     // 메일 생성
     @NonNull
-    private SimpleMailMessage getPlMessage(String email, String tempPassword) {
+    private SimpleMailMessage createTempPasswordMailMessage(String email, String tempPassword) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
         message.setTo(email);
@@ -173,14 +173,14 @@ public class EmailService {
         String tempPassword = generateTempPassword();
 
         //레디스 저장(30분간)
-        String Key =TEMP_PASSWORD_PREFIX + email;
-        redisTemplate.opsForValue().set(Key, tempPassword, 30, TimeUnit.MINUTES);
+        String key =TEMP_PASSWORD_PREFIX + email;
+        redisTemplate.opsForValue().set(key, tempPassword, 30, TimeUnit.MINUTES);
 
-        log.info("임시 비밀번호 Redis 저장: email={}, key= {}, 유효시간 = 30분", email, Key);
+        log.info("임시 비밀번호 Redis 저장: email={}, key= {}, 유효시간 = 30분", email, key);
         log.info("임시 비밀번호 : {}", tempPassword);
 
         try {
-            SimpleMailMessage message = getPlMessage(email, tempPassword);
+            SimpleMailMessage message = createTempPasswordMailMessage(email, tempPassword);
             mailSender.send(message);
 
             log.info("==============");
@@ -196,13 +196,13 @@ public class EmailService {
     }
 
     //임시 비밀번호 검증 및 삭제
-    public boolean verifyAndConsumeTempPassword(String email, String inputPassword) {
+    public void verifyAndConsumeTempPassword(String email, String inputPassword) {
         String key = getTempPasswordKey(email);
         String storedTempPassword = redisTemplate.opsForValue().get(key);
 
         if (storedTempPassword == null) {
             log.warn("임시 비밀번호 없음 또는 만료: email={}", email);
-            return false;
+            return;
         }
 
         if (storedTempPassword.equals(inputPassword)) {
@@ -214,13 +214,11 @@ public class EmailService {
             redisTemplate.opsForValue().set(flagKey, "true", 30, TimeUnit.MINUTES);
 
             log.info("임시 비밀번호 검증 성공 및 플래그 설정: email={}", email);
-            return true;
         }
 
-        return false;
     }
 
-    // 임시 비밀버호 사용자인지 확인
+    // 임시 비밀번호 사용자인지 확인
     public boolean isTempPasswordUser(String email) {
         String flagKey = getTempPasswordFlagKey(email);
         String flag = redisTemplate.opsForValue().get(flagKey);

@@ -71,7 +71,7 @@ public class User {
     @Builder.Default
     private Boolean passwordlessEnabled = false;
 
-    public void passwordUpdate (String password){
+    public void updatePassword(String password) {
         this.password = password;
     }
 

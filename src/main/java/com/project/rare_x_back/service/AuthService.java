@@ -170,7 +170,7 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .name(user.getName())
                 .passwordlessToken(passwordlessResponseDto.getData())
-                .requiredPasswordChange(requiresChange) //임시비번 여부 반영
+                .isPasswordChangeRequired(requiresChange) //임시비번 여부 반영
                 .build();
     }
 
@@ -264,7 +264,7 @@ public class AuthService {
 
         // 6. 비밀번호 업데이트
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
-        user.passwordUpdate(encodedNewPassword);
+        user.updatePassword(encodedNewPassword);
 
         // 7. 임시 비밀번호 플래그 삭제 (Redis)
         if (isTempPasswordUser) {

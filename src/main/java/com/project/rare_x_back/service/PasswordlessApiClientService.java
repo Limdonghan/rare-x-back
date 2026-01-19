@@ -62,7 +62,16 @@ public class PasswordlessApiClientService {
             try {
                 JsonNode jsonResponse = objectMapper.readTree(response);
                 JsonNode data = jsonResponse.get("data");
-                String encryptedToken = data.get("token").asText();
+                if (data == null || data.isNull()) {
+                    log.error("Failed to get one-time token: 'data' field is missing or null in response");
+                    return null;
+                }
+                JsonNode tokenNode = data.get("token");
+                if (tokenNode == null || tokenNode.isNull()) {
+                    log.error("Failed to get one-time token: 'token' field is missing or null in 'data' object");
+                    return null;
+                }
+                String encryptedToken = tokenNode.asText();
                 return decryptAES(encryptedToken);
             } catch (Exception e) {
                 log.error("Failed to get one-time token", e);
