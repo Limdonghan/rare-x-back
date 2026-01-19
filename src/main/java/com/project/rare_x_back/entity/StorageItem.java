@@ -23,6 +23,9 @@ public class StorageItem {
     private Long storageId;
 
     // TODO order 관계는 나중에 추가 (주문 기능 구현 시)
+    // @ManyToOne(fetch = FetchType.LAZY)
+    // @JoinColumn(name = "order_id")
+    // private Order order;
     @Column(name = "order_id")
     private Long orderId;
 
