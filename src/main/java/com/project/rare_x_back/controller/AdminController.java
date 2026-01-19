@@ -248,4 +248,27 @@ public class AdminController {
         InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
         return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
     }
+
+    /**
+     * 검수 합격 처리 (INSPECTING → PASSED)
+     */
+    @PatchMapping("/inspections/{inspectionId}/pass")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> passInspection(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.passInspection(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "검수 합격 처리 완료"));
+    }
+
+    /**
+     * 검수 불합격 처리 (INSPECTING → FAILED)
+     */
+    @PatchMapping("/inspections/{inspectionId}/fail")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> failInspection(
+            @PathVariable Long inspectionId,
+            @Valid @RequestBody InspectionFailRequestDto request) {
+
+        InspectionResponseDto response = inspectionService.failInspection(inspectionId, request.getFailReason());
+        return ResponseEntity.ok(ApiResponse.success(response, "검수 불합격 처리 완료"));
+    }
 }

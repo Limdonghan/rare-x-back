@@ -3,10 +3,7 @@ package com.project.rare_x_back.entity;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -93,6 +90,11 @@ public class Inspection {
         this.status = InspectionStatus.FAILED;
         this.failReason = failReason;
         this.inspectedAt = LocalDateTime.now();
+    }
+
+    // 불합격 사유 저장
+    public void setFailReason(String failReason) {
+        this.failReason = failReason;
     }
 
     // 검수 담당자 배정

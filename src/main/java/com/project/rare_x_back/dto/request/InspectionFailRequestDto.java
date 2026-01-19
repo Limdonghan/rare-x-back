@@ -1,4 +1,4 @@
-package com.project.rare_x_back.dto.response;
+package com.project.rare_x_back.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;

@@ -218,7 +218,41 @@ public class InspectionService {
                     .build();
             storageItemRepository.save(storageItem);
         }
-        // ORDER 타입은 나중에 구현
+
+        // TODO ORDER 타입은 나중에 구현
+
+        return InspectionResponseDto.from(inspection);
+    }
+
+    /**
+     * 검수 불합격 처리 (INSPECTING → FAILED)
+     * - STORAGE 타입: storage_requests 상태 동기화
+     */
+    @Transactional
+    public InspectionResponseDto failInspection(Long inspectionId, String failReason) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 상태 확인
+        if (inspection.getStatus() != InspectionStatus.INSPECTING) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "검수 진행 중인 건만 불합격 처리할 수 있습니다.");
+        }
+
+        // 3. 불합격 사유 저장
+        inspection.setFailReason(failReason);
+
+        // 4. inspections 상태 변경 (FAILED + inspected_at 기록)
+        inspection.updateStatus(InspectionStatus.FAILED);
+
+        // 5. 타입별 처리
+        if (inspection.getType() == InspectionType.STORAGE) {
+            // storage_requests 상태 동기화
+            StorageRequest storageRequest = inspection.getStorageRequest();
+            storageRequest.updateStatus(StorageRequestStatus.FAILED);
+        }
+
+        // TODO ORDER 타입은 나중에 구현
 
         return InspectionResponseDto.from(inspection);
     }
