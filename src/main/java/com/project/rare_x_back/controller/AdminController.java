@@ -3,6 +3,7 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
@@ -208,5 +209,43 @@ public class AdminController {
 
         InspectionResponseDto response = inspectionService.confirmArrival(inspectionId);
         return ResponseEntity.ok(ApiResponse.success(response, "도착 확인이 완료되었습니다"));
+    }
+
+    /**
+     * 검수 시작 (PENDING_INSPECTION → INSPECTING)
+     * - 담당자 배정
+     * - 체크리스트 생성
+     * - 시작 시간 기록
+     */
+    @PatchMapping("/inspections/{inspectionId}/start")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> startInspection(
+            @PathVariable Long inspectionId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
+    }
+
+    /**
+     * 체크리스트 조회
+     */
+    @GetMapping("/inspections/{inspectionId}/checklist")
+    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> getChecklist(
+            @PathVariable Long inspectionId) {
+
+        InspectionChecklistResponseDto response = inspectionService.getChecklist(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 조회 성공"));
+    }
+
+    /**
+     * 체크리스트 수정
+     */
+    @PatchMapping("/inspections/{inspectionId}/checklist")
+    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> updateChecklist(
+            @PathVariable Long inspectionId,
+            @Valid @RequestBody InspectionChecklistRequestDto request) {
+
+        InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
     }
 }

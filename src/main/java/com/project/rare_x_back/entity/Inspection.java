@@ -57,6 +57,9 @@ public class Inspection {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
     @Column(name = "inspected_at")
     private LocalDateTime inspectedAt;
 
@@ -72,7 +75,14 @@ public class Inspection {
 
     // 상태 변경
     public void updateStatus(InspectionStatus status) {
-        this.status = status;
+        this.status = status;  // 전달받은 상태로 변경
+
+        // 검수 시작 시 시작 시간 기록 (SLA 측정용)
+        if (status == InspectionStatus.INSPECTING) {
+            this.startedAt = LocalDateTime.now();
+        }
+
+        // 검수 완료(합격/불합격) 시 완료 시간 기록
         if (status == InspectionStatus.PASSED || status == InspectionStatus.FAILED) {
             this.inspectedAt = LocalDateTime.now();
         }
@@ -83,5 +93,10 @@ public class Inspection {
         this.status = InspectionStatus.FAILED;
         this.failReason = failReason;
         this.inspectedAt = LocalDateTime.now();
+    }
+
+    // 검수 담당자 배정
+    public void assignInspector(User inspector) {
+        this.user = inspector;
     }
 }
