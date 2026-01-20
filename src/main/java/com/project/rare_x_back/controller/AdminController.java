@@ -220,9 +220,9 @@ public class AdminController {
     @PatchMapping("/inspections/{inspectionId}/start")
     public ResponseEntity<ApiResponse<InspectionResponseDto>> startInspection(
             @PathVariable Long inspectionId,
-            @AuthenticationPrincipal Long adminId) {
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
 
-        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminId);
+        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
     }
 
