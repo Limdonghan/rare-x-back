@@ -11,7 +11,7 @@ import java.util.List;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductListResponseDto {
+public class ProductResponseDto {
     private Long productId;
     private String productName;
     private String brandName;

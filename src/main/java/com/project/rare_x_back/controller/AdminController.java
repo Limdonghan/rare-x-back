@@ -6,7 +6,7 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
+import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
@@ -59,15 +59,15 @@ public class AdminController {
 
     //상품 전체 조회
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<Page<ProductListResponseDto>>> getAllProduct(Pageable pageable){
-        Page<ProductListResponseDto> response = adminService.getAllProducts(pageable);
+    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(Pageable pageable){
+        Page<ProductResponseDto> response = adminService.getAllProducts(pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     //상품 상세 조회
     @GetMapping("/products/{productId}")
-    public ResponseEntity<ApiResponse<ProductListResponseDto>> getDetailProduct(@PathVariable Long productId) {
-        ProductListResponseDto response = adminService.getDetailProduct(productId);
+    public ResponseEntity<ApiResponse<ProductResponseDto>> getDetailProduct(@PathVariable Long productId) {
+        ProductResponseDto response = adminService.getDetailProduct(productId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
