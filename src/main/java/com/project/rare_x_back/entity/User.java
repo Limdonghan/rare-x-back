@@ -66,4 +66,13 @@ public class User {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "passwordless_enabled", nullable = false)
+    @Builder.Default
+    private Boolean passwordlessEnabled = false;
+
+    public void updatePassword(String password) {
+        this.password = password;
+    }
+
 }

@@ -9,6 +9,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AutoPaymentRequestDto {
 
+    @NotNull
+    private Long userId;
+
     @NotBlank
     private String orderId;     /// 주문 ID
 
