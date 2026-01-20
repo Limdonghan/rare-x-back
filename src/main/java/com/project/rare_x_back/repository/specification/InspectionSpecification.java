@@ -43,6 +43,7 @@ public class InspectionSpecification {
                 predicates.add(cb.equal(root.get("type"), condition.getType()));
             }
 
+            // TODO: ORDER 타입 카테고리 필터 추가 (order → product → category 조인 필요)
             // 6. 카테고리 필터 (STORAGE 타입: storageRequest → product → category)
             if (condition.getCategoryId() != null) {
                 Join<Inspection, StorageRequest> storageRequestJoin = root.join("storageRequest", JoinType.LEFT);

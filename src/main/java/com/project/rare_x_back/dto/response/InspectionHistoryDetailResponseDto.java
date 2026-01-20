@@ -1,6 +1,7 @@
 package com.project.rare_x_back.dto.response;
 
 import com.project.rare_x_back.entity.Inspection;
+import com.project.rare_x_back.entity.InspectionChecklist;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.StorageRequest;
 import com.project.rare_x_back.entity.User;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Builder
-public class InspectionHistoryResponseDto {
+public class InspectionHistoryDetailResponseDto {
 
     private Long inspectionId;
     private InspectionType type;
@@ -40,8 +41,11 @@ public class InspectionHistoryResponseDto {
     private LocalDateTime startedAt;
     private LocalDateTime inspectedAt;
 
-    public static InspectionHistoryResponseDto from(Inspection inspection) {
-        var builder = InspectionHistoryResponseDto.builder()
+    // 체크리스트 정보
+    private InspectionChecklistResponseDto checklist;
+
+    public static InspectionHistoryDetailResponseDto from(Inspection inspection, InspectionChecklist checklist) {
+        var builder = InspectionHistoryDetailResponseDto.builder()
                 .inspectionId(inspection.getInspectionId())
                 .type(inspection.getType())
                 .status(inspection.getStatus())
@@ -85,6 +89,11 @@ public class InspectionHistoryResponseDto {
                             .categoryName(product.getCategory().getCategoryName());
                 }
             }
+        }
+
+        // 체크리스트 정보
+        if (checklist != null) {
+            builder.checklist(InspectionChecklistResponseDto.from(checklist));
         }
 
         return builder.build();

@@ -283,4 +283,15 @@ public class AdminController {
         Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistgory(condition, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    /**
+     * 검수 이력 상세 조회 (체크리스트 포함)
+     */
+    @GetMapping("/inspections/history/{inspectionId}")
+    public ResponseEntity<ApiResponse<InspectionHistoryDetailResponseDto>> getInspectionHistoryDetail(
+            @PathVariable Long inspectionId) {
+
+        InspectionHistoryDetailResponseDto response = inspectionService.getInspectionHistoryDetail(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

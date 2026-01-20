@@ -3,6 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
 import com.project.rare_x_back.dto.request.InspectionSearchRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
+import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.*;
@@ -281,5 +282,25 @@ public class InspectionService {
         return inspectionRepository
                 .findAll(InspectionSpecification.searchInspectionHistory(condition), pageable)
                 .map(InspectionHistoryResponseDto::from);
+    }
+
+    /**
+     * 검수 이력 상세 조회 (체크리스트 포함)
+     */
+    public InspectionHistoryDetailResponseDto getInspectionHistoryDetail(Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 완료된 검수인지 확인 (PASSED 또는 FAILED)
+        if (inspection.getStatus() != InspectionStatus.PASSED && inspection.getStatus() != InspectionStatus.FAILED) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "완료된 검수 이력만 조회할 수 있습니다.");
+        }
+
+        // 3. 체크리스트 조회 (없을 수도 있음)
+        InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
+                .orElse(null);
+
+        return InspectionHistoryDetailResponseDto.from(inspection, checklist);
     }
 }
