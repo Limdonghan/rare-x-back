@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/passwordless/**",
                                 "/*.html",
-                                "/favicon.ico"
+                                "/favicon.ico",
+                                "/api/product/**"
                         ).permitAll()
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
