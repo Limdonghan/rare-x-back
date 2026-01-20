@@ -42,7 +42,7 @@ public class PaymentService {
         User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         /// 3. Billing_Key DB에 기존에 등록한 유저가 있다면 삭제 후 갱신 (또는 추가)
-        billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
+        billingKeyRepository.findByUserId(user).ifPresent(billingKey -> {
                     log.info("기존 빌링키 삭제: User {}", user.getUserId());
                     billingKeyRepository.delete(billingKey);
                 }
@@ -81,7 +81,7 @@ public class PaymentService {
 
             /// 4. DB 저장
             BillingKey build = BillingKey.builder()
-                    .user(user)
+                    .userId(user)
                     .customerKey(customerKey)
                     .billingKey(billingKey)
                     .cardCompany(cardCompany)
@@ -126,7 +126,7 @@ public class PaymentService {
             User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
             /// 2. DB에서 저장된 빌링키 꺼내오기
-            BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new RuntimeException("등록되지 않은 빌링키"));
+            BillingKey billingKey = billingKeyRepository.findByUserId(user).orElseThrow(() -> new RuntimeException("등록되지 않은 빌링키"));
 
             try {
                 /// 3. 토스 API 호출
@@ -182,7 +182,7 @@ public class PaymentService {
                     .uri("payments/confirm")
                     .bodyValue(Map.of(
                             "paymentKey", paymentConfirmRequestDto.getPaymentKey(),
-                            "orderId", paymentConfirmRequestDto.getOrderId(),
+                            "orderId", paymentConfirmRequestDto.getTossOrderId(),
                             "amount", paymentConfirmRequestDto.getAmount()
                     ))                                                                                          /// Request Body 설정
                     .retrieve()                                                                                 /// 실제 HTTP 요청 실행
@@ -196,8 +196,7 @@ public class PaymentService {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
 
-            /// TODO: 실제 Order ID 연동
-            return responseMappingWithSave(response, 2L);
+            return responseMappingWithSave(response,paymentConfirmRequestDto.getOrderId());
 
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -208,7 +207,6 @@ public class PaymentService {
 
     /**
      * 공통 메서드 처리
-     * TODO: Order Entity 생성 후 수정
      * */
     private Payment responseMappingWithSave (Map<String, Object> response, Long orderId){
         Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
