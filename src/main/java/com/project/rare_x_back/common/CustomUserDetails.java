@@ -2,6 +2,7 @@ package com.project.rare_x_back.common;
 
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.Role;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,7 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.Collections;
 
-
+@Getter
 public class CustomUserDetails implements UserDetails {
 
         private final Long userId;
