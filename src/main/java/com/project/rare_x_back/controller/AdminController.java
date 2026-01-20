@@ -220,9 +220,9 @@ public class AdminController {
     @PatchMapping("/inspections/{inspectionId}/start")
     public ResponseEntity<ApiResponse<InspectionResponseDto>> startInspection(
             @PathVariable Long inspectionId,
-            @AuthenticationPrincipal Long adminId) {
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
 
-        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminId);
+        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
     }
 
@@ -243,7 +243,7 @@ public class AdminController {
     @PatchMapping("/inspections/{inspectionId}/checklist")
     public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> updateChecklist(
             @PathVariable Long inspectionId,
-            @RequestBody InspectionChecklistRequestDto request) {
+            @Valid @RequestBody InspectionChecklistRequestDto request) {
 
         InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
         return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
