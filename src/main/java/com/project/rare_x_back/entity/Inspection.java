@@ -92,11 +92,6 @@ public class Inspection {
         this.inspectedAt = LocalDateTime.now();
     }
 
-    // 불합격 사유 저장
-    public void setFailReason(String failReason) {
-        this.failReason = failReason;
-    }
-
     // 검수 담당자 배정
     public void assignInspector(User inspector) {
         this.user = inspector;

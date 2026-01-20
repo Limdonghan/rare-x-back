@@ -1,6 +1,7 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
@@ -25,8 +26,8 @@ public class PaymentController {
      */
     @PostMapping("/billing/register")
     public ApiResponse<?> registerCard (@RequestBody BillingKeyRequestDto requestDto,
-                                        @AuthenticationPrincipal Long userId) {
-        return ApiResponse.success(paymentService.registerCard(requestDto, userId));
+                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(paymentService.registerCard(requestDto, userDetails.getUsername()));
     }
 
     /**
@@ -35,9 +36,8 @@ public class PaymentController {
      * 요청 예시: POST /api/payments/billing/pay?email=buyer1@test.com
      */
     @PostMapping("/billing/pay")
-    public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto,
-                                            @AuthenticationPrincipal Long userId) {
-        return ApiResponse.success(paymentService.payWithBillingKey(requestDto,userId));
+    public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto) {
+        return ApiResponse.success(paymentService.payWithBillingKey(requestDto));
     }
 
 
@@ -47,7 +47,7 @@ public class PaymentController {
      */
     @PostMapping("/confirm")
     public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
-                                         @AuthenticationPrincipal Long userId) {
-        return ApiResponse.success(paymentService.confirmPayment(requestDto,userId));
+                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(paymentService.confirmPayment(requestDto,userDetails.getUsername()));
     }
 }

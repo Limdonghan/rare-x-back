@@ -223,8 +223,14 @@ public class InspectionService {
 
         // 4. 타입별 처리
         if (inspection.getType() == InspectionType.STORAGE) {
-            // storage_requests 상태 동기화
             StorageRequest storageRequest = inspection.getStorageRequest();
+
+            // NPE 검사
+            if (storageRequest == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청 정보를 찾을 수 없습니다.");
+            }
+
+            // storage_requests 상태 동기화
             storageRequest.updateStatus(StorageRequestStatus.PASSED);
 
             // storage_items 레코드 생성
@@ -255,16 +261,19 @@ public class InspectionService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "검수 진행 중인 건만 불합격 처리할 수 있습니다.");
         }
 
-        // 3. 불합격 사유 저장
-        inspection.setFailReason(failReason);
+        // 3. 불합격 처리 (상태 + 사유 + 시간)
+        inspection.fail(failReason);
 
-        // 4. inspections 상태 변경 (FAILED + inspected_at 기록)
-        inspection.updateStatus(InspectionStatus.FAILED);
-
-        // 5. 타입별 처리
+        // 4. 타입별 처리
         if (inspection.getType() == InspectionType.STORAGE) {
-            // storage_requests 상태 동기화
             StorageRequest storageRequest = inspection.getStorageRequest();
+
+            // NPE 검사
+            if (storageRequest == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청 정보를 찾을 수 없습니다.");
+            }
+
+            // storage_requests 상태 동기화
             storageRequest.updateStatus(StorageRequestStatus.FAILED);
         }
 

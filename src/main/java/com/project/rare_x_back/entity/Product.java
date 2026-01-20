@@ -99,7 +99,7 @@ public class Product {
         }
     }
 
-    // Update soft-delete status: when deleted, set deletedAt; when restored, clear deletedAt
+    // 논리삭제 상태 업데이트
     public void updateIsDeleted (boolean isDeleted) {
         this.isDeleted = isDeleted;
         if (isDeleted) {
