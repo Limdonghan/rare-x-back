@@ -3,7 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
+import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.entity.Brand;
 import com.project.rare_x_back.entity.Category;
 import com.project.rare_x_back.entity.Product;
@@ -109,7 +109,7 @@ public class AdminService {
     }
 
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
-    public Page<ProductListResponseDto> getAllProducts(Pageable pageable) {
+    public Page<ProductResponseDto> getAllProducts(Pageable pageable) {
         // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
         Page<Product> productPage = productRepository.findAllByIsDeletedFalse(pageable);
         // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
@@ -120,7 +120,7 @@ public class AdminService {
                 firstImageUrl = product.getImages().get(0).getImageUrl();
             }
             // DTO에 담음
-            return ProductListResponseDto.builder()
+            return ProductResponseDto.builder()
                     .productId(product.getProductId())
                     .productName(product.getProductName())
                     .productDescription(product.getProductDescription())
@@ -132,7 +132,7 @@ public class AdminService {
     }
 
     //상품 상세 조회
-    public ProductListResponseDto getDetailProduct(Long productId){
+    public ProductResponseDto getDetailProduct(Long productId){
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(()->
                         new CustomException(
@@ -145,7 +145,7 @@ public class AdminService {
                 .map(ProductImage :: getImageUrl)
                 .toList();
 
-        return ProductListResponseDto.builder()
+        return ProductResponseDto.builder()
                 .productId(productId)
                 .productName(product.getProductName())
                 .productDescription(product.getProductDescription())

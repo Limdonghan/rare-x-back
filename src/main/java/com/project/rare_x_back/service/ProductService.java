@@ -1,13 +1,10 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.response.ProductListResponseDto;
+import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.ProductImage;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.BrandRepository;
-import com.project.rare_x_back.repository.CategoryRepository;
-import com.project.rare_x_back.repository.ProductImageRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,12 +18,10 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class ProductService {
-    private final ProductRepository productRepository;
-    private final BrandRepository brandRepository;
-    private final CategoryRepository categoryRepository;
-    private final ProductImageRepository productImageRepository;
 
-    public Page<ProductListResponseDto> getAllPublicProd(Long categoryId, Long brandId, Pageable pageable) {
+    private final ProductRepository productRepository;
+
+    public Page<ProductResponseDto> getAllPublicProd(Long categoryId, Long brandId, Pageable pageable) {
 
         Page<Product> productPage;
 
@@ -48,17 +43,17 @@ public class ProductService {
                 imageUrl = product.getImages().get(0).getImageUrl();
             }
 
-            return ProductListResponseDto.builder()
+            return ProductResponseDto.builder()
                     .productId(product.getProductId())
                     .productName(product.getProductName())
-                    .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : " ")
-                    .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : " ")
+                    .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "")
+                    .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
                     .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
                     .build();
         });
     }
 
-    public ProductListResponseDto getPublicDetailProduct(Long productId) {
+    public ProductResponseDto getPublicDetailProduct(Long productId) {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(() -> new CustomException(
                         ErrorCode.RESOURCE_NOT_FOUND,
@@ -66,22 +61,22 @@ public class ProductService {
                 ));
 
         // 이미지 객체 리스트를 URL만 있는 문자열 리스트로 변환
-        List<String> imageUrls = product.getImages().stream()
-                .map(ProductImage:: getImageUrl)
+        // 리스트가 null이면 빈 리스트 반환, 있으면 스트림
+        List<String> imageUrls = product.getImages() == null
+                ? List.of()
+                :product.getImages().stream()
+                .map(ProductImage::getImageUrl)
                 .toList();
 
-        return ProductListResponseDto.builder()
+        return ProductResponseDto.builder()
                 .productId(productId)
                 .productName(product.getProductName())
                 .productDescription(product.getProductDescription())
-                .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : " ")
-                .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : " ")
+                .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "")
+                .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
                 .imageUrls(imageUrls)
                 .build();
 
     }
-
-
-
 
 }
