@@ -39,13 +39,28 @@ public enum ErrorCode {
     // 찾는 데이터가 없을 시 에러
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리소스가 존재하지 않습니다."),
 
+    PASSWORDLESS_USER_CANNOT_LOGIN(HttpStatus.UNAUTHORIZED, "패스워드리스 로그인 유저입니다. 패스워드리스 방식으로 로그인 해주세요."),
+
+    PASSWORDLESS_NOT_REGISTERED(HttpStatus.BAD_REQUEST, "패스워드리스 서비스를 사용하고 있지 않습니다"),
+
+    TEMP_PASSWORD_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 비밀번호가 만료되었습니다. 다시 발급받아 주세요."),
+
+    // 비밀번호 변경 관련
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다"),
+    CURRENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "현재 비밀번호를 입력해주세요"),
+
     // 잘못된 요청
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"),
 
     // TossPayment 에러
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST,"결제 승인에 실패했습니다."),
-    TOSS_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "토스 페이먼츠 연동 중 오류가 발생했습니다.");
+    TOSS_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "토스 페이먼츠 연동 중 오류가 발생했습니다."),
+
+    // Passwordless 에러
+    PASSWORDLESS_ALREADY_IN_USE(HttpStatus.CONFLICT, "이미 패스워드리스 서비스를 사용 중입니다."),
+    TEMPORARY_TOKEN_NOT_FOUND(HttpStatus.BAD_REQUEST, "임시 인증 토큰이 없습니다."),
+    TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다.");
 
     private final String message;
     private final HttpStatus status;

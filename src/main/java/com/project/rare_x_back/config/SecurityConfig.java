@@ -55,6 +55,7 @@ public class SecurityConfig {
                                 "/api/auth/email/send",
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
+                                "/api/passwordless/**",
                                 "/*.html",
                                 "/favicon.ico",
                                 "/api/product/**"
