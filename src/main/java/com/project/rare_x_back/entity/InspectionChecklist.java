@@ -45,9 +45,15 @@ public class InspectionChecklist {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+
     @Builder
     public InspectionChecklist(Inspection inspection) {
-        this.inspection = inspection;  // 어떤 검수의 체크리스트인지 확인
+        this.inspection = inspection;
+        this.isAuthentic = false;
+        this.isExteriorGood = false;
+        this.isComponentsComplete = false;
+        this.isPackagingGood = false;
+        this.isUnused = false;
     }
 
     // 체크리스트 항목 업데이트

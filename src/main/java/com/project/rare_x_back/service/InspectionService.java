@@ -74,7 +74,7 @@ public class InspectionService {
     /**
      * 상태별 검수 건수 조회 (대시보드용)
      *
-     * @param type 검수 타입
+     * @param type   검수 타입
      * @param status 검수 상태
      * @return 건수
      */
@@ -164,6 +164,11 @@ public class InspectionService {
 
     // 체크리스트 조회
     public InspectionChecklistResponseDto getChecklist(Long inspectionId) {
+        // 1. 먼저 검수 존재 확인
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 체크리스트 조회
         InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
 
@@ -173,6 +178,11 @@ public class InspectionService {
     // 체크리스트 수정
     @Transactional
     public InspectionChecklistResponseDto updateChecklist(Long inspectionId, InspectionChecklistRequestDto request) {
+        // 1. 먼저 검수 존재 확인
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 체크리스트 조회
         InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
 

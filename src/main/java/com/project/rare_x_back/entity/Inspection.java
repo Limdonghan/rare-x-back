@@ -75,7 +75,7 @@ public class Inspection {
 
     // 상태 변경
     public void updateStatus(InspectionStatus status) {
-        this.status = status;;  // 전달받은 상태로 변경
+        this.status = status;  // 전달받은 상태로 변경
 
         // 검수 시작 시 시작 시간 기록 (SLA 측정용)
         if (status == InspectionStatus.INSPECTING) {

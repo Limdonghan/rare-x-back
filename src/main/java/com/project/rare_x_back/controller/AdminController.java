@@ -243,7 +243,7 @@ public class AdminController {
     @PatchMapping("/inspections/{inspectionId}/checklist")
     public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> updateChecklist(
             @PathVariable Long inspectionId,
-            @RequestBody InspectionChecklistRequestDto request) {
+            @Valid @RequestBody InspectionChecklistRequestDto request) {
 
         InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
         return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
