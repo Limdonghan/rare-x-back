@@ -56,7 +56,8 @@ public class SecurityConfig {
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
                                 "/*.html",
-                                "/favicon.ico"
+                                "/favicon.ico",
+                                "/api/product/**"
                         ).permitAll()
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
