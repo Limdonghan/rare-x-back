@@ -2,6 +2,7 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponseDto;
+import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
 import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
@@ -32,6 +33,7 @@ public class AuthService {
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
     private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordlessService passwordlessService;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -110,12 +112,39 @@ public class AuthService {
             throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
         }
 
-        // 3. 비밀번호 확인 (BCrypt)
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        // 3. 패스워드리스 사용자 확인 (일반 로그인 차단)
+        if (user.getPasswordlessEnabled()) {
+            throw new CustomException(ErrorCode.PASSWORDLESS_USER_CANNOT_LOGIN);
+        }
+
+        // 일반 비번(또는 DB에 저장된 임시비번) 일치 확인
+        boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        boolean requiresChange = false;
+
+        if (passwordMatches) {
+            // 비번이 맞다면 이게 임시 비번상태인지 확인
+            // 이때는 레디스에 저장된 임시 비밀번호 원문과 비교
+            String tempPasswordKey = EmailService.getTempPasswordKey(user.getEmail());
+            String storedTemp = redisTemplate.opsForValue().get(tempPasswordKey);
+
+            if (storedTemp != null && storedTemp.equals(request.getPassword())) {
+                // 입력한 비번이 레디스에 저장된 임시비번과 일치한다면
+                requiresChange = true;
+
+                // 사용했으니 레디스에서 임시 비번 삭제하고 비번 변경 필요 플래그 생성
+                emailService.verifyAndConsumeTempPassword(user.getEmail(), request.getPassword());
+                log.info("임시 비밀번호 로그인 성공 (DB 일치): email={}", user.getEmail());
+            } else {
+                // 레디스에 임시비번이 없거나 일반 비번인 경우
+                // 기존에 로그인해서 생성된 플래그가 있는지도 한번 더 체크
+                requiresChange = emailService.isTempPasswordUser(user.getEmail());
+                log.info("일반 비밀번호 로그인 성공: email={}, 변경필요={}", user.getEmail(), requiresChange);
+            }
+        } else {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // 4. 계정 활성화 확인
+        // 5. 계정 활성화 확인
         if (user.getStatus() != Status.ACTIVE) {
             throw new CustomException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
@@ -124,15 +153,24 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getRole().name(), user.getEmail());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getRole().name());
 
-        // 6. Refresh Token을 Redis에 저장 (7일)
+        // 7. Refresh Token을 Redis에 저장 (7일)
         String key = REFRESH_TOKEN_PREFIX + user.getUserId();
         redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
 
+        // [추가] 패스워드리스용 토큰 발급
+        PasswordlessResponseDto passwordlessResponseDto = passwordlessService.verifyManagementAccess(request.getEmail(), request.getPassword());
+
         // 7. 응답 생성
+        // 8. 응답 생성 (임시 비밀번호 여부포함 추가)
+
+        log.info("로그인 성공: email={}", user.getEmail());
+
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .name(user.getName())
+                .passwordlessToken(passwordlessResponseDto.getData())
+                .isPasswordChangeRequired(requiresChange) //임시비번 여부 반영
                 .build();
     }
 
@@ -191,4 +229,50 @@ public class AuthService {
                 .refreshToken(request.getRefreshToken())
                 .build();
     }
+
+    //임시 비밀번호 유저일 경우 비밀번호 변경
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequestDto request) {
+
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 임시 비밀번호 사용자 확인
+        boolean isTempPasswordUser = emailService.isTempPasswordUser(user.getEmail());
+
+        // 3. 현재 비밀번호 확인 (임시 비밀번호 사용자는 생략 가능)
+        if (!isTempPasswordUser) {
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isEmpty()) {
+                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED);
+            }
+
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new CustomException(ErrorCode.INVALID_PASSWORD);
+            }
+        }
+
+        // 4. 새 비밀번호 확인
+        if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
+            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
+        }
+
+        // 5. 새 비밀번호가 현재 비밀번호와 같은지 확인
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+
+        // 6. 비밀번호 업데이트
+        String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
+        user.updatePassword(encodedNewPassword);
+
+        // 7. 임시 비밀번호 플래그 삭제 (Redis)
+        if (isTempPasswordUser) {
+            emailService.clearTempPasswordFlag(user.getEmail());
+        }
+
+        log.info("비밀번호 변경 완료: userId={}, wasTempPassword={}",
+                userId, isTempPasswordUser);
+    }
+
 }
