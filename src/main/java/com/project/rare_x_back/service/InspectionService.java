@@ -1,7 +1,9 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
+import com.project.rare_x_back.dto.request.InspectionSearchRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
+import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
@@ -13,7 +15,10 @@ import com.project.rare_x_back.repository.InspectionChecklistRepository;
 import com.project.rare_x_back.repository.InspectionRepository;
 import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.specification.InspectionSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -265,5 +270,16 @@ public class InspectionService {
         // TODO ORDER 타입은 나중에 구현
 
         return InspectionResponseDto.from(inspection);
+    }
+
+    /**
+     * 검수 이력 목록 조회 (필터 + 페이징)
+     */
+    public Page<InspectionHistoryResponseDto> getInspectionHistgory(
+            InspectionSearchRequestDto condition, Pageable pageable) {
+
+        return inspectionRepository
+                .findAll(InspectionSpecification.searchInspectionHistory(condition), pageable)
+                .map(InspectionHistoryResponseDto::from);
     }
 }

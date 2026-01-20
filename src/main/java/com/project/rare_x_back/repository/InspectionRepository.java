@@ -4,12 +4,13 @@ import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface InspectionRepository extends JpaRepository<Inspection, Long> {
+public interface InspectionRepository extends JpaRepository<Inspection, Long>, JpaSpecificationExecutor<Inspection> {
 
     // 전체 목록 조회 (보관 검수용, Fetch Join)
     @Query("SELECT i FROM Inspection i " +

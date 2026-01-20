@@ -271,4 +271,16 @@ public class AdminController {
         InspectionResponseDto response = inspectionService.failInspection(inspectionId, request.getFailReason());
         return ResponseEntity.ok(ApiResponse.success(response, "검수 불합격 처리 완료"));
     }
+
+    /**
+      검수 이력 목록 조회 (필터 + 페이징)
+     */
+    @GetMapping("/inspections/history")
+    public ResponseEntity<ApiResponse<Page<InspectionHistoryResponseDto>>> getInspectionHistory(
+            @ModelAttribute InspectionSearchRequestDto condition,
+            Pageable pageable) {
+
+        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistgory(condition, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
