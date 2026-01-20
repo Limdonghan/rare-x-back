@@ -176,9 +176,13 @@ public class AuthService {
 
     // 로그아웃 (Refresh Token 삭제 + Access Token 블랙리스트)
     @Transactional
-    public void logout(Long userId, String accessToken) {
+    public void logout(String userEmail, String accessToken) {
+        // 이메일로 유저 조회
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
         // 1. Refresh Token 삭제
-        String refreshKey = REFRESH_TOKEN_PREFIX + userId;
+        String refreshKey = REFRESH_TOKEN_PREFIX + user.getUserId();
         redisTemplate.delete(refreshKey);
 
         // 2. Access Token 블랙리스트에 추가
