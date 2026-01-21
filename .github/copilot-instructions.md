@@ -1,1 +1,1 @@
-Always respond in Korean.
+When performing a code review, respond in Korean.

@@ -1,0 +1,62 @@
+package com.project.rare_x_back.controller;
+
+import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.common.CustomUserDetails;
+import com.project.rare_x_back.dto.request.PurchaseRequestDto;
+import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
+import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
+import com.project.rare_x_back.dto.response.PurchaseResponseDto;
+import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
+import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
+import com.project.rare_x_back.service.BidService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/bid")
+@RequiredArgsConstructor
+public class BidController {
+
+    private final BidService bidService;
+
+    /// 판매 입찰 등록
+    @PostMapping("/sale")
+    public ResponseEntity<ApiResponse<RegisterSaleBidResponseDto>> registerSaleBid(@Valid @RequestBody RegisterSaleBidRequestDto registerSaleBidRequestDto,
+                                                                                   @AuthenticationPrincipal CustomUserDetails userDetails) {
+        RegisterSaleBidResponseDto registerSaleBidResponseDto = bidService.registerSaleBid(registerSaleBidRequestDto, userDetails.getUsername());
+
+        return ResponseEntity
+                .ok().body(ApiResponse.success(registerSaleBidResponseDto,"판매 신청이 완료되었습니다."));
+    }
+
+    /// 구매 입찰 등록
+    @PostMapping("/buy")
+    public ResponseEntity<ApiResponse<RegisterBuyBidResponseDto>> registerBuyBid(@Valid @RequestBody RegisterBuyBidRequestDto registerBuyBidRequestDto,
+                                                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
+        RegisterBuyBidResponseDto registerBuyBidResponseDto = bidService.registerBuyBid(registerBuyBidRequestDto, userDetails.getUsername());
+
+        return ResponseEntity
+                .ok().body(ApiResponse.success(registerBuyBidResponseDto,"구매 신청이 완료되었습니다."));
+    }
+
+
+    /**
+     * [즉시 구매] (Buy Now)
+     * 일반 결제(Toss Window) 후 호출되는 API
+     * 결제 승인 + 거래 체결(Order 생성)을 한 번에 처리
+     */
+    @PostMapping("/purchase")
+    public ResponseEntity<ApiResponse<PurchaseResponseDto>> purchaseNow(@Valid @RequestBody PurchaseRequestDto purchaseRequestDto,
+                                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+        PurchaseResponseDto purchaseResponseDto = bidService.purchaseNow(purchaseRequestDto, userDetails.getUsername());
+        return ResponseEntity
+                .ok().body(ApiResponse.success(purchaseResponseDto,"주문이 완료되었습니다"));
+    }
+
+}
