@@ -4,7 +4,6 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
 import com.project.rare_x_back.dto.request.InspectionFailRequestDto;
-import com.project.rare_x_back.dto.request.InspectionSearchRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
@@ -21,8 +20,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @Slf4j
 @RequiredArgsConstructor
 @RestController
@@ -31,30 +28,33 @@ public class InspectionController {
 
     private final InspectionService inspectionService;
 
-    // 전체 검수 목록 조회 (보관 + 주문)
+    // 전체 검수 목록 조회 (보관 + 주문, 페이징)
     @GetMapping
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getAllInspections(
-            @RequestParam(required = false) InspectionStatus status) {
+    public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getAllInspections(
+            @RequestParam(required = false) InspectionStatus status,
+            Pageable pageable) {
 
-        List<InspectionResponseDto> response = inspectionService.getAllInspections(status);
+        Page<InspectionResponseDto> response = inspectionService.getAllInspections(status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 보관 검수 목록 조회
+    // 보관 검수 목록 조회 (페이징)
     @GetMapping("/storage")
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getStorageInspections(
-            @RequestParam(required = false) InspectionStatus status) {
+    public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getStorageInspections(
+            @RequestParam(required = false) InspectionStatus status,
+            Pageable pageable) {
 
-        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status);
+        Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 주문 검수 목록 조회
+    // 주문 검수 목록 조회 (페이징)
     @GetMapping("/order")
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getOrderInspections(
-            @RequestParam(required = false) InspectionStatus status) {
+    public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getOrderInspections(
+            @RequestParam(required = false) InspectionStatus status,
+            Pageable pageable) {
 
-        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status);
+        Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -124,13 +124,13 @@ public class InspectionController {
         return ResponseEntity.ok(ApiResponse.success(response, "검수 불합격 처리 완료"));
     }
 
-    // 검수 이력 목록 조회 (필터 + 페이징)
+    // 검수 이력 목록 조회 (페이징)
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<Page<InspectionHistoryResponseDto>>> getInspectionHistory(
-            @ModelAttribute InspectionSearchRequestDto condition,
+            @RequestParam(required = false) InspectionStatus status,
             Pageable pageable) {
 
-        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistory(condition, pageable);
+        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistory(status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -1,7 +1,6 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
-import com.project.rare_x_back.dto.request.InspectionSearchRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
@@ -16,7 +15,6 @@ import com.project.rare_x_back.repository.InspectionChecklistRepository;
 import com.project.rare_x_back.repository.InspectionRepository;
 import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.UserRepository;
-import com.project.rare_x_back.repository.specification.InspectionSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,44 +34,42 @@ public class InspectionService {
     private final StorageItemRepository storageItemRepository;
 
     /**
-     * 전체 검수 목록 조회 (타입 무관)
+     * 전체 검수 목록 조회 (타입 무관, 페이징)
      *
      * @param status 검수 상태 (null이면 전체)
+     * @param pageable 페이징 정보
      * @return 검수 목록
      */
-    public List<InspectionResponseDto> getAllInspections(InspectionStatus status) {
-        List<Inspection> inspections;
+    public Page<InspectionResponseDto> getAllInspections(InspectionStatus status, Pageable pageable) {
+        Page<Inspection> inspections;
 
         if (status == null) {
-            inspections = inspectionRepository.findAllWithDetails();
+            inspections = inspectionRepository.findAllWithDetails(pageable);
         } else {
-            inspections = inspectionRepository.findByStatusWithDetails(status);
+            inspections = inspectionRepository.findByStatus(status, pageable);
         }
 
-        return inspections.stream()
-                .map(InspectionResponseDto::from)
-                .collect(Collectors.toList());
+        return inspections.map(InspectionResponseDto::from);
     }
 
     /**
-     * 타입별 검수 목록 조회
+     * 타입별 검수 목록 조회 (페이징)
      *
      * @param type 검수 타입 (STORAGE, ORDER)
      * @param status 검수 상태 (null이면 전체)
+     * @param pageable 페이징 정보
      * @return 검수 목록
      */
-    public List<InspectionResponseDto> getInspectionList(InspectionType type, InspectionStatus status) {
-        List<Inspection> inspections;   // 리스트 초기화를 위한 변수 선언
+    public Page<InspectionResponseDto> getInspectionList(InspectionType type, InspectionStatus status, Pageable pageable) {
+        Page<Inspection> inspections;
 
         if (status == null) {
-            inspections = inspectionRepository.findByTypeWithDetails(type);
+            inspections = inspectionRepository.findByType(type, pageable);
         } else {
-            inspections = inspectionRepository.findByTypeAndStatusWithDetails(type, status);
+            inspections = inspectionRepository.findByTypeAndStatus(type, status, pageable);
         }
 
-        return inspections.stream()
-                .map(InspectionResponseDto::from)
-                .collect(Collectors.toList());
+        return inspections.map(InspectionResponseDto::from);
     }
 
     /**
@@ -283,14 +278,23 @@ public class InspectionService {
     }
 
     /**
-     * 검수 이력 목록 조회 (필터 + 페이징)
+     * 검수 이력 목록 조회 (페이징)
      */
-    public Page<InspectionHistoryResponseDto> getInspectionHistory (
-            InspectionSearchRequestDto condition, Pageable pageable) {
+    public Page<InspectionHistoryResponseDto> getInspectionHistory(
+            InspectionStatus status, Pageable pageable) {
 
-        return inspectionRepository
-                .findAll(InspectionSpecification.searchInspectionHistory(condition), pageable)
-                .map(InspectionHistoryResponseDto::from);
+        Page<Inspection> inspections;
+
+        if (status == null) {
+            // 전체 이력 조회 (PASSED + FAILED)
+            inspections = inspectionRepository.findHistoryByStatusIn(
+                    List.of(InspectionStatus.PASSED, InspectionStatus.FAILED), pageable);
+        } else {
+            // 상태별 조회
+            inspections = inspectionRepository.findHistoryByStatus(status, pageable);
+        }
+
+        return inspections.map(InspectionHistoryResponseDto::from);
     }
 
     /**
