@@ -1,5 +1,6 @@
 package com.project.rare_x_back.repository;
 
+import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.StorageItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,4 +17,7 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             "JOIN FETCH p.brand " +
             "WHERE s.user.userId = :userId")
     List<StorageItem> findByUserUserId(@Param("userId") Long userId);
+
+
+    StorageItem findByProduct(Product product);
 }

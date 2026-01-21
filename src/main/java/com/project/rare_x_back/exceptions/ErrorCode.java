@@ -56,11 +56,15 @@ public enum ErrorCode {
     // TossPayment 에러
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST,"결제 승인에 실패했습니다."),
     TOSS_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "토스 페이먼츠 연동 중 오류가 발생했습니다."),
+    BILLING_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 빌링키입니다."),
 
     // Passwordless 에러
     PASSWORDLESS_ALREADY_IN_USE(HttpStatus.CONFLICT, "이미 패스워드리스 서비스를 사용 중입니다."),
     TEMPORARY_TOKEN_NOT_FOUND(HttpStatus.BAD_REQUEST, "임시 인증 토큰이 없습니다."),
-    TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다.");
+    TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다."),
+
+    // bid 에러
+    PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST,"현재 판매중인 상품이 아닙니다.");
 
     private final String message;
     private final HttpStatus status;
