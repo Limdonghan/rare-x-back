@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -28,31 +30,31 @@ public class InspectionController {
 
     private final InspectionService inspectionService;
 
-    // 전체 검수 목록 조회 (보관 + 주문, 페이징)
+    // 전체 검수 목록 조회 (보관 + 주문, 페이징, 오래된 순)
     @GetMapping
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getAllInspections(
             @RequestParam(required = false) InspectionStatus status,
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getAllInspections(status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 보관 검수 목록 조회 (페이징)
+    // 보관 검수 목록 조회 (페이징, 오래된 순)
     @GetMapping("/storage")
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getStorageInspections(
             @RequestParam(required = false) InspectionStatus status,
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 주문 검수 목록 조회 (페이징)
+    // 주문 검수 목록 조회 (페이징, 오래된 순)
     @GetMapping("/order")
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getOrderInspections(
             @RequestParam(required = false) InspectionStatus status,
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -124,11 +126,11 @@ public class InspectionController {
         return ResponseEntity.ok(ApiResponse.success(response, "검수 불합격 처리 완료"));
     }
 
-    // 검수 이력 목록 조회 (페이징)
+    // 검수 이력 목록 조회 (페이징, 최신순)
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<Page<InspectionHistoryResponseDto>>> getInspectionHistory(
             @RequestParam(required = false) InspectionStatus status,
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistory(status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
