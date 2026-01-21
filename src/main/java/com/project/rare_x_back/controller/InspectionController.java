@@ -130,7 +130,7 @@ public class InspectionController {
             @ModelAttribute InspectionSearchRequestDto condition,
             Pageable pageable) {
 
-        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistgory(condition, pageable);
+        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistory(condition, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

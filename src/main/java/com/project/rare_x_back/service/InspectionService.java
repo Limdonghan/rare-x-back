@@ -285,7 +285,7 @@ public class InspectionService {
     /**
      * 검수 이력 목록 조회 (필터 + 페이징)
      */
-    public Page<InspectionHistoryResponseDto> getInspectionHistgory(
+    public Page<InspectionHistoryResponseDto> getInspectionHistory (
             InspectionSearchRequestDto condition, Pageable pageable) {
 
         return inspectionRepository
