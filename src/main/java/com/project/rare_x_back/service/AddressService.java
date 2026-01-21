@@ -1,6 +1,8 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.AddressRegisterRequestDto;
+import com.project.rare_x_back.dto.request.DefaultAddressUpdateRequestDto;
+import com.project.rare_x_back.dto.request.UserAddressUpdateRequestDto;
 import com.project.rare_x_back.dto.response.JusoResponseDto;
 import com.project.rare_x_back.dto.response.UserAddressResponseDto;
 import com.project.rare_x_back.entity.Address;
@@ -17,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -100,6 +103,84 @@ public class AddressService {
             responses.add(newResult);
         }
         return responses;
+    }
+
+    // 주소 수정
+    // 유저 정보와 수정할 주소록아이디를 받아와야함.
+    // 수정 가능한 정보는 유저가 직접 입력한 상세 주소와 받는이 그리고 기본 배송지 여부 (배송지 여부는 정책상 따로 설정 해야한
+    @Transactional
+    public void updateAddress (Long userId, Long addressId, UserAddressUpdateRequestDto requestDto) {
+        // 수정할 유저의 주소록 정보 찾기
+        Address changeAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+        changeAddress.updateAddress(requestDto.getRecipientName(), requestDto.getDetailAddress());
+    }
+
+    // 기본 배송지 여부 수정
+    // 기본배송지 수정시 바꾸려는 주소가 기본인데 해제 -> 최신 등록 주소가 자동으로 기본
+    // 만약 주소가 지금 이거 하나라면 기본배송지 해제 못함
+    // 만약 기존 기본 배송지는 기본배송지 여부 해제해야함
+    // findAddressesByUser_UserIdAndIsDefaultIsTrue
+    @Transactional
+    public void updateDefaultAddress (Long userId, Long addressId, DefaultAddressUpdateRequestDto requestDto) {
+
+        Address changeAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+
+        // 요청
+        boolean isDefault = requestDto.isDefaultAddress();
+        // 유저의 주소록 갯수
+        int addressCount = addressRepository.countByUser_UserId(userId);
+        // 유저의 기존 기본 배송지
+        Optional<Address> currentDefaultAddr = addressRepository.findAddressesByUser_UserIdAndIsDefaultIsTrue(userId);
+        // 유저의 제일 최신 배송지 (2개 -> 바꾸려는 주소가 제일 최신 일 수 있어서..)
+        List<Address> latestAddr = addressRepository.findTop2ByUser_UserIdOrderByCreatedAtDesc(userId);
+
+        // 유저가 기본으로 설정 요청 했을 때 - > isDefault가 true인 경우, false는 if문 그대로 건너뜀..
+        if (isDefault) {
+            // 이미 기본배송지면 할 일 없어서 메소드 종료
+            if (changeAddress.isDefault()) return;
+            // 기존의 기본 배송지가 있으면 해제
+            currentDefaultAddr.ifPresent(Address::unsetDefault);
+            changeAddress.setAsDefault();
+            return;
+        }
+        // 여기서 부터 isDefault가 false인 경우, 해제 요청
+        // 유저가 해제해달라고 했는데, 원래 기본 배송지도 아니었을 경우,
+        if (!changeAddress.isDefault()) return;
+
+        // 유저의 주소 갯수가 1개이하 이면 기본 배송지 정책 적용(최소1개, 최초등록한 주소 = 자동 기본배송지)
+        if (addressCount <= 1) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "기본 배송지는 1개 필수 입니다.");
+        }
+        changeAddress.unsetDefault(); // 아니면 해제
+
+        // 요청 주소가 기본 배송지였고 그걸 해제 했다면 -> 대체 기본 배송지 선택
+        Address newDefaultAddr = latestAddr.stream()
+                .filter(address -> !address.getAddressId().equals(changeAddress.getAddressId())) // 리스트 중 id가 변경 주소id랑 다른 것만 통과
+                .findFirst()// 필터링 된 것 중 첫 번째 하나만 가져옴
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+        newDefaultAddr.setAsDefault();
+    }
+
+    // 주소 삭제
+    @Transactional
+    public void deleteAddress(Long userId, Long addressId) {
+
+        Address deleteAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+
+        boolean wasDefault = deleteAddress.isDefault();
+        // 주소 삭제
+        addressRepository.delete(deleteAddress);
+
+        // 삭제한 배송지가 기본 배송지 였다면
+        if (wasDefault) {   // 삭제한 주소아이디 제외, 등록 최신순 주소 아이디 조회
+            Optional<Address> newDefaultAddr = addressRepository
+                    .findTopByUser_UserIdAndAddressIdNotOrderByCreatedAtDesc(userId, addressId);
+            newDefaultAddr.ifPresent(Address::setAsDefault);
+        }
+
     }
 
 }

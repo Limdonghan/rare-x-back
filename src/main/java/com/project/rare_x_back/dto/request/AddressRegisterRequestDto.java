@@ -16,6 +16,7 @@ public class AddressRegisterRequestDto {
 
     private String detailAddress;
 
+    @NotBlank(message = "받는이를 입력해주세요.")
     private String recipientName;
 
     private boolean defaultAddress;

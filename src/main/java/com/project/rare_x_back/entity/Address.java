@@ -58,5 +58,26 @@ public class Address {
         this.isDefault = isDefault;
     }
 
+    // 주소 정보 상태 변경
+    public void updateAddress(
+            String recipientName,
+            String detailAddress
+    ) {
+        if (recipientName != null && !recipientName.isBlank()) {
+            this.recipientName = recipientName;
+        }
+        if (detailAddress != null && !detailAddress.isBlank()) {
+            this.detailAddress = detailAddress;
+        }
+    }
+
+    // 기본배송지 여부 상태 변경
+    public void setAsDefault() {
+        this.isDefault = true;
+    }
+
+    public void unsetDefault() {
+        this.isDefault = false;
+    }
 
 }
