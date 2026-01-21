@@ -38,8 +38,8 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         // 2. 배송지 스냅샷 저장
-        Address address = addressRepository.findById(addressId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "배송지 정보가 없습니다."));
+        Address address = addressRepository.findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "본인의 배송지만 사용할 수 있습니다."));
         snapshotRepository.save(OrderShippingSnapshot.from(savedOrder, address));
 
         // 3. 주문 이력 저장

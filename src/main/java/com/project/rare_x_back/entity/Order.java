@@ -45,6 +45,7 @@ public class Order {
     private SaleBid sellBid;                    /// 체결된 구매 입찰
 
     @Column(name = "bid_type")
+    @Enumerated(EnumType.STRING)
     private BidType type;                       /// 입찰 구분
 
     @Column(name = "price")
