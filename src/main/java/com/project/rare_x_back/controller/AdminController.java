@@ -3,15 +3,10 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
-import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
-import com.project.rare_x_back.enums.InspectionStatus;
-import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.InspectionService;
 import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -33,7 +28,6 @@ public class AdminController {
 
     private final AdminService adminService;
     private final S3ImageService s3ImageService;
-    private final InspectionService inspectionService;
 
     //s3 이미지 업로드
     @PostMapping("/products/{productId}/images")
@@ -155,143 +149,5 @@ public class AdminController {
     public ResponseEntity <ApiResponse<Void>> deleteBrand(@PathVariable Long brandId) {
         adminService.deleteBrand(brandId);
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
-    }
-
-
-    // 전체 검수 목록 조회 (보관 + 주문)
-    @GetMapping("/inspections")
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getAllInspections(
-            @RequestParam(required = false) InspectionStatus status) {
-
-        List<InspectionResponseDto> response = inspectionService.getAllInspections(status);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * 보관 검수 목록 조회
-     * - status 없으면 전체 조회
-     * - status 있으면 해당 상태만 조회 (PENDING_INSPECTION, INSPECTING, PASSED, FAILED)
-     */
-    @GetMapping("/inspections/storage")
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getStorageInspections(
-            @RequestParam(required = false)InspectionStatus status) {   // required = false : 사용자가 필터를 선택하면 필터링된 값을 보여주고, 선택하지 않으면 전체를 보여줌
-
-        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    // 주문 검수 목록 조회
-    @GetMapping("/inspections/order")
-    public ResponseEntity<ApiResponse<List<InspectionResponseDto>>> getOrderInspections(
-            @RequestParam(required = false) InspectionStatus status) {
-
-        List<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * 검수 상세 조회
-     */
-    @GetMapping("/inspections/{inspectionId}")
-    public ResponseEntity<ApiResponse<InspectionResponseDto>> getInspection(
-            @PathVariable Long inspectionId) {
-
-        InspectionResponseDto response = inspectionService.getInspection(inspectionId);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
-     */
-    @PatchMapping("/inspections/{inspectionId}/confirm-arrival")
-    public ResponseEntity<ApiResponse<InspectionResponseDto>> confirmArrival(
-            @PathVariable Long inspectionId) {
-
-        InspectionResponseDto response = inspectionService.confirmArrival(inspectionId);
-        return ResponseEntity.ok(ApiResponse.success(response, "도착 확인이 완료되었습니다"));
-    }
-
-    /**
-     * 검수 시작 (PENDING_INSPECTION → INSPECTING)
-     * - 담당자 배정
-     * - 체크리스트 생성
-     * - 시작 시간 기록
-     */
-    @PatchMapping("/inspections/{inspectionId}/start")
-    public ResponseEntity<ApiResponse<InspectionResponseDto>> startInspection(
-            @PathVariable Long inspectionId,
-            @AuthenticationPrincipal CustomUserDetails adminDetails) {
-
-        InspectionResponseDto response = inspectionService.startInspection(inspectionId, adminDetails.getUserId());
-        return ResponseEntity.ok(ApiResponse.success(response, "검수가 시작되었습니다"));
-    }
-
-    /**
-     * 체크리스트 조회
-     */
-    @GetMapping("/inspections/{inspectionId}/checklist")
-    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> getChecklist(
-            @PathVariable Long inspectionId) {
-
-        InspectionChecklistResponseDto response = inspectionService.getChecklist(inspectionId);
-        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 조회 성공"));
-    }
-
-    /**
-     * 체크리스트 수정
-     */
-    @PatchMapping("/inspections/{inspectionId}/checklist")
-    public ResponseEntity<ApiResponse<InspectionChecklistResponseDto>> updateChecklist(
-            @PathVariable Long inspectionId,
-            @Valid @RequestBody InspectionChecklistRequestDto request) {
-
-        InspectionChecklistResponseDto response = inspectionService.updateChecklist(inspectionId, request);
-        return ResponseEntity.ok(ApiResponse.success(response, "체크리스트 수정 성공"));
-    }
-
-    /**
-     * 검수 합격 처리 (INSPECTING → PASSED)
-     */
-    @PatchMapping("/inspections/{inspectionId}/pass")
-    public ResponseEntity<ApiResponse<InspectionResponseDto>> passInspection(
-            @PathVariable Long inspectionId) {
-
-        InspectionResponseDto response = inspectionService.passInspection(inspectionId);
-        return ResponseEntity.ok(ApiResponse.success(response, "검수 합격 처리 완료"));
-    }
-
-    /**
-     * 검수 불합격 처리 (INSPECTING → FAILED)
-     */
-    @PatchMapping("/inspections/{inspectionId}/fail")
-    public ResponseEntity<ApiResponse<InspectionResponseDto>> failInspection(
-            @PathVariable Long inspectionId,
-            @Valid @RequestBody InspectionFailRequestDto request) {
-
-        InspectionResponseDto response = inspectionService.failInspection(inspectionId, request.getFailReason());
-        return ResponseEntity.ok(ApiResponse.success(response, "검수 불합격 처리 완료"));
-    }
-
-    /**
-      검수 이력 목록 조회 (필터 + 페이징)
-     */
-    @GetMapping("/inspections/history")
-    public ResponseEntity<ApiResponse<Page<InspectionHistoryResponseDto>>> getInspectionHistory(
-            @ModelAttribute InspectionSearchRequestDto condition,
-            Pageable pageable) {
-
-        Page<InspectionHistoryResponseDto> response = inspectionService.getInspectionHistgory(condition, pageable);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    /**
-     * 검수 이력 상세 조회 (체크리스트 포함)
-     */
-    @GetMapping("/inspections/history/{inspectionId}")
-    public ResponseEntity<ApiResponse<InspectionHistoryDetailResponseDto>> getInspectionHistoryDetail(
-            @PathVariable Long inspectionId) {
-
-        InspectionHistoryDetailResponseDto response = inspectionService.getInspectionHistoryDetail(inspectionId);
-        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
