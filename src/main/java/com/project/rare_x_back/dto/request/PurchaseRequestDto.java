@@ -10,6 +10,7 @@ public class PurchaseRequestDto {
     private Long orderId;       /// 주문 ID
     private int price;          /// 구매 가격
 
+    private Long addressId;     // 구매자가 선택한 배송지Id
 
     private String paymentKey;  /// 토스페이먼츠 키
     private String tossOrderId; /// 토스 주문 ID
