@@ -10,8 +10,8 @@ import java.util.Optional;
 
 public interface AddressRepository extends JpaRepository<Address, Long> {
 
-    //유저의 주소 갯수 카운트
-    int countByUser_UserId(Long UserId);
+    //유저의 주소 개수 카운트
+    int countByUser_UserId(Long userId);
 
     // 기본 배송지 해제
     @Modifying
@@ -27,7 +27,7 @@ public interface AddressRepository extends JpaRepository<Address, Long> {
     List<Address> findByUser_UserIdAndAddressIdIn(Long userId, List<Long> addressIds);
 
     //유저 아이디와 주소록아이디로 주소록 조회
-    Optional<Address> findByAddressIdAndUser_UserId(Long userId, Long addressId);
+    Optional<Address> findByAddressIdAndUser_UserId(Long addressId, Long userId);
 
     // 유저의 id로 주소 조회, 그 중 기본 배송지 주소록 조회
     Optional <Address> findAddressesByUser_UserIdAndIsDefaultIsTrue(Long userId);

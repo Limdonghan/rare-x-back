@@ -6,6 +6,7 @@ import com.project.rare_x_back.dto.request.UserAddressUpdateRequestDto;
 import com.project.rare_x_back.dto.response.JusoResponseDto;
 import com.project.rare_x_back.dto.response.UserAddressResponseDto;
 import com.project.rare_x_back.entity.Address;
+import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.AddressRepository;
@@ -30,7 +31,7 @@ public class AddressService {
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
 
-    @Value("${JUSO_CONFIRM_KEY}")
+    @Value("${juso.api.key}")
     private String apiKey;
 
     // 주소 검색
@@ -56,8 +57,15 @@ public class AddressService {
     @Transactional
     public void createAddress (Long userId, AddressRegisterRequestDto requestDto) {
 
-        // 유저의 현재 주소 갯수 조회
+        // 유저의 현재 주소 개수 조회
         int addressCount = addressRepository.countByUser_UserId(userId);
+        // 한 유저당 등록 가능 배송지는 최대 10개 정책
+        if (addressCount >= 10) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "배송지는 최대 10개까지 등록 가능 합니다.");
+        }
+
+        User user = userRepository.findByUserIdAndIsDeletedFalse(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "존재하지 않는 유저입니다."));
 
         // 주소 갯수가 0이면 -> 정책에 맞게 최초 등록 주소는 기본배송지로 설정
         // 주소가 이미 있는데 이번에 등록하는 주소를 기본으로 설정 -> 기존 기본 배송 해제
@@ -67,11 +75,6 @@ public class AddressService {
         } else if (isDefault) {
             addressRepository.updateAllIsDefaultToFalse(userId);
         }
-        // 한 유저당 등록 가능 배송지는 최대 10개 정책
-        if (addressCount >= 10) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "배송지는 최대 10개까지 등록 가능 합니다.");
-        }
-
         // 엔티티 생성 및 저장
         Address address = Address.builder()
                 .user(userRepository.getReferenceById(userId))
@@ -98,6 +101,8 @@ public class AddressService {
                     .address(address.getAddress())
                     .detailAddress(address.getDetailAddress())
                     .defaultAddress(address.isDefault())
+                    .createdAt(address.getCreatedAt())
+                    .updatedAt(address.getUpdatedAt())
                     .build();
 
             responses.add(newResult);
@@ -107,12 +112,12 @@ public class AddressService {
 
     // 주소 수정
     // 유저 정보와 수정할 주소록아이디를 받아와야함.
-    // 수정 가능한 정보는 유저가 직접 입력한 상세 주소와 받는이 그리고 기본 배송지 여부 (배송지 여부는 정책상 따로 설정 해야한
+    // 수정 가능한 정보는 유저가 직접 입력한 상세 주소와 받는이, 그리고 기본 배송지 여부 (배송지 여부는 정책상 별도의 api 따로 설정 해야한
     @Transactional
     public void updateAddress (Long userId, Long addressId, UserAddressUpdateRequestDto requestDto) {
         // 수정할 유저의 주소록 정보 찾기
         Address changeAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
         changeAddress.updateAddress(requestDto.getRecipientName(), requestDto.getDetailAddress());
     }
 
@@ -125,11 +130,11 @@ public class AddressService {
     public void updateDefaultAddress (Long userId, Long addressId, DefaultAddressUpdateRequestDto requestDto) {
 
         Address changeAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
 
         // 요청
         boolean isDefault = requestDto.isDefaultAddress();
-        // 유저의 주소록 갯수
+        // 유저의 주소록 개수
         int addressCount = addressRepository.countByUser_UserId(userId);
         // 유저의 기존 기본 배송지
         Optional<Address> currentDefaultAddr = addressRepository.findAddressesByUser_UserIdAndIsDefaultIsTrue(userId);
@@ -146,20 +151,20 @@ public class AddressService {
             return;
         }
         // 여기서 부터 isDefault가 false인 경우, 해제 요청
-        // 유저가 해제해달라고 했는데, 원래 기본 배송지도 아니었을 경우,
+
+        // 유저가 해제해달라고 했는데, 이미 기본 배송지도 아니었을 경우,
         if (!changeAddress.isDefault()) return;
 
-        // 유저의 주소 갯수가 1개이하 이면 기본 배송지 정책 적용(최소1개, 최초등록한 주소 = 자동 기본배송지)
+        // 유저의 주소 개수가 1개이하 이면 기본 배송지 정책 적용(최소1개, 최초등록한 주소 = 자동 기본배송지)
         if (addressCount <= 1) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "기본 배송지는 1개 필수 입니다.");
         }
         changeAddress.unsetDefault(); // 아니면 해제
 
         // 요청 주소가 기본 배송지였고 그걸 해제 했다면 -> 대체 기본 배송지 선택
-        Address newDefaultAddr = latestAddr.stream()
-                .filter(address -> !address.getAddressId().equals(changeAddress.getAddressId())) // 리스트 중 id가 변경 주소id랑 다른 것만 통과
-                .findFirst()// 필터링 된 것 중 첫 번째 하나만 가져옴
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+        Address newDefaultAddr = addressRepository.findTopByUser_UserIdAndAddressIdNotOrderByCreatedAtDesc(userId, addressId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST,"기본 배송지를 대체할 주소를 찾을 수 없습니다."));
+        
         newDefaultAddr.setAsDefault();
     }
 
@@ -168,7 +173,7 @@ public class AddressService {
     public void deleteAddress(Long userId, Long addressId) {
 
         Address deleteAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST,"지정된 사용자에 대한 주소를 찾을 수 없습니다"));
 
         boolean wasDefault = deleteAddress.isDefault();
         // 주소 삭제
