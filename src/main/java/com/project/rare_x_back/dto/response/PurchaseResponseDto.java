@@ -13,9 +13,5 @@ public class PurchaseResponseDto {
     private String category;        /// 카테고리
 
     private String tossOrderId;     /// 토스 주문 번호
-
-
-    private String paymentKey;  /// 토스페이먼츠 키
-    private String orderId;     /// 토스 주문 ID
     private int amount;         /// 토스 실제 금액
 }

@@ -1,5 +1,6 @@
 package com.project.rare_x_back.dto.request;
 
+import com.project.rare_x_back.entity.Order;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -14,6 +15,6 @@ public class PaymentConfirmRequestDto {
     private String tossOrderId;     /// 우리가 만든 주문 ID (toss_order_id)
     private int amount;             /// 결제 금액
 
-    private Long orderId;
+    private Order orderId;
 
 }

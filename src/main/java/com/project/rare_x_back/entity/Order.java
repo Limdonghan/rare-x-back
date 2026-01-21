@@ -26,23 +26,23 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "buyer_id")
-    private User buyer;                         /// 판매자
+    private User buyer;                         /// 구매자
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id")
-    private User seller;                        /// 구매자
+    private User seller;                        /// 판매자
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
-    private Product productId;                  /// 상품
+    private Product product;                    /// 상품
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "buy_bid_id")
-    private BuyBid buyBidId;                    /// 체결된 판매 입찰
+    private BuyBid buyBid;                      /// 체결된 판매 입찰
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sell_bid_id")
-    private SaleBid sellBidId;                  /// 체결된 구매 입찰
+    private SaleBid sellBid;                    /// 체결된 구매 입찰
 
     @Column(name = "bid_type")
     private BidType type;                       /// 입찰 구분
@@ -50,6 +50,7 @@ public class Order {
     @Column(name = "price")
     private int price;                          /// 거래 가격
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "current_status")
     private CurrentStatus currentStatus;            /// 주문 상태
 

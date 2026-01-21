@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Builder
+@ToString(exclude = {"user","product"})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Table(name = "buy_bids")
@@ -25,15 +26,16 @@ public class BuyBid {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User userId;                    /// 구매자
+    private User user;                    /// 구매자
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
-    private Product productId;              /// 구매 상품
+    private Product product;              /// 구매 상품
 
     @Column(name = "price")
     private int price;                      /// 구매 희망 가격
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private BidStatus status;               /// 입찰 상태
 

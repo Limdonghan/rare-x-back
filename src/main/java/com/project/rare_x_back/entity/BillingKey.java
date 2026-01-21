@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 @Entity
 @Getter
 @Builder
-@ToString(exclude = "userId")
+@ToString(exclude = "user")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Table(name = "billing_keys")
@@ -23,7 +23,7 @@ public class BillingKey {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User userId;
+    private User user;
 
     /// [추가] 자동 결제시 본인 확인을 위해 추가
     @Column(name = "customer_key")

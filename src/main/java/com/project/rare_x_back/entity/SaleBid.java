@@ -25,19 +25,20 @@ public class SaleBid {
 
     @JoinColumn(name = "user_id")
     @ManyToOne(fetch = FetchType.LAZY)
-    private User userId;                     /// 판매자
+    private User user;                     /// 판매자
 
     @JoinColumn(name = "product_id")
     @ManyToOne(fetch = FetchType.LAZY)
-    private Product productId;              /// 판매 상품
+    private Product product;              /// 판매 상품
 
     @JoinColumn(name = "storage_id")
     @ManyToOne(fetch = FetchType.LAZY)
-    private StorageItem storageId;          /// 보관 상품
+    private StorageItem storageItem;          /// 보관 상품
 
     @Column(name = "price")
     private int price;                      /// 판매 가격
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private BidStatus status;               /// 판매 상태
 
