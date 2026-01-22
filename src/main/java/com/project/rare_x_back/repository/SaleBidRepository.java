@@ -11,6 +11,11 @@ import java.util.List;
 
 public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
 
+    /// [추가] 상품별 상태별 조회
+    List<SaleBid> findAllByProductAndStatus(Product product, BidStatus status);
+
+    /// [추가] 상품별 상태별 가격순 조회
+    List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<SaleBid> findAllByProductAndPriceAndStatusOrderByCreatedAtAsc(Product productId, int price, BidStatus status);
