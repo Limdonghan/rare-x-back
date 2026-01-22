@@ -37,7 +37,7 @@ public class AdminService {
     private final ProductImageRepository productImageRepository;
 
     //상품 등록
-    public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
+    public Long createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
                 .orElseThrow(() -> new CustomException(
@@ -59,7 +59,8 @@ public class AdminService {
                 .category(category)
                 .build();
 
-        productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+        return savedProduct.getProductId();
 
     }
 
@@ -249,6 +250,7 @@ public class AdminService {
 
         for(Category category : results){
             CategoryListResponseDto newResult = new CategoryListResponseDto(
+                    category.getCategoryId(),
                     category.getCategoryName()
             );
             response.add(newResult);
@@ -295,8 +297,9 @@ public class AdminService {
 
         for(Brand brand : results){
             BrandListResponseDto newResult = new BrandListResponseDto(
+                    brand.getBrandId(),
                     brand.getBrandName()
-            );
+                    );
             response.add(newResult);
         }
         return response;
