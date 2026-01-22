@@ -21,13 +21,10 @@ public class Inspection {
     @Column(name = "inspection_id")
     private Long inspectionId;
 
-    // TODO: Order 엔티티 생성 후 @ManyToOne 관계로 변경
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "order_id")
-    // private Order order;
     // 주문 검수용 (NULL 가능)
-    @Column(name = "order_id")
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
 
     // 보관 검수용 (NULL 가능)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -61,9 +58,9 @@ public class Inspection {
     private LocalDateTime inspectedAt;
 
     @Builder
-    public Inspection(Long orderId, StorageRequest storageRequest, User user,
+    public Inspection(Order order, StorageRequest storageRequest, User user,
                       InspectionType type, InspectionStatus status) {
-        this.orderId = orderId;
+        this.order = order;
         this.storageRequest = storageRequest;
         this.user = user;
         this.type = type;
