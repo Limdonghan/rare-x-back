@@ -122,6 +122,11 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.PENDING_INSPECTION);
         }
 
+        // 5. Order 상태도 함께 변경
+        if (inspection.getOrder() != null) {
+            inspection.getOrder().setCurrentStatus(CurrentStatus.PENDING_INSPECTION);
+        }
+
         return InspectionResponseDto.from(inspection);
     }
 
@@ -155,7 +160,12 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.INSPECTING);
         }
 
-        // 6. 체크리스트 생성
+        // 6. Order 상태도 함께 변경
+        if (inspection.getOrder() != null) {
+            inspection.getOrder().setCurrentStatus(CurrentStatus.INSPECTING);
+        }
+
+        // 7. 체크리스트 생성
         InspectionChecklist checklist = InspectionChecklist.builder()
                 .inspection(inspection)
                 .build();
@@ -247,7 +257,7 @@ public class InspectionService {
             }
 
             // orders 상태 동기화 (검수 합격)
-            order.setCurrentStatus(CurrentStatus.CONFIRMED);
+            order.setCurrentStatus(CurrentStatus.PASSED);
         }
 
         return InspectionResponseDto.from(inspection);
@@ -282,7 +292,7 @@ public class InspectionService {
             }
 
             // storage_requests 상태 동기화
-            storageRequest.updateStatus(StorageRequestStatus.FAILED);
+            storageRequest.updateStatus(StorageRequestStatus.RETURN);
         }
 
         if (inspection.getType() == InspectionType.ORDER) {
