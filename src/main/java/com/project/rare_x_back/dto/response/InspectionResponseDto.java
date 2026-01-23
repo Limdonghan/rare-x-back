@@ -1,9 +1,6 @@
 package com.project.rare_x_back.dto.response;
 
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.Product;
-import com.project.rare_x_back.entity.StorageRequest;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import lombok.Builder;
@@ -34,8 +31,6 @@ public class InspectionResponseDto {
     private LocalDateTime inspectedAt;
 
     // Inspection 엔티티를 ResponseDto로 변환
-    // 보관 검수(STORAGE)인 경우 상품/판매자 정보 포함
-    // TODO 주문 검수(ORDER)인 경우 상품/판매자 정보는 null (추후 Order 연동 시 추가)
     public static InspectionResponseDto from(Inspection inspection) {
         var builder = InspectionResponseDto.builder()   // 장황한 빌더 타입 선언을 생략하여 코드 가독성을 높임(var builder)
                 .inspectionId(inspection.getInspectionId())
@@ -45,7 +40,7 @@ public class InspectionResponseDto {
                 .createdAt(inspection.getCreatedAt())
                 .inspectedAt(inspection.getInspectedAt());
 
-        // 보관 검수인 경우 - null 안전하게 처리
+        // 보관 검수(STORAGE)인 경우
         StorageRequest storageRequest = inspection.getStorageRequest();
         if (storageRequest != null) {
             // 판매자 정보
@@ -62,6 +57,28 @@ public class InspectionResponseDto {
                         .productName(product.getProductName());
 
                 // 브랜드 정보
+                if (product.getBrand() != null) {
+                    builder.brandName(product.getBrand().getBrandName());
+                }
+            }
+        }
+
+        // 주문 검수(ORDER)인 경우
+        Order order = inspection.getOrder();
+        if (order != null) {
+            // 판매자 정보
+            User seller = order.getSeller();
+            if (seller != null) {
+                builder.sellerId(seller.getUserId())
+                        .sellerName(seller.getName());
+            }
+
+            // 상품 정보
+            Product product = order.getProduct();
+            if (product != null) {
+                builder.productId(product.getProductId())
+                        .productName(product.getProductName());
+
                 if (product.getBrand() != null) {
                     builder.brandName(product.getBrand().getBrandName());
                 }

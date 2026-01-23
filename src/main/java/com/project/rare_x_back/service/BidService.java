@@ -4,18 +4,18 @@ import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.request.PurchaseRequestDto;
 import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
 import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
+import com.project.rare_x_back.dto.response.OrderShipResponseDto;
 import com.project.rare_x_back.dto.response.PurchaseResponseDto;
 import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
 import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
 import com.project.rare_x_back.entity.*;
-import com.project.rare_x_back.enums.BidStatus;
-import com.project.rare_x_back.enums.BidType;
-import com.project.rare_x_back.enums.CurrentStatus;
+import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +34,11 @@ public class BidService {
     private final OrderRepository orderRepository;
     private final PaymentService paymentService;
     private final StorageItemRepository storageItemRepository;
+    private final InspectionRepository inspectionRepository;
+    @Value("${inspection-center.address}")
+    private String inspectionCenterAddress;
+    @Value("${inspection-center.zipcode}")
+    private String inspectionCenterZipcode;
 
     /**
      * [판매 입찰 등록]
@@ -139,7 +144,7 @@ public class BidService {
                 .sellBid(saleBid)
                 .type(BidType.BUY)
                 .price(purchaseRequestDto.getPrice())
-                .currentStatus(CurrentStatus.PENDING_INSPECTION)
+                .currentStatus(CurrentStatus.PENDING)
                 .build();
         orderRepository.save(order);
 
@@ -169,5 +174,42 @@ public class BidService {
 
     }
 
+    /**
+     * [Order 발송 처리]
+     * 판매자가 검수센터로 상품 발송 완료 처리
+     * PENDING → SHIPPED_TO_WAREHOUSE + Inspection 생성
+     */
+    @Transactional
+    public OrderShipResponseDto shipOrderToWarehouse(String email, Long orderId) {
+        // 1. 사용자 조회
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 2. Order 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문을 찾을 수 없습니다."));
+
+        // 3. 본인 확인 (판매자만 발송 가능)
+        if (!order.getSeller().getUserId().equals(user.getUserId())) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 판매 건만 발송 처리할 수 있습니다.");
+        }
+
+        // 4. 상태 확인 (PENDING만 발송 가능)
+        if (order.getCurrentStatus() != CurrentStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 대기 상태에서만 발송 처리가 가능합니다.");
+        }
+
+        // 5. Order 상태 변경
+        order.setCurrentStatus(CurrentStatus.SHIPPED_TO_WAREHOUSE);
+
+        // 6. Inspection 생성
+        Inspection inspection = Inspection.builder()
+                .order(order)
+                .type(InspectionType.ORDER)
+                .status(InspectionStatus.SHIPPED_TO_WAREHOUSE)
+                .build();
+        inspectionRepository.save(inspection);
+
+        return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
+    }
 }
