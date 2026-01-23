@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
-    /// [추가] 상품별 상태별 카운팅
+    /// [추가] 상품별 상태별 입찰 목록 조회
     List<BuyBid> findAllByProductAndStatus(Product product, BidStatus status);
 
     /// [추가] 상품별 상태별 가격순 조회

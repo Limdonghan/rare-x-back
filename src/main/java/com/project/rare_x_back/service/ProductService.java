@@ -58,8 +58,6 @@ public class ProductService {
             // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
             int buyPrice = buyBidPriceList.isEmpty() ? 0 : buyBidPriceList.getFirst().getPrice();
 
-            // [추가] 상품 즉시 판매 최저가, 입찰이 없으며 0원
-            int salePrice = saleBidPriceList.isEmpty() ? 0 : saleBidPriceList.getFirst().getPrice();
 
             // 이미지 리스트에서 첫 번째 이미지(썸네일) URL 추출
             String imageUrl = null;
@@ -93,7 +91,7 @@ public class ProductService {
         List<SaleBid> allSaleBids = saleBidRepository.findAllByProductAndStatus(product, BidStatus.OPEN);
 
         // Java Stream으로 그룹핑 & 카운트 & 정렬
-        // 구매 입찰: 가격별로 묶기 -> 내림차순(비싼 가격 우선)
+        // 구매 입찰: 가격별로 묶기 -> 오름차순(싼 가격 우선)
         List<BidInfo> buyBidList = allBuyBids.stream()
                 .collect(Collectors.groupingBy(BuyBid::getPrice, Collectors.counting()))
                 .entrySet().stream()
@@ -101,7 +99,7 @@ public class ProductService {
                 .sorted(Comparator.comparingInt(BidInfo::getPrice))
                 .toList();
 
-        // 판매 입찰: 가격별로 묶기 -> 오름차순(싼 가격 우선)
+        // 판매 입찰: 가격별로 묶기 -> 내림차순(비싼 가격 우선)
         List<BidInfo> saleBidList = allSaleBids.stream()
                 .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
                 .entrySet().stream()

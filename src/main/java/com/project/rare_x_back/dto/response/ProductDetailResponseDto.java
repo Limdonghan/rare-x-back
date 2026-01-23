@@ -21,7 +21,6 @@ public class ProductDetailResponseDto {
     private int salePrice;
     private int buyPrice;
     private List<String> imageUrls;
-    private int priceCount;
 
     private List<BidInfo>  saleBidInfoList;
     private List<BidInfo> buyBidInfoList;
