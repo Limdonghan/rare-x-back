@@ -60,7 +60,11 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/api/product/**"
                         ).permitAll()
-
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/inspections/**").hasRole("ADMIN")
 
