@@ -1,6 +1,7 @@
 package com.project.rare_x_back.exceptions;
 
 import com.project.rare_x_back.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Hidden
 @RestControllerAdvice   // Spring이 자동으로 모든 에러 여기로 보냄!
 public class GlobalExceptionHandler {
 
