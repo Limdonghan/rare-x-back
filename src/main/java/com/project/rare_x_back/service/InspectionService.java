@@ -210,7 +210,7 @@ public class InspectionService {
     }
 
     /**
-     * 검수 합격 처리 (INSPECTING → STORAGE 타입: PASSED, ORDER 타입: CONFIRMED)
+     * 검수 합격 처리 (INSPECTING → STORAGE 타입: PASSED, ORDER 타입: PASSED)
      * - STORAGE 타입: storage_requests 상태 동기화 + storage_items 생성
      * - ORDER 타입: orders 상태 동기화
      */
