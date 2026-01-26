@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Builder
-public class InspectionResponseDto {
+public class InspectionHistoryResponseDto {
 
     private Long inspectionId;
     private InspectionType type;
@@ -20,27 +20,41 @@ public class InspectionResponseDto {
     private Long productId;
     private String productName;
     private String brandName;
+    private Long categoryId;
+    private String categoryName;
 
     // 판매자 정보
     private Long sellerId;
     private String sellerName;
 
+    // 검수 담당자 정보
+    private Long inspectorId;
+    private String inspectorName;
+
     // 검수 정보
     private String failReason;
     private LocalDateTime createdAt;
+    private LocalDateTime startedAt;
     private LocalDateTime inspectedAt;
 
-    // Inspection 엔티티를 ResponseDto로 변환
-    public static InspectionResponseDto from(Inspection inspection) {
-        var builder = InspectionResponseDto.builder()   // 장황한 빌더 타입 선언을 생략하여 코드 가독성을 높임(var builder)
+    public static InspectionHistoryResponseDto from(Inspection inspection) {
+        var builder = InspectionHistoryResponseDto.builder()
                 .inspectionId(inspection.getInspectionId())
                 .type(inspection.getType())
                 .status(inspection.getStatus())
                 .failReason(inspection.getFailReason())
                 .createdAt(inspection.getCreatedAt())
+                .startedAt(inspection.getStartedAt())
                 .inspectedAt(inspection.getInspectedAt());
 
-        // 보관 검수(STORAGE)인 경우
+        // 검수 담당자 정보
+        User inspector = inspection.getUser();
+        if (inspector != null) {
+            builder.inspectorId(inspector.getUserId())
+                    .inspectorName(inspector.getName());
+        }
+
+        // 보관 검수인 경우
         StorageRequest storageRequest = inspection.getStorageRequest();
         if (storageRequest != null) {
             // 판매자 정보
@@ -59,6 +73,12 @@ public class InspectionResponseDto {
                 // 브랜드 정보
                 if (product.getBrand() != null) {
                     builder.brandName(product.getBrand().getBrandName());
+                }
+
+                // 카테고리 정보
+                if (product.getCategory() != null) {
+                    builder.categoryId(product.getCategory().getCategoryId())
+                            .categoryName(product.getCategory().getCategoryName());
                 }
             }
         }
@@ -81,6 +101,11 @@ public class InspectionResponseDto {
 
                 if (product.getBrand() != null) {
                     builder.brandName(product.getBrand().getBrandName());
+                }
+
+                if (product.getCategory() != null) {
+                    builder.categoryId(product.getCategory().getCategoryId())
+                            .categoryName(product.getCategory().getCategoryName());
                 }
             }
         }

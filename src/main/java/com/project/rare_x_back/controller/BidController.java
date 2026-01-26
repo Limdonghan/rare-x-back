@@ -5,6 +5,7 @@ import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.PurchaseRequestDto;
 import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
 import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
+import com.project.rare_x_back.dto.response.OrderShipResponseDto;
 import com.project.rare_x_back.dto.response.PurchaseResponseDto;
 import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
 import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
@@ -13,10 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/bid")
@@ -59,4 +57,17 @@ public class BidController {
                 .ok().body(ApiResponse.success(purchaseResponseDto,"주문이 완료되었습니다"));
     }
 
+    /**
+     * [Order 발송 처리]
+     * 판매자가 검수센터로 상품 발송 완료 처리
+     */
+    @PostMapping("/orders/{orderId}/ship")
+    public ResponseEntity<ApiResponse<OrderShipResponseDto>> shipOrderToWarehouse(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long orderId) {
+
+        OrderShipResponseDto response = bidService.shipOrderToWarehouse(userDetails.getUsername(), orderId);
+
+        return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다."));
+    }
 }

@@ -170,6 +170,7 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .name(user.getName())
                 .passwordlessToken(passwordlessResponseDto.getData())
+                .role(user.getRole().name())
                 .isPasswordChangeRequired(requiresChange) //임시비번 여부 반영
                 .build();
     }

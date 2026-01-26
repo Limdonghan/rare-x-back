@@ -2,8 +2,11 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
+import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
+import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.*;
+import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.enums.StorageRequestStatus;
@@ -14,11 +17,12 @@ import com.project.rare_x_back.repository.InspectionRepository;
 import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,44 +35,42 @@ public class InspectionService {
     private final StorageItemRepository storageItemRepository;
 
     /**
-     * 전체 검수 목록 조회 (타입 무관)
+     * 전체 검수 목록 조회 (타입 무관, 페이징)
      *
-     * @param status 검수 상태 (null이면 전체)
+     * @param status   검수 상태 (null이면 전체)
+     * @param pageable 페이징 정보
      * @return 검수 목록
      */
-    public List<InspectionResponseDto> getAllInspections(InspectionStatus status) {
-        List<Inspection> inspections;
+    public Page<InspectionResponseDto> getAllInspections(InspectionStatus status, Pageable pageable) {
+        Page<Inspection> inspections;
 
         if (status == null) {
-            inspections = inspectionRepository.findAllWithDetails();
+            inspections = inspectionRepository.findAllWithDetails(pageable);
         } else {
-            inspections = inspectionRepository.findByStatusWithDetails(status);
+            inspections = inspectionRepository.findByStatus(status, pageable);
         }
 
-        return inspections.stream()
-                .map(InspectionResponseDto::from)
-                .collect(Collectors.toList());
+        return inspections.map(InspectionResponseDto::from);
     }
 
     /**
-     * 타입별 검수 목록 조회
+     * 타입별 검수 목록 조회 (페이징)
      *
-     * @param type 검수 타입 (STORAGE, ORDER)
-     * @param status 검수 상태 (null이면 전체)
+     * @param type     검수 타입 (STORAGE, ORDER)
+     * @param status   검수 상태 (null이면 전체)
+     * @param pageable 페이징 정보
      * @return 검수 목록
      */
-    public List<InspectionResponseDto> getInspectionList(InspectionType type, InspectionStatus status) {
-        List<Inspection> inspections;   // 리스트 초기화를 위한 변수 선언
+    public Page<InspectionResponseDto> getInspectionList(InspectionType type, InspectionStatus status, Pageable pageable) {
+        Page<Inspection> inspections;
 
         if (status == null) {
-            inspections = inspectionRepository.findByTypeWithDetails(type);
+            inspections = inspectionRepository.findByType(type, pageable);
         } else {
-            inspections = inspectionRepository.findByTypeAndStatusWithDetails(type, status);
+            inspections = inspectionRepository.findByTypeAndStatus(type, status, pageable);
         }
 
-        return inspections.stream()
-                .map(InspectionResponseDto::from)
-                .collect(Collectors.toList());
+        return inspections.map(InspectionResponseDto::from);
     }
 
     /**
@@ -120,6 +122,11 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.PENDING_INSPECTION);
         }
 
+        // 5. Order 상태도 함께 변경
+        if (inspection.getOrder() != null) {
+            inspection.getOrder().setCurrentStatus(CurrentStatus.PENDING_INSPECTION);
+        }
+
         return InspectionResponseDto.from(inspection);
     }
 
@@ -153,7 +160,12 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.INSPECTING);
         }
 
-        // 6. 체크리스트 생성
+        // 6. Order 상태도 함께 변경
+        if (inspection.getOrder() != null) {
+            inspection.getOrder().setCurrentStatus(CurrentStatus.INSPECTING);
+        }
+
+        // 7. 체크리스트 생성
         InspectionChecklist checklist = InspectionChecklist.builder()
                 .inspection(inspection)
                 .build();
@@ -198,8 +210,9 @@ public class InspectionService {
     }
 
     /**
-     * 검수 합격 처리 (INSPECTING → PASSED)
+     * 검수 합격 처리 (INSPECTING → STORAGE 타입: PASSED, ORDER 타입: PASSED)
      * - STORAGE 타입: storage_requests 상태 동기화 + storage_items 생성
+     * - ORDER 타입: orders 상태 동기화
      */
     @Transactional
     public InspectionResponseDto passInspection(Long inspectionId) {
@@ -235,14 +248,25 @@ public class InspectionService {
             storageItemRepository.save(storageItem);
         }
 
-        // TODO ORDER 타입은 나중에 구현
+        if (inspection.getType() == InspectionType.ORDER) {
+            Order order = inspection.getOrder();
+
+            // NPE 검사
+            if (order == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            }
+
+            // orders 상태 동기화 (검수 합격)
+            order.setCurrentStatus(CurrentStatus.PASSED);
+        }
 
         return InspectionResponseDto.from(inspection);
     }
 
     /**
-     * 검수 불합격 처리 (INSPECTING → FAILED)
+     * 검수 불합격 처리 (INSPECTING → FAILED, RETURN)
      * - STORAGE 타입: storage_requests 상태 동기화
+     * - ORDER 타입: orders 상태 동기화
      */
     @Transactional
     public InspectionResponseDto failInspection(Long inspectionId, String failReason) {
@@ -268,11 +292,61 @@ public class InspectionService {
             }
 
             // storage_requests 상태 동기화
-            storageRequest.updateStatus(StorageRequestStatus.FAILED);
+            storageRequest.updateStatus(StorageRequestStatus.RETURN);
         }
 
-        // TODO ORDER 타입은 나중에 구현
+        if (inspection.getType() == InspectionType.ORDER) {
+            Order order = inspection.getOrder();
+
+            // NPE 검사
+            if (order == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            }
+
+            // orders 상태 동기화 (검수 불합격 → 반송)
+            order.setCurrentStatus(CurrentStatus.RETURN);
+        }
 
         return InspectionResponseDto.from(inspection);
+    }
+
+    /**
+     * 검수 이력 목록 조회 (페이징)
+     */
+    public Page<InspectionHistoryResponseDto> getInspectionHistory(
+            InspectionStatus status, Pageable pageable) {
+
+        Page<Inspection> inspections;
+
+        if (status == null) {
+            // 전체 이력 조회 (PASSED + FAILED)
+            inspections = inspectionRepository.findHistoryByStatusIn(
+                    List.of(InspectionStatus.PASSED, InspectionStatus.FAILED), pageable);
+        } else {
+            // 상태별 조회
+            inspections = inspectionRepository.findHistoryByStatus(status, pageable);
+        }
+
+        return inspections.map(InspectionHistoryResponseDto::from);
+    }
+
+    /**
+     * 검수 이력 상세 조회 (체크리스트 포함)
+     */
+    public InspectionHistoryDetailResponseDto getInspectionHistoryDetail(Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 완료된 검수인지 확인 (PASSED 또는 FAILED)
+        if (inspection.getStatus() != InspectionStatus.PASSED && inspection.getStatus() != InspectionStatus.FAILED) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "완료된 검수 이력만 조회할 수 있습니다.");
+        }
+
+        // 3. 체크리스트 조회 (없을 수도 있음)
+        InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
+                .orElse(null);
+
+        return InspectionHistoryDetailResponseDto.from(inspection, checklist);
     }
 }
