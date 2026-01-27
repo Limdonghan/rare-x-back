@@ -5,15 +5,14 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProductSearchResultDto {
-    private int totalCount;
-    private int page;
-    private int size;
-    private List<ProductSearchResponseDto> products;
+public class UserSearchResponseDto {
+    private Long userId;
+    private String email;
+    private String name;
+    private String role;
+    private String status;
 }
