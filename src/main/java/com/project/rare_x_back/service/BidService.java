@@ -1,13 +1,7 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
-import com.project.rare_x_back.dto.request.PurchaseRequestDto;
-import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
-import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
-import com.project.rare_x_back.dto.response.OrderShipResponseDto;
-import com.project.rare_x_back.dto.response.PurchaseResponseDto;
-import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
-import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
+import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
@@ -93,6 +87,7 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+
         BuyBid build = BuyBid.builder()
                 .user(user)
                 .product(product)
@@ -111,7 +106,7 @@ public class BidService {
     }
 
     /**
-     * [즉시 결제 처리]
+     * [즉시 구매 결제 처리]
      * 1. 구매자가 해당 상품 선택
      * 2. 주문 테이블 생성
      * 3. 입찰 상태 변경
@@ -145,6 +140,7 @@ public class BidService {
                 .type(BidType.BUY)
                 .price(purchaseRequestDto.getPrice())
                 .currentStatus(CurrentStatus.PENDING)
+                .sellerShippedAt(LocalDateTime.now().plusDays(2))
                 .build();
         Order saveOrder = orderRepository.save(order);
 
@@ -158,19 +154,18 @@ public class BidService {
         try {
             paymentService.confirmPayment(paymentConfirmRequestDto, email);
 
-            return PurchaseResponseDto.builder()
-                    .productName(product.getProductName())
-                    .brandName(product.getBrand().getBrandName())
-                    .category(product.getCategory().getCategoryName())
-                    .tossOrderId(purchaseRequestDto.getTossOrderId())
-                    .amount(purchaseRequestDto.getAmount())
-                    .build();
         } catch (Exception e) {
             log.error("결제 승인 실패 주문: {} , 사용자 {}.", order.getOrderId(), email, e);
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
         }
 
-
+        return PurchaseResponseDto.builder()
+                .productName(product.getProductName())
+                .brandName(product.getBrand().getBrandName())
+                .category(product.getCategory().getCategoryName())
+                .tossOrderId(purchaseRequestDto.getTossOrderId())
+                .amount(purchaseRequestDto.getAmount())
+                .build();
     }
 
     /**
@@ -211,4 +206,67 @@ public class BidService {
 
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }
+
+    /**
+     * [즉시 판매 결제 처리]
+     * 1. 구매자가 해당 상품 선택
+     * 2. 주문 테이블 생성
+     * 3. 입찰 상태 변경
+     * 4. 결제 시도
+     * */
+    @Transactional
+    public SellNowResponseDto sellNow (SellNowRequestDto sellNowRequestDto, String email) {
+
+        ///  판매자 조회
+        User seller = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new RuntimeException("존재하지 않는 판매 입찰"));
+
+        buyBid.statusUpdate(BidStatus.MATCHED);
+
+        String orderNumber = paymentService.createTossOrderId();
+
+
+        /// [상태 변경] 구매입찰 -> 체결됨
+        buyBid.statusUpdate(BidStatus.MATCHED);
+
+        Order build = Order.builder()
+                .buyer(buyBid.getUser())
+                .seller(seller)
+                .product(product)
+                .buyBid(buyBid)
+                .sellBid(null)
+                .type(BidType.SELL)
+                .price(sellNowRequestDto.getPrice())
+                .currentStatus(CurrentStatus.PENDING)
+                .shipDeadline(LocalDateTime.now().plusDays(2))
+                .build();
+        Order saveOrder = orderRepository.save(build);
+
+        AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
+                .userId(buyBid.getUser().getUserId())
+                .orderId(saveOrder.getOrderId())
+                .amount(saveOrder.getPrice())
+                .tossOrderId(orderNumber)
+                .orderName(product.toString())
+                .build();
+
+        try {
+            paymentService.payWithBillingKey(autoPaymentRequestDto);
+        }catch (Exception e) {
+            throw new CustomException(ErrorCode.PAYMENT_FAILED);
+        }
+        return SellNowResponseDto.builder()
+                .tossOrderId(orderNumber)
+                .productName(product.getProductName())
+                .brandName(product.getBrand().getBrandName())
+                .category(product.getCategory().getCategoryName())
+                .amount(saveOrder.getPrice())
+                .build();
+
+    }
+
 }

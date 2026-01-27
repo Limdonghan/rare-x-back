@@ -32,6 +32,10 @@ public class BuyBid {
     @JoinColumn(name = "product_id")
     private Product product;              /// 구매 상품
 
+    @JoinColumn(name = "address_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Address address;
+
     @Column(name = "price")
     private int price;                      /// 구매 희망 가격
 

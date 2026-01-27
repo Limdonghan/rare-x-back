@@ -5,10 +5,8 @@ import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.PurchaseRequestDto;
 import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
 import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
-import com.project.rare_x_back.dto.response.OrderShipResponseDto;
-import com.project.rare_x_back.dto.response.PurchaseResponseDto;
-import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
-import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
+import com.project.rare_x_back.dto.request.SellNowRequestDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.service.BidService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -54,7 +52,20 @@ public class BidController {
                                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
         PurchaseResponseDto purchaseResponseDto = bidService.purchaseNow(purchaseRequestDto, userDetails.getUsername());
         return ResponseEntity
-                .ok().body(ApiResponse.success(purchaseResponseDto,"주문이 완료되었습니다"));
+                .ok().body(ApiResponse.success(purchaseResponseDto,"즉시 구매가 완료되었습니다"));
+    }
+
+    /**
+     * [즉시 판매] (Sell Now)
+     * 판매자가 '판매하기' 버튼을 누르면, 가장 비싸게 부른 구매자와 즉시 체결
+     * -> 구매자의 카드를 '자동 결제' 처리
+     */
+    @PostMapping("/sell")
+    public ResponseEntity<ApiResponse<SellNowResponseDto>> sellNow(@Valid @RequestBody SellNowRequestDto sellNowRequestDto,
+                                                                       @AuthenticationPrincipal CustomUserDetails userDetails) {
+        SellNowResponseDto sellNowResponseDto = bidService.sellNow(sellNowRequestDto, userDetails.getUsername());
+        return ResponseEntity
+                .ok().body(ApiResponse.success(sellNowResponseDto,"즉시 판매가 완료되었습니다"));
     }
 
     /**

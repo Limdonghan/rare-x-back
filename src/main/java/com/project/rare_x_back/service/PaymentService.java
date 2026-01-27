@@ -129,6 +129,8 @@ public class PaymentService {
         /// 1. 유저 확인
         User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        Order order = orderRepository.findById(autoPaymentRequestDto.getOrderId()).orElseThrow(() -> new RuntimeException("없는 주문임"));
+
         /// 2. DB에서 저장된 빌링키 꺼내오기
         BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
 
@@ -152,10 +154,8 @@ public class PaymentService {
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                      /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
-
-            /// TODO: 실제 Order ID 연동
-//                return responseMappingWithSave(response, 1L);
-            return null;
+        
+            return responseMappingWithSave(response, order);
         } catch (Exception e) {
             log.error(e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -215,7 +215,7 @@ public class PaymentService {
     /**
      * 공통 메서드 처리
      * */
-    private Payment responseMappingWithSave (Map<String, Object> response, Order orderId){
+    private Payment responseMappingWithSave (Map<String, Object> response, Order order){
         Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
 
         /// Response 값 매핑
@@ -230,7 +230,7 @@ public class PaymentService {
 
         /// DB 저장
         Payment build = Payment.builder()
-                .order(orderId)
+                .order(order)
                 .tossOrderId(tossOrderId)
                 .tossPaymentKey(tossPaymentKey)
                 .amount(amount)

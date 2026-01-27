@@ -44,6 +44,7 @@ public class Order {
     @JoinColumn(name = "sell_bid_id")
     private SaleBid sellBid;                    /// 체결된 구매 입찰
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "bid_type")
     private BidType type;                       /// 입찰 구분
 
@@ -63,6 +64,12 @@ public class Order {
 
     @Column(name = "expired_at")
     private LocalDateTime expiresAt;       /// 거래 만료일
+
+    @Column(name = "seller_shipped_at")
+    private LocalDateTime sellerShippedAt;
+
+    @Column(name="ship_deadline")
+    private LocalDateTime shipDeadline;
 
 
 
