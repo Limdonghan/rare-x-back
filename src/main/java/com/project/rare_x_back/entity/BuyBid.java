@@ -50,6 +50,9 @@ public class BuyBid {
         this.status = status;
     }
 
+    public void buyPriceUpdate(int price) {
+        this.price = price;
+    }
 
 
 }
