@@ -18,6 +18,7 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
     // 전체 조회 (타입 무관)
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
@@ -33,6 +34,7 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
     // 상태별 전체 조회 (타입 무관)
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
@@ -48,6 +50,7 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
     // 타입별 전체 조회
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
@@ -63,6 +66,7 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
     // 타입 + 상태별 조회
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
