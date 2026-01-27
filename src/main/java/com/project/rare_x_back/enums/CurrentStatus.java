@@ -1,7 +1,7 @@
 package com.project.rare_x_back.enums;
 
 public enum CurrentStatus {
-    PENDING,              ///  판매완료, 발송 전
+    PENDING,              ///  판매완료, 상품 -> 검수센터로 발송 전
     SHIPPED_TO_WAREHOUSE, /// 검수센터로 발송됨
     PENDING_INSPECTION,   /// 검수 대기 (판매자가 물건을 보냈고, 센터에 도착해서 순서를 기다리는 중)
     INSPECTING,           /// 검수중 (전문가가 정품 여부와 상태를 확인하는 중)
