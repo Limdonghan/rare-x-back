@@ -31,6 +31,9 @@ public class BuyBid {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Product product;              /// 구매 상품
+  
+    @Column(name = "address_id", nullable = false)
+    private Long addressId;
 
     @Column(name = "price")
     private int price;                      /// 구매 희망 가격
@@ -53,6 +56,8 @@ public class BuyBid {
     public void buyPriceUpdate(int price) {
         this.price = price;
     }
+    
+
 
 
 }

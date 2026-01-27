@@ -3,7 +3,12 @@ package com.project.rare_x_back.repository;
 import com.project.rare_x_back.entity.BuyBid;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.enums.BidStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +25,22 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
     List<BuyBid> findAllByUser_UserIdOrderByCreatedAtDesc(Long userId);
     List<BuyBid> findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(Long userId, BidStatus status);
     Optional<BuyBid> findByBuyIdAndUser_UserId(Long buyId, Long userId);
+  
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+    SELECT b
+    FROM BuyBid b
+    WHERE b.status = :status
+      AND b.product = :product
+      AND b.price >= :sellPrice
+      AND b.user.userId <> :sellerId
+    ORDER BY b.price DESC, b.createdAt ASC
+  """)
+    List<BuyBid> findMatchTargetForSale(
+            @Param("product") Product product,
+            @Param("status") BidStatus status,
+            @Param("sellPrice") int sellPrice,
+            @Param("sellerId") Long sellerId,
+            Pageable pageable
+    );
 }
