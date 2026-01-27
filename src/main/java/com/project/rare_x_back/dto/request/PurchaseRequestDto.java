@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PurchaseRequestDto {
     private Long productId;     /// 상품 ID
-    private Long orderId;       /// 주문 ID
+    //private Long orderId;       /// 주문 ID
     private int price;          /// 구매 가격
 
     private Long addressId;     // 구매자가 선택한 배송지Id

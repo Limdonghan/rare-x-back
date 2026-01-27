@@ -138,7 +138,7 @@ public class BidService {
         saleBid.statusUpdate(BidStatus.MATCHED);
 
         /// [주문 생성] Order 만들기 -> OrderService 추가 후 리팩터링
-        Order order =orderService.createOrder(
+        Order order = orderService.createOrder(
                 buyer,                                  // 구매자
                 saleBid.getUser(),                      // 판매자
                 product,                                // 상품
