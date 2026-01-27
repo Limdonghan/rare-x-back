@@ -10,7 +10,6 @@ import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.actuate.health.StatusAggregator;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,6 @@ public class BidService {
     private final PaymentService paymentService;
     private final StorageItemRepository storageItemRepository;
     private final InspectionRepository inspectionRepository;
-    private final StatusAggregator statusAggregator;
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
     @Value("${inspection-center.zipcode}")
@@ -262,7 +260,7 @@ public class BidService {
         BuyBid updateBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
         if (updateBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST,"매칭 대기 중인 입찰만 수정할 수 있습니다.");
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
         }
         updateBid.buyPriceUpdate(dto.getPrice());
     }
@@ -273,7 +271,7 @@ public class BidService {
         SaleBid updateBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
         if (updateBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST,"매칭 대기 중인 입찰만 수정할 수 있습니다.");
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
         }
         updateBid.salePriceUpdate(dto.getPrice());
     }
@@ -282,7 +280,7 @@ public class BidService {
     @Transactional
     public void cancelBuyBid(Long userId, Long buyId) {
         BuyBid cancelBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
-                .orElseThrow(()-> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
         if (cancelBid.getStatus() != BidStatus.OPEN) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
         }
@@ -293,9 +291,9 @@ public class BidService {
     @Transactional
     public void cancelSaleBid(Long userId, Long sellId) {
         SaleBid cancelBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
-                .orElseThrow(()-> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
         if (cancelBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST,"매칭 대기 중인 입찰만 취소할 수 있습니다.");
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
         }
         cancelBid.statusUpdate(BidStatus.CANCELED);
     }

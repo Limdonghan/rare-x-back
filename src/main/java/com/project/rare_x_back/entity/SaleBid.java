@@ -54,7 +54,7 @@ public class SaleBid {
     }
 
     public void salePriceUpdate(int price) {
-        this.price=price;
+        this.price = price;
     }
 
 }
