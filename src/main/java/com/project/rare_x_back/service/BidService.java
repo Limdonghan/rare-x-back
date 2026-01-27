@@ -146,30 +146,29 @@ public class BidService {
                 .price(purchaseRequestDto.getPrice())
                 .currentStatus(CurrentStatus.PENDING)
                 .build();
-        orderRepository.save(order);
+        Order saveOrder = orderRepository.save(order);
 
         /// 결제 승인
         PaymentConfirmRequestDto paymentConfirmRequestDto = PaymentConfirmRequestDto.builder()
                 .paymentKey(purchaseRequestDto.getPaymentKey())
                 .tossOrderId(purchaseRequestDto.getTossOrderId())
                 .amount(purchaseRequestDto.getAmount())
-                .orderId(order)
+                .orderId(saveOrder.getOrderId())
                 .build();
         try {
             paymentService.confirmPayment(paymentConfirmRequestDto, email);
+
+            return PurchaseResponseDto.builder()
+                    .productName(product.getProductName())
+                    .brandName(product.getBrand().getBrandName())
+                    .category(product.getCategory().getCategoryName())
+                    .tossOrderId(purchaseRequestDto.getTossOrderId())
+                    .amount(purchaseRequestDto.getAmount())
+                    .build();
         } catch (Exception e) {
             log.error("결제 승인 실패 주문: {} , 사용자 {}.", order.getOrderId(), email, e);
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
         }
-
-        return PurchaseResponseDto.builder()
-                .productName(product.getProductName())
-                .brandName(product.getBrand().getBrandName())
-                .category(product.getCategory().getCategoryName())
-                .tossOrderId(purchaseRequestDto.getTossOrderId())
-                .amount(purchaseRequestDto.getAmount())
-                .build();
-
 
 
     }

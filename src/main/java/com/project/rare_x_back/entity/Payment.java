@@ -20,7 +20,7 @@ public class Payment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn (name = "order_id")
-    private Order orderId;
+    private Order order;
 
     @Column (name = "toss_order_id")
     private String tossOrderId;                     /// 토스 내부에서 관리하는 orderId
