@@ -24,9 +24,26 @@ services:
     volumes:
       - redis_insight_volume_data:/data
 
+  # Typesense
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: rare-x-typesense
+    ports:
+      - "8108:8108"
+    environment:
+      - TYPESENSE_API_KEY=rare-x-typesense-api-key
+      - TYPESENSE_DATA_DIR=/data
+    volumes:
+      - typesense_data:/data
+    restart: always
+    networks:
+      - redis-network
+
 networks:
   redis-network:
     driver: bridge
 
 volumes:
   redis_insight_volume_data:
+  typesense_data:
+

@@ -6,7 +6,10 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.entity.Product;
+import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.ProductSearchService;
 import com.project.rare_x_back.service.S3ImageService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -28,6 +31,8 @@ public class AdminController {
 
     private final AdminService adminService;
     private final S3ImageService s3ImageService;
+    private final ProductSearchService productSearchService;
+    private final ProductRepository productRepository;
 
     //s3 이미지 업로드
     @PostMapping("/products/{productId}/images")
@@ -149,5 +154,16 @@ public class AdminController {
     public ResponseEntity <ApiResponse<Void>> deleteBrand(@PathVariable Long brandId) {
         adminService.deleteBrand(brandId);
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
+    }
+
+    // Typesense 초기상품 전체 동기화
+    @PostMapping("/search/sync")
+    public ResponseEntity<ApiResponse<String>> syncProductsToTypesense(
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        List<Product> products = productRepository.findAllByIsDeletedFalse();
+        int count = productSearchService.syncAllProducts(products);
+        log.info("Typesense 동기화 완료 - 관리자: {}, 동기화 건수: {}", adminDetails.getUsername(), count);
+        return ResponseEntity.ok(ApiResponse.success("상품 " + count + "건 동기화 완료"));
     }
 }
