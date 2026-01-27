@@ -50,6 +50,9 @@ public class BuyBid {
         this.status = status;
     }
 
+    @Column(name = "address_id", nullable = false)
+    private Long addressId;
+
 
 
 }

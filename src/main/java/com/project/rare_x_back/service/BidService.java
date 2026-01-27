@@ -16,6 +16,7 @@ import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,7 +46,7 @@ public class BidService {
     /**
      * [판매 입찰 등록]
      * 1. 판매자가 상품을 등록 (완료)
-     * 2. 구매자가 있으면 즉시체결 OR 자동결제
+     * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면.?
      * */
     @Transactional
     public RegisterSaleBidResponseDto registerSaleBid(RegisterSaleBidRequestDto registerSaleBidRequestDto, String email) {
@@ -211,4 +212,83 @@ public class BidService {
 
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }
+
+    // 구매 입찰 기준 매칭 메소드
+    @Transactional
+    public void  attemptMatchForBuyBid(BuyBid buyBid) {
+        // 이미 처리된 입찰 거름
+        if (buyBid.getStatus() != BidStatus.OPEN) return;
+
+        // 메칭 대상 saleBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
+        SaleBid target = saleBidRepository.findMatchTargetForBuy(
+                buyBid.getProduct(),
+                BidStatus.OPEN,
+                buyBid.getPrice(),
+                buyBid.getUser().getUserId(),
+                PageRequest.of(0, 1)
+            ).stream().findFirst().orElse(null);
+
+        if (target == null) return;
+
+        // 매칭 대상을 찾았으면 상태 변경
+        buyBid.statusUpdate(BidStatus.MATCHED);
+        target.statusUpdate(BidStatus.MATCHED);
+
+        // 체결 가격은 sell 가격 (왜? -> 가격 필터가 buy 가격보다 작거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
+        int tradePrice = target.getPrice();
+
+        // 주문 생성
+        Order order = orderService.createOrder(
+                buyBid.getUser(),
+                target.getUser(),
+                buyBid.getProduct(),
+                buyBid,
+                target,
+                tradePrice,
+                BidType.BUY, //구매 입찰이 들어와서 체결됨
+                buyBid.getAddressId()
+        );
+        // 이건 페이먼츠 되면 ...
+        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
+    }
+
+    // 판매 입찰 기준 매칭 메소드
+    public void attemptMatchForSaleBid(SaleBid saleBid) {
+        // 이미 처리된 입찰 거름
+        if (saleBid.getStatus() != BidStatus.OPEN) return;
+
+        // 메칭 대상 buyBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
+        BuyBid target = buyBidRepository.findMatchTargetForSale(
+                saleBid.getProduct(),
+                BidStatus.OPEN,
+                saleBid.getPrice(),
+                saleBid.getUser().getUserId(),
+                PageRequest.of(0,1)
+        ).stream().findFirst().orElse(null);
+
+        if (target == null) return;
+
+        // 매칭 대상을 찾았으면 상태 변경
+        saleBid.statusUpdate(BidStatus.MATCHED);
+        target.statusUpdate(BidStatus.MATCHED);
+
+        // 체결 가격은 buy 가격 (왜? -> 가격 필터가 sale 가격보다 크거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
+        int tradePrice = target.getPrice();
+
+        // 주문 생성
+        Order order = orderService.createOrder(
+                target.getUser(),        // buyer (BuyBid 주인)
+                saleBid.getUser(),       // seller
+                saleBid.getProduct(),
+                target,                  // BuyBid
+                saleBid,                 // SaleBid
+                tradePrice,
+                BidType.SELL,
+                target.getAddressId()    // 구매자 주소
+        );
+        // 이건 페이먼츠 되면 ...
+        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
+
+    }
+
 }
