@@ -26,6 +26,8 @@ public class InspectionResponseDto {
     private String sellerName;
 
     // 검수 정보
+    private Long inspectorId;
+    private String inspectorName;
     private String failReason;
     private LocalDateTime createdAt;
     private LocalDateTime inspectedAt;
@@ -83,6 +85,13 @@ public class InspectionResponseDto {
                     builder.brandName(product.getBrand().getBrandName());
                 }
             }
+        }
+
+        // 검수 담당자 정보
+        User inspector = inspection.getUser();
+        if (inspector != null) {
+            builder.inspectorId(inspector.getUserId())
+                    .inspectorName(inspector.getName());
         }
 
         return builder.build();
