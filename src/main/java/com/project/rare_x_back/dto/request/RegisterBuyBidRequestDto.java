@@ -13,4 +13,7 @@ public class RegisterBuyBidRequestDto {
 
     @NotNull
     private int price;          /// 구매 가격
+
+    @NotNull
+    private Long addressId;
 }
