@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -30,10 +31,11 @@ public class AdminController {
     private final S3ImageService s3ImageService;
 
     //s3 이미지 업로드
-    @PostMapping("/products/{productId}/images")
+    @PostMapping(value = "/products/{productId}/images",
+                consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
-            @RequestParam("images")List<MultipartFile> images
+            @RequestPart("images")List<MultipartFile> images
             ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
@@ -41,15 +43,15 @@ public class AdminController {
 
     //상품 등록
     @PostMapping("/products")
-    public ResponseEntity<ApiResponse<Void>> createProduct(
+    public ResponseEntity<ApiResponse<Long>> createProduct(
             @Valid @RequestBody ProductCreateRequestDto productCreateRequestDto,
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
         // 서비스 호출 후 생성된 상품의 ID를 반환받음
-        adminService.createProduct(productCreateRequestDto);
+        Long savedProductId = adminService.createProduct(productCreateRequestDto);
         log.info("상품 {}이 관리자 ID {}에 의해 등록됨", productCreateRequestDto.getProductName(), adminDetails.getUsername());
         // 성공 응답(201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("상품 등록이 완료되었습니다."));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(savedProductId,"상품 등록이 완료되었습니다."));
     }
 
     //상품 전체 조회
