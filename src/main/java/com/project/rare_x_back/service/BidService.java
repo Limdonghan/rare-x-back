@@ -219,7 +219,7 @@ public class BidService {
         // 이미 처리된 입찰 거름
         if (buyBid.getStatus() != BidStatus.OPEN) return;
 
-        // 메칭 대상 saleBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
+        // 매칭 대상 saleBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
         SaleBid target = saleBidRepository.findMatchTargetForBuy(
                 buyBid.getProduct(),
                 BidStatus.OPEN,
@@ -229,6 +229,10 @@ public class BidService {
             ).stream().findFirst().orElse(null);
 
         if (target == null) return;
+        // 선점한 이후에도 여전히 OPEN 상태인지 재확인하여 동시성 문제 방어 추가
+        if (buyBid.getStatus() != BidStatus.OPEN || target.getStatus() != BidStatus.OPEN) {
+            return;
+        }
 
         // 매칭 대상을 찾았으면 상태 변경
         buyBid.statusUpdate(BidStatus.MATCHED);
@@ -253,11 +257,12 @@ public class BidService {
     }
 
     // 판매 입찰 기준 매칭 메소드
+    @Transactional
     public void attemptMatchForSaleBid(SaleBid saleBid) {
         // 이미 처리된 입찰 거름
         if (saleBid.getStatus() != BidStatus.OPEN) return;
 
-        // 메칭 대상 buyBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
+        // 매칭 대상 buyBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
         BuyBid target = buyBidRepository.findMatchTargetForSale(
                 saleBid.getProduct(),
                 BidStatus.OPEN,
@@ -267,6 +272,11 @@ public class BidService {
         ).stream().findFirst().orElse(null);
 
         if (target == null) return;
+
+        // 선점한 이후에도 여전히 OPEN 상태인지 재확인하여 동시성 문제 방어 추가
+        if (saleBid.getStatus() != BidStatus.OPEN || target.getStatus() != BidStatus.OPEN) {
+            return;
+        }
 
         // 매칭 대상을 찾았으면 상태 변경
         saleBid.statusUpdate(BidStatus.MATCHED);
