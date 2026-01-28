@@ -5,6 +5,7 @@ import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
+import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,12 +50,25 @@ public class PaymentController {
     }
 
     /**
-     * [Toss Order ID 발급 API]
+     * [Toss UUID 발급용 API]
      * 프론트엔드에서 결제 위젯을 띄우기 전 호출하여 orderId를 받아감
      */
-    @GetMapping("/order-id")
+    @GetMapping("/created-uuid")
     public ApiResponse<String> createTossOrderId() {
-        String orderId = paymentService.createTossOrderId();
-        return ApiResponse.success(orderId, "Toss Order ID 생성 완료");
+        String uuid = paymentService.createdUUID();
+        return ApiResponse.success(uuid, "Toss Order ID 생성 완료");
     }
+
+    /**
+     * [Toss 빌링키 존재 체크]
+     */
+    @PostMapping("/billingKey-check")
+    public ApiResponse<BillingKeyResponseDto> checkBillingKey(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        BillingKeyResponseDto billingKeyResponseDto = paymentService.validateBillingKey(userDetails.getUserId());
+
+        return ApiResponse.success(billingKeyResponseDto,"Toss 빌링키 체크");
+    }
+
 }

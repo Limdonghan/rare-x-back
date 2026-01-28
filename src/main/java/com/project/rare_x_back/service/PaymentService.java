@@ -3,6 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
+import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
 import com.project.rare_x_back.entity.BillingKey;
 import com.project.rare_x_back.entity.Order;
 import com.project.rare_x_back.entity.Payment;
@@ -244,8 +245,32 @@ public class PaymentService {
     }
 
 
-    public String createTossOrderId(){
+    public String createdUUID(){
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * [빌링키 존재 체크]
+     * */
+    public BillingKeyResponseDto validateBillingKey(Long userId) {
+
+        boolean billingKeyCheck = false;
+
+        boolean exists = billingKeyRepository.existsByUser_UserId(userId);
+
+        if (exists) {
+            billingKeyCheck=true;
+            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
+
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(billingKey.getCardCompany())
+                    .cardNumber(billingKey.getCardNumber())
+                    .hasBillingKey(billingKeyCheck)
+                    .build();
+        }else {
+            throw new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED);
+        }
+
     }
 }
 

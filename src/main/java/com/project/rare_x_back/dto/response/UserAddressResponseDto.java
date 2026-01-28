@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserAddressResponseDto {
+    private Long addressId;
     private String recipientName;
     private String postalCode;
     private String address;

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -28,6 +29,7 @@ public class BidService {
     private final SaleBidRepository saleBidRepository;
     private final OrderRepository orderRepository;
     private final PaymentService paymentService;
+    private final AddressRepository addressRepository;
     private final StorageItemRepository storageItemRepository;
     private final InspectionRepository inspectionRepository;
     @Value("${inspection-center.address}")
@@ -92,10 +94,13 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+        Address address = addressRepository.findById(registerBuyBidRequestDto.getAddressId())
+                .orElseThrow(() -> new RuntimeException("주소 없는거임"));
 
         BuyBid build = BuyBid.builder()
                 .user(user)
                 .product(product)
+                .addressId(registerBuyBidRequestDto.getAddressId())
                 .price(registerBuyBidRequestDto.getPrice())
                 .status(BidStatus.OPEN)
                 .expiresAt(LocalDateTime.now().plusDays(30))
@@ -231,7 +236,7 @@ public class BidService {
 
         BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
 
-        String orderNumber = paymentService.createTossOrderId();
+        String orderNumber = UUID.randomUUID().toString();
 
         /// [상태 변경] 구매입찰 -> 체결됨
         buyBid.statusUpdate(BidStatus.MATCHED);

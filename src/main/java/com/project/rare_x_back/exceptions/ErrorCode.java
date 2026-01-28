@@ -57,6 +57,7 @@ public enum ErrorCode {
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST,"결제 승인에 실패했습니다."),
     TOSS_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "토스 페이먼츠 연동 중 오류가 발생했습니다."),
     BILLING_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 빌링키입니다."),
+    BILLING_KEY_NOT_REGISTERED(HttpStatus.BAD_REQUEST, "카드 등록이 필요합니다."),
 
     // Passwordless 에러
     PASSWORDLESS_ALREADY_IN_USE(HttpStatus.CONFLICT, "이미 패스워드리스 서비스를 사용 중입니다."),
