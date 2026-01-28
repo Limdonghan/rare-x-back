@@ -14,6 +14,9 @@ import java.util.List;
 
 public interface InspectionRepository extends JpaRepository<Inspection, Long> {
 
+    // 주문 ID 목록으로 검수 정보 일괄 조회
+    List<Inspection> findByOrder_OrderIdIn(List<Long> orderIds);
+
     // ===== VER-001 검수 대기 목록 조회 (페이징) =====
 
     // 전체 조회 (타입 무관)
