@@ -53,5 +53,8 @@ public class SaleBid {
         this.status = status;
     }
 
+    public void salePriceUpdate(int price) {
+        this.price = price;
+    }
 
 }

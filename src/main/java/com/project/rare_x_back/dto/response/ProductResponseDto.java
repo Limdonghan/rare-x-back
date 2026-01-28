@@ -20,4 +20,5 @@ public class ProductResponseDto {
     private String productDescription;
     private int price;
     private List<String> imageUrls;
+    private int retailPrice;
 }
