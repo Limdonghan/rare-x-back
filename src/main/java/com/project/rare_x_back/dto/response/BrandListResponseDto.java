@@ -8,5 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BrandListResponseDto {
+    private Long brandId;
     private String brandName;
 }

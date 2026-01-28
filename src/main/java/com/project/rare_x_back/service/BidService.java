@@ -10,6 +10,7 @@ import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,10 +35,12 @@ public class BidService {
     @Value("${inspection-center.zipcode}")
     private String inspectionCenterZipcode;
 
+    private final OrderService orderService;
+
     /**
      * [판매 입찰 등록]
      * 1. 판매자가 상품을 등록 (완료)
-     * 2. 구매자가 있으면 즉시체결 OR 자동결제
+     * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면.?
      * */
     @Transactional
     public RegisterSaleBidResponseDto registerSaleBid(RegisterSaleBidRequestDto registerSaleBidRequestDto, String email) {
@@ -114,7 +117,7 @@ public class BidService {
      * */
     @Transactional
     public PurchaseResponseDto purchaseNow(PurchaseRequestDto purchaseRequestDto, String email){
-        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+        User buyer = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Product product = productRepository.findByProductIdAndIsDeletedFalse(purchaseRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -130,19 +133,17 @@ public class BidService {
         /// [상태 변경] 판매 입찰 -> 체결됨(MATCHED)
         saleBid.statusUpdate(BidStatus.MATCHED);
 
-        /// [주문 생성] Order 만들기
-        Order order = Order.builder()
-                .buyer(user)
-                .seller(saleBid.getUser())
-                .product(product)
-                .buyBid(null)
-                .sellBid(saleBid)
-                .type(BidType.BUY)
-                .price(purchaseRequestDto.getPrice())
-                .currentStatus(CurrentStatus.PENDING)
-                .sellerShippedAt(LocalDateTime.now().plusDays(2))
-                .build();
-        Order saveOrder = orderRepository.save(order);
+        /// [주문 생성] Order 만들기 -> OrderService 추가 후 리팩터링
+        Order order = orderService.createOrder(
+                buyer,                                  // 구매자
+                saleBid.getUser(),                      // 판매자
+                product,                                // 상품
+                null,                                   // buyBid -> 즉시 구매는 구매 입찰이 없음
+                saleBid,                                // sellBid
+                purchaseRequestDto.getPrice(),          // 구매가격
+                BidType.BUY,                            // 체결 타입
+                purchaseRequestDto.getAddressId()
+        );
 
         /// 결제 승인
         PaymentConfirmRequestDto paymentConfirmRequestDto = PaymentConfirmRequestDto.builder()
@@ -166,6 +167,7 @@ public class BidService {
                 .tossOrderId(purchaseRequestDto.getTossOrderId())
                 .amount(purchaseRequestDto.getAmount())
                 .build();
+
     }
 
     /**

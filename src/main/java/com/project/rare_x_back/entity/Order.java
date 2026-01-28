@@ -46,6 +46,7 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "bid_type")
+    @Enumerated(EnumType.STRING)
     private BidType type;                       /// 입찰 구분
 
     @Column(name = "price")
@@ -72,6 +73,10 @@ public class Order {
     private LocalDateTime shipDeadline;
 
 
+    // 상태 업데이트
+    public void updateStatus(CurrentStatus newStatus) {
+        this.currentStatus = newStatus;
+    }
 
 
 

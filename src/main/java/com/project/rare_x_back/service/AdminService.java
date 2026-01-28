@@ -37,7 +37,7 @@ public class AdminService {
     private final ProductImageRepository productImageRepository;
 
     //상품 등록
-    public void createProduct(ProductCreateRequestDto productCreateRequestDto) {
+    public Long createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
                 .orElseThrow(() -> new CustomException(
@@ -59,7 +59,8 @@ public class AdminService {
                 .category(category)
                 .build();
 
-        productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+        return savedProduct.getProductId();
 
     }
 
@@ -124,6 +125,7 @@ public class AdminService {
                     .productId(product.getProductId())
                     .productName(product.getProductName())
                     .productDescription(product.getProductDescription())
+                    .retailPrice(product.getRetailPrice())
                     .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "등록된 브랜드가 없습니다.")
                     .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "등록된 카테고리가 없습니다.")
                     .imageUrl(firstImageUrl)
@@ -148,6 +150,7 @@ public class AdminService {
         return ProductResponseDto.builder()
                 .productId(productId)
                 .productName(product.getProductName())
+                .retailPrice(product.getRetailPrice())
                 .productDescription(product.getProductDescription())
                 .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "등록된 브랜드가 없습니다.")
                 .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "등록된 카테고리가 없습니다.")
@@ -249,6 +252,7 @@ public class AdminService {
 
         for(Category category : results){
             CategoryListResponseDto newResult = new CategoryListResponseDto(
+                    category.getCategoryId(),
                     category.getCategoryName()
             );
             response.add(newResult);
@@ -295,8 +299,9 @@ public class AdminService {
 
         for(Brand brand : results){
             BrandListResponseDto newResult = new BrandListResponseDto(
+                    brand.getBrandId(),
                     brand.getBrandName()
-            );
+                    );
             response.add(newResult);
         }
         return response;
