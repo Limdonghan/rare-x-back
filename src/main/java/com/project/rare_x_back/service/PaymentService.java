@@ -10,6 +10,7 @@ import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.BillingKeyRepository;
+import com.project.rare_x_back.repository.OrderRepository;
 import com.project.rare_x_back.repository.PaymentRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -32,6 +34,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
     private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
 
 
     /**
@@ -89,7 +92,7 @@ public class PaymentService {
                     .cardNumber(cardNumber)
                     .authenticatedAt(authenticatedAt)
                     .build();
-            
+
             return billingKeyRepository.save(build);
 
         } catch (Exception e) {
@@ -123,42 +126,42 @@ public class PaymentService {
             }
         }
 
-            /// 1. 유저 확인
-            User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        /// 1. 유저 확인
+        User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-            /// 2. DB에서 저장된 빌링키 꺼내오기
-            BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
+        Order order = orderRepository.findById(autoPaymentRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
-            try {
-                /// 3. 토스 API 호출
-                Map<String, Object> response = webClient.post()
-                        .uri("billing/" + billingKey.getBillingKey())
-                        .bodyValue(Map.of(
-                                "amount", autoPaymentRequestDto.getAmount(),
-                                "customerKey", billingKey.getCustomerKey(),
-                                "orderId", autoPaymentRequestDto.getOrderId(),
-                                "orderName", autoPaymentRequestDto.getOrderName()
-                        ))                                          /// Request Body 설정
-                        .retrieve()                                 /// 실제 HTTP 요청 실행
-                        .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
-                                clientResponse.bodyToMono(String.class)
-                                        .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
-                        .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
-                                clientResponse.bodyToMono(String.class)
-                                        .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
-                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-                        })                      /// 응답을 Map으로 반환
-                        .block();                                   /// 동기식으로 대기
+        /// 2. DB에서 저장된 빌링키 꺼내오기
+        BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
 
-                /// TODO: 실제 Order ID 연동
-//                return responseMappingWithSave(response, 1L);
-                return null;
-            } catch (Exception e) {
-                log.error(e.getMessage());
-                throw new RuntimeException(e.getMessage());
-            }
-
+        try {
+            /// 3. 토스 API 호출
+            Map<String, Object> response = webClient.post()
+                    .uri("billing/" + billingKey.getBillingKey())
+                    .bodyValue(Map.of(
+                            "amount", autoPaymentRequestDto.getAmount(),
+                            "customerKey", billingKey.getCustomerKey(),
+                            "orderId", autoPaymentRequestDto.getTossOrderId(),
+                            "orderName", autoPaymentRequestDto.getOrderName()
+                    ))                                          /// Request Body 설정
+                    .retrieve()                                 /// 실제 HTTP 요청 실행
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })                      /// 응답을 Map으로 반환
+                    .block();                                   /// 동기식으로 대기
+        
+            return responseMappingWithSave(response, order);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            throw new RuntimeException(e.getMessage());
         }
+
+    }
 
 
 
@@ -177,6 +180,8 @@ public class PaymentService {
 
         /// 1. 유저 검증
         userRepository.findByEmail(userEmail).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Order order = orderRepository.findById(paymentConfirmRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         try {
             /// 2. 토스 API 호출
@@ -198,7 +203,7 @@ public class PaymentService {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
 
-            return responseMappingWithSave(response,paymentConfirmRequestDto.getOrderId());
+            return responseMappingWithSave(response,order);
 
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -210,7 +215,7 @@ public class PaymentService {
     /**
      * 공통 메서드 처리
      * */
-    private Payment responseMappingWithSave (Map<String, Object> response, Order orderId){
+    private Payment responseMappingWithSave (Map<String, Object> response, Order order){
         Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
 
         /// Response 값 매핑
@@ -225,7 +230,7 @@ public class PaymentService {
 
         /// DB 저장
         Payment build = Payment.builder()
-                .orderId(orderId)
+                .order(order)
                 .tossOrderId(tossOrderId)
                 .tossPaymentKey(tossPaymentKey)
                 .amount(amount)
@@ -236,6 +241,11 @@ public class PaymentService {
                 .approvedAt(approvedAt)
                 .build();
         return paymentRepository.save(build);
+    }
+
+
+    public String createTossOrderId(){
+        return UUID.randomUUID().toString();
     }
 }
 

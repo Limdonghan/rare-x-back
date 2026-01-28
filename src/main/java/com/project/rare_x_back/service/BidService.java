@@ -41,7 +41,8 @@ public class BidService {
      * [판매 입찰 등록]
      * 1. 판매자가 상품을 등록 (완료)
      * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면.?
-     * */
+     *
+     */
     @Transactional
     public RegisterSaleBidResponseDto registerSaleBid(RegisterSaleBidRequestDto registerSaleBidRequestDto, String email) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
@@ -52,10 +53,10 @@ public class BidService {
 
         /// 보관 판매 확인. 보관 판매가 아닐경우 DB에 NULL로 저장 및 Response에 false 출력
         StorageItem storageItem = storageItemRepository.findByProduct(product);
-        boolean storageItemCheck=false;
-        if (storageItem!=null && storageItem.getStorageId() != null){
+        boolean storageItemCheck = false;
+        if (storageItem != null && storageItem.getStorageId() != null) {
             storageItem = storageItemRepository.findByProduct(product);
-            storageItemCheck=true;
+            storageItemCheck = true;
         }
 
         SaleBid build = SaleBid.builder()
@@ -82,13 +83,15 @@ public class BidService {
      * [구매 입찰 등록]
      * 1. 구매자가 입츨을 등록 (완료)
      * 2. 판매자가 있으면 즉시체결 OR 자동결제
-     * */
+     *
+     */
     @Transactional
     public RegisterBuyBidResponseDto registerBuyBid(RegisterBuyBidRequestDto registerBuyBidRequestDto, String email) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
 
         BuyBid build = BuyBid.builder()
                 .user(user)
@@ -108,14 +111,15 @@ public class BidService {
     }
 
     /**
-     * [즉시 결제 처리]
+     * [즉시 구매 결제 처리]
      * 1. 구매자가 해당 상품 선택
      * 2. 주문 테이블 생성
      * 3. 입찰 상태 변경
      * 4. 결제 시도
-     * */
+     *
+     */
     @Transactional
-    public PurchaseResponseDto purchaseNow(PurchaseRequestDto purchaseRequestDto, String email){
+    public PurchaseResponseDto purchaseNow(PurchaseRequestDto purchaseRequestDto, String email) {
         User buyer = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Product product = productRepository.findByProductIdAndIsDeletedFalse(purchaseRequestDto.getProductId())
@@ -149,10 +153,11 @@ public class BidService {
                 .paymentKey(purchaseRequestDto.getPaymentKey())
                 .tossOrderId(purchaseRequestDto.getTossOrderId())
                 .amount(purchaseRequestDto.getAmount())
-                .orderId(order)
+                .orderId(order.getOrderId())
                 .build();
         try {
             paymentService.confirmPayment(paymentConfirmRequestDto, email);
+
         } catch (Exception e) {
             log.error("결제 승인 실패 주문: {} , 사용자 {}.", order.getOrderId(), email, e);
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
@@ -207,6 +212,66 @@ public class BidService {
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }
 
+    /**
+     * [즉시 판매 결제 처리]
+     * 1. 구매자가 해당 상품 선택
+     * 2. 주문 테이블 생성
+     * 3. 입찰 상태 변경
+     * 4. 결제 시도
+     *
+     */
+    @Transactional
+    public SellNowResponseDto sellNow(SellNowRequestDto sellNowRequestDto, String email) {
+
+        ///  판매자 조회
+        User seller = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
+
+        String orderNumber = paymentService.createTossOrderId();
+
+        /// [상태 변경] 구매입찰 -> 체결됨
+        buyBid.statusUpdate(BidStatus.MATCHED);
+
+        Order build = Order.builder()
+                .buyer(buyBid.getUser())
+                .seller(seller)
+                .product(product)
+                .buyBid(buyBid)
+                .sellBid(null)
+                .type(BidType.SELL)
+                .price(sellNowRequestDto.getPrice())
+                .currentStatus(CurrentStatus.PENDING)
+                .shipDeadline(LocalDateTime.now().plusDays(2))
+                .build();
+        Order saveOrder = orderRepository.save(build);
+
+        AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
+                .userId(buyBid.getUser().getUserId())
+                .orderId(saveOrder.getOrderId())
+                .amount(saveOrder.getPrice())
+                .tossOrderId(orderNumber)
+                .orderName(product.getProductName())
+                .build();
+
+        try {
+            paymentService.payWithBillingKey(autoPaymentRequestDto);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.PAYMENT_FAILED);
+        }
+        return SellNowResponseDto.builder()
+                .tossOrderId(orderNumber)
+                .productName(product.getProductName())
+                .brandName(product.getBrand().getBrandName())
+                .category(product.getCategory().getCategoryName())
+                .amount(saveOrder.getPrice())
+                .build();
+
+    }
+
     // 자신의 구매입찰 내역 조회(마이페이지에서)
     @Transactional(readOnly = true)
     public List<MyBuyBidResponseDto> getMyBuyBids(String email, BidStatus status) {
@@ -234,7 +299,7 @@ public class BidService {
 
     // 판매입찰 조회
     @Transactional(readOnly = true)
-    public List<MySaleBidResponseDto> getMySaleBids (String email, BidStatus status) {
+    public List<MySaleBidResponseDto> getMySaleBids(String email, BidStatus status) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -275,7 +340,7 @@ public class BidService {
         }
         updateBid.salePriceUpdate(dto.getPrice());
     }
-  
+
     // 구매 입찰 취소
     @Transactional
     public void cancelBuyBid(Long userId, Long buyId) {
@@ -286,7 +351,7 @@ public class BidService {
         }
         cancelBid.statusUpdate(BidStatus.CANCELED);
     }
-  
+
     // 판매 입찰 취소
     @Transactional
     public void cancelSaleBid(Long userId, Long sellId) {
@@ -297,10 +362,10 @@ public class BidService {
         }
         cancelBid.statusUpdate(BidStatus.CANCELED);
     }
-  
+
     // 구매 입찰 기준 매칭 메소드
     @Transactional
-    public void  attemptMatchForBuyBid(BuyBid buyBid) {
+    public void attemptMatchForBuyBid(BuyBid buyBid) {
         // 이미 처리된 입찰 거름
         if (buyBid.getStatus() != BidStatus.OPEN) return;
 
@@ -311,7 +376,7 @@ public class BidService {
                 buyBid.getPrice(),
                 buyBid.getUser().getUserId(),
                 PageRequest.of(0, 1)
-            ).stream().findFirst().orElse(null);
+        ).stream().findFirst().orElse(null);
 
         if (target == null) return;
         // 선점한 이후에도 여전히 OPEN 상태인지 재확인하여 동시성 문제 방어 추가
@@ -353,7 +418,7 @@ public class BidService {
                 BidStatus.OPEN,
                 saleBid.getPrice(),
                 saleBid.getUser().getUserId(),
-                PageRequest.of(0,1)
+                PageRequest.of(0, 1)
         ).stream().findFirst().orElse(null);
 
         if (target == null) return;
@@ -385,5 +450,4 @@ public class BidService {
         // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
 
     }
-
 }

@@ -63,7 +63,6 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .providerType(ProviderType.LOCAL)
-                .point(0)
                 .role(Role.USER)
                 .status(Status.ACTIVE)
                 .isDeleted(false)

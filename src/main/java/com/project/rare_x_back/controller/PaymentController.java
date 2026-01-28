@@ -8,10 +8,7 @@ import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -49,5 +46,15 @@ public class PaymentController {
     public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
                                          @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(paymentService.confirmPayment(requestDto,userDetails.getUsername()));
+    }
+
+    /**
+     * [Toss Order ID 발급 API]
+     * 프론트엔드에서 결제 위젯을 띄우기 전 호출하여 orderId를 받아감
+     */
+    @GetMapping("/order-id")
+    public ApiResponse<String> createTossOrderId() {
+        String orderId = paymentService.createTossOrderId();
+        return ApiResponse.success(orderId, "Toss Order ID 생성 완료");
     }
 }
