@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
@@ -7,10 +8,16 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +28,7 @@ public class OrderService {
     private final AddressRepository addressRepository;
     private final SearchService searchService;
     private final SettlementService settlementService;
+    private final InspectionRepository inspectionRepository;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -98,5 +106,75 @@ public class OrderService {
 
     private void saveHistory(Order order, CurrentStatus status) {
         historyRepository.save(OrderHistory.create(order, status));
+    }
+
+    // 구매 내역 조회
+    @Transactional(readOnly = true)
+    public Page<BuyingOrderResponseDto> getBuyingOrders(Long userId, String status, Pageable pageable) {
+        Page<Order> orders;
+
+        if ("IN_PROGRESS".equals(status)) {
+            List<CurrentStatus> statuses = List.of(
+                    CurrentStatus.PENDING,
+                    CurrentStatus.SHIPPED_TO_WAREHOUSE,
+                    CurrentStatus.PENDING_INSPECTION,
+                    CurrentStatus.INSPECTING,
+                    CurrentStatus.PASSED,
+                    CurrentStatus.SHIPPED
+            );
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
+
+        } else if ("COMPLETED".equals(status)) {
+            List<CurrentStatus> statuses = List.of(
+                    CurrentStatus.DELIVERED,
+                    CurrentStatus.RETURN,
+                    CurrentStatus.CANCELLED
+            );
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
+
+        } else {
+            orders = orderRepository.findByBuyer_UserId(userId, pageable);
+        }
+
+        // 검수 정보 한 번에 조회 (N+1 방지)
+        List<Long> orderIds = orders.getContent().stream()
+                .map(Order::getOrderId)
+                .toList();
+
+        Map<Long, Inspection> inspectionMap = inspectionRepository.findByOrder_OrderIdIn(orderIds).stream()
+                .collect(Collectors.toMap(
+                        inspection -> inspection.getOrder().getOrderId(),   // Key: 주문번호
+                        inspection -> inspection                            // Value: 검수정보 객체
+                ));
+
+        return orders.map(order -> toBuyingOrderResponseDto(order, inspectionMap.get(order.getOrderId())));
+    }
+
+    // 변환 메서드 수정
+    private BuyingOrderResponseDto toBuyingOrderResponseDto(Order order, Inspection inspection) {
+        String productImage = order.getProduct().getImages().isEmpty()
+                ? null
+                : order.getProduct().getImages().get(0).getImageUrl();
+
+        String inspectionStatus = null;
+        String inspectionFailReason = null;
+
+        if (inspection != null) {
+            inspectionStatus = inspection.getStatus().name();
+            inspectionFailReason = inspection.getFailReason();
+        }
+
+        return BuyingOrderResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber("ORD-" + order.getOrderId())
+                .createdAt(order.getCreatedAt())
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImage(productImage)
+                .price(order.getPrice())
+                .currentStatus(order.getCurrentStatus().name())
+                .inspectionStatus(inspectionStatus)
+                .inspectionFailReason(inspectionFailReason)
+                .build();
     }
 }

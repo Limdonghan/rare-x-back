@@ -2,6 +2,9 @@ package com.project.rare_x_back.repository;
 
 import com.project.rare_x_back.entity.Order;
 import org.springframework.data.jpa.repository.EntityGraph;
+import com.project.rare_x_back.enums.CurrentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -17,4 +20,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     })
     @Query("SELECT o FROM Order o")
     List<Order> findAllForSync();
+
+    // 구매 내역 전체 조회
+    Page<Order> findByBuyer_UserId(Long userId, Pageable pageable);
+
+    // 구매 내역 상태 필터 조회
+    Page<Order> findByBuyer_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses, Pageable pageable);
 }
