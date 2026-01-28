@@ -1,13 +1,7 @@
 package com.project.rare_x_back.service;
 
-import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
-import com.project.rare_x_back.dto.request.PurchaseRequestDto;
-import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
-import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
-import com.project.rare_x_back.dto.response.OrderShipResponseDto;
-import com.project.rare_x_back.dto.response.PurchaseResponseDto;
-import com.project.rare_x_back.dto.response.RegisterBuyBidResponseDto;
-import com.project.rare_x_back.dto.response.RegisterSaleBidResponseDto;
+import com.project.rare_x_back.dto.request.*;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
@@ -213,6 +207,97 @@ public class BidService {
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }
 
+    // 자신의 구매입찰 내역 조회(마이페이지에서)
+    @Transactional(readOnly = true)
+    public List<MyBuyBidResponseDto> getMyBuyBids(String email, BidStatus status) {
+
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 입찰 조회 (status 있으면 필터, 없으면 전체)
+        List<BuyBid> bids;
+
+        if (status == null) {
+            bids = buyBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+        } else {
+            bids = buyBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
+                    user.getUserId(),
+                    status
+            );
+        }
+
+        // DTO 변환
+        return bids.stream()
+                .map(MyBuyBidResponseDto::from)
+                .toList();
+    }
+
+    // 판매입찰 조회
+    @Transactional(readOnly = true)
+    public List<MySaleBidResponseDto> getMySaleBids (String email, BidStatus status) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 입찰 조회 (status 있으면 필터, 없으면 전체)
+        List<SaleBid> bids;
+        if (status == null) {
+            bids = saleBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+        } else {
+            bids = saleBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
+                    user.getUserId(),
+                    status
+            );
+        }
+
+        return bids.stream()
+                .map(MySaleBidResponseDto::from)
+                .toList();
+    }
+
+    // 구매 입찰 가격 수정
+    @Transactional
+    public void updateBuyBidPrice(Long userId, Long buyId, UpdateBidPriceRequestDto dto) {
+        BuyBid updateBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (updateBid.getStatus() != BidStatus.OPEN) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
+        }
+        updateBid.buyPriceUpdate(dto.getPrice());
+    }
+
+    // 판매 입찰 가격 수정
+    @Transactional
+    public void updateSaleBidPrice(Long userId, Long sellId, UpdateBidPriceRequestDto dto) {
+        SaleBid updateBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (updateBid.getStatus() != BidStatus.OPEN) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
+        }
+        updateBid.salePriceUpdate(dto.getPrice());
+    }
+  
+    // 구매 입찰 취소
+    @Transactional
+    public void cancelBuyBid(Long userId, Long buyId) {
+        BuyBid cancelBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (cancelBid.getStatus() != BidStatus.OPEN) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
+        }
+        cancelBid.statusUpdate(BidStatus.CANCELED);
+    }
+  
+    // 판매 입찰 취소
+    @Transactional
+    public void cancelSaleBid(Long userId, Long sellId) {
+        SaleBid cancelBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (cancelBid.getStatus() != BidStatus.OPEN) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
+        }
+        cancelBid.statusUpdate(BidStatus.CANCELED);
+    }
+  
     // 구매 입찰 기준 매칭 메소드
     @Transactional
     public void  attemptMatchForBuyBid(BuyBid buyBid) {
