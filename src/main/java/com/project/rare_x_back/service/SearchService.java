@@ -184,6 +184,7 @@ public class SearchService {
             document.put("product_name", order.getProduct() != null ? order.getProduct().getProductName() : "");
             document.put("price", order.getPrice());
             document.put("current_status", order.getCurrentStatus() != null ? order.getCurrentStatus().name() : "");
+            document.put("bid_type", order.getType() != null ? order.getType().name() : "");
 
             typesenseClient.collections("orders")
                     .documents()
