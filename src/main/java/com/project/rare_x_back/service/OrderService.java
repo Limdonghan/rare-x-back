@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.BidType;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +31,10 @@ public class OrderService {
     private final SearchService searchService;
     private final SettlementService settlementService;
     private final InspectionRepository inspectionRepository;
+    private final PaymentRepository paymentRepository;
+    private final BillingKeyRepository billingKeyRepository;
+
+    private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -108,7 +114,7 @@ public class OrderService {
         historyRepository.save(OrderHistory.create(order, status));
     }
 
-    // 구매 내역 조회
+    // 주문 내역 조회
     @Transactional(readOnly = true)
     public Page<BuyingOrderResponseDto> getBuyingOrders(Long userId, String status, Pageable pageable) {
         Page<Order> orders;
@@ -166,7 +172,7 @@ public class OrderService {
 
         return BuyingOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber("ORD-" + order.getOrderId())
+                .orderNumber("ORD-00" + order.getOrderId())
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -175,6 +181,75 @@ public class OrderService {
                 .currentStatus(order.getCurrentStatus().name())
                 .inspectionStatus(inspectionStatus)
                 .inspectionFailReason(inspectionFailReason)
+                .build();
+    }
+
+    // 주문 상세 조회
+    @Transactional(readOnly = true)
+    public BuyingOrderDetailResponseDto getBuyingOrderDetail(Long userId, Long orderId) {
+        // 1. 주문 조회 + 권한 체크
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getBuyer().getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 2. 상품 이미지
+        List<String> productImages = order.getProduct().getImages().stream()
+                .map(ProductImage::getImageUrl)
+                .toList();
+
+        // 3. 결제 정보
+        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        int totalAmount = payment != null ? payment.getAmount() : order.getPrice();
+        int productPrice = totalAmount - SHIPPING_FEE;
+
+        // 4. 카드 정보
+        String cardCompany = null;
+        String cardNumberLast4 = null;
+
+        Optional<BillingKey> billingKey = billingKeyRepository.findByUser(order.getBuyer());
+        if (billingKey.isPresent()) {
+            cardCompany = billingKey.get().getCardCompany();
+            cardNumberLast4 = billingKey.get().getCardNumber();
+        }
+
+        // 5. 배송지 정보
+        OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        // 6. 검수 정보
+        String inspectionStatus = null;
+        String failReason = null;
+
+        Optional<Inspection> inspection = inspectionRepository.findByOrder_OrderId(orderId);
+        if (inspection.isPresent()) {
+            inspectionStatus = inspection.get().getStatus().name();
+            failReason = inspection.get().getFailReason();
+        }
+
+        return BuyingOrderDetailResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber("ORD-00" + order.getOrderId())
+                .createdAt(order.getCreatedAt())
+                .currentStatus(order.getCurrentStatus().name())
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImages(productImages)
+                .productPrice(productPrice)
+                .shippingFee(SHIPPING_FEE)
+                .totalAmount(totalAmount)
+                .cardCompany(cardCompany)
+                .cardNumberLast4(cardNumberLast4)
+                .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
+                .postalCode(snapshot != null ? snapshot.getPostalCode() : null)
+                .address(snapshot != null ? snapshot.getAddress() : null)
+                .detailAddress(snapshot != null ? snapshot.getDetailAddress() : null)
+                .inspectionStatus(inspectionStatus)
+                .failReason(failReason)
                 .build();
     }
 }
