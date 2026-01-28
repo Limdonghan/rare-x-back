@@ -1,5 +1,6 @@
 package com.project.rare_x_back.entity;
 
+import com.project.rare_x_back.enums.StorageStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -40,6 +41,10 @@ public class StorageItem {
 
     @Column(name = "expired_at")
     private LocalDateTime expiredAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private StorageStatus status;
 
     @Builder
     public StorageItem(Order order, User user, Product product, LocalDateTime expiredAt) {

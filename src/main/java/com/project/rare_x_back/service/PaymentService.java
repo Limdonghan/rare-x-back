@@ -1,18 +1,15 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
-import com.project.rare_x_back.entity.BillingKey;
-import com.project.rare_x_back.entity.Order;
-import com.project.rare_x_back.entity.Payment;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
+import com.project.rare_x_back.entity.*;
+import com.project.rare_x_back.enums.PaymentHistoryStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.BillingKeyRepository;
-import com.project.rare_x_back.repository.OrderRepository;
-import com.project.rare_x_back.repository.PaymentRepository;
-import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -35,7 +32,8 @@ public class PaymentService {
     private final BillingKeyRepository billingKeyRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
-
+    private final PaymentHistoryRepository paymentHistoryRepository;
+    private final SettlementService settlementService;
 
     /**
      * 카드 등록 (빌링키 발급)
@@ -134,12 +132,15 @@ public class PaymentService {
         /// 2. DB에서 저장된 빌링키 꺼내오기
         BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
 
+        // 수수료 및 배송비 계산한 최종 가격
+        int buyerTotalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
+
         try {
             /// 3. 토스 API 호출
             Map<String, Object> response = webClient.post()
                     .uri("billing/" + billingKey.getBillingKey())
                     .bodyValue(Map.of(
-                            "amount", autoPaymentRequestDto.getAmount(),
+                            "amount", buyerTotalAmount,
                             "customerKey", billingKey.getCustomerKey(),
                             "orderId", autoPaymentRequestDto.getTossOrderId(),
                             "orderName", autoPaymentRequestDto.getOrderName()
@@ -154,8 +155,16 @@ public class PaymentService {
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                      /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
-        
-            return responseMappingWithSave(response, order);
+            // 페이먼츠 저장
+            Payment payment = responseMappingWithSave(response, order);
+
+            // 페이먼츠 히스토리 생성
+            createPaymentHistory(order);
+            // 정산 레코드 생성 (PENDING)
+            settlementService.createSettlement(order);
+
+            return payment;
+
         } catch (Exception e) {
             log.error(e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -183,6 +192,9 @@ public class PaymentService {
 
         Order order = orderRepository.findById(paymentConfirmRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
+        // 수수료 및 배송비 계산한 최종 가격
+        int buyerTotalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
+
         try {
             /// 2. 토스 API 호출
             Map<String, Object> response = webClient.post()
@@ -190,7 +202,7 @@ public class PaymentService {
                     .bodyValue(Map.of(
                             "paymentKey", paymentConfirmRequestDto.getPaymentKey(),
                             "orderId", paymentConfirmRequestDto.getTossOrderId(),
-                            "amount", paymentConfirmRequestDto.getAmount()
+                            "amount", buyerTotalAmount
                     ))                                                                                          /// Request Body 설정
                     .retrieve()                                                                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
@@ -203,7 +215,14 @@ public class PaymentService {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
 
-            return responseMappingWithSave(response,order);
+            Payment payment = responseMappingWithSave(response,order);
+
+            // 페이먼츠 히스토리 생성
+            createPaymentHistory(order);
+            // 정산 레코드 생성 (PENDING)
+            settlementService.createSettlement(order);
+
+            return payment;
 
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -246,6 +265,47 @@ public class PaymentService {
 
     public String createTossOrderId(){
         return UUID.randomUUID().toString();
+    }
+
+
+    // 빌링키 존재 체크
+    public BillingKeyResponseDto validateBillingKey(Long userId) {
+
+        boolean billingKeyCheck = false;
+
+        boolean exists = billingKeyRepository.existsByUser_UserId(userId);
+
+        if (exists) {
+            billingKeyCheck=true;
+            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
+
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(billingKey.getCardCompany())
+                    .cardNumber(billingKey.getCardNumber())
+                    .hasBillingKey(billingKeyCheck)
+                    .build();
+        }else {
+            throw new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED);
+        }
+
+    }
+
+
+    // 페이먼츠 히스토리 생성 메소드
+    private void createPaymentHistory(Order order) {
+        int buyerFee = FeeCalculator.buyerFee(order.getPrice());
+        int totalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
+
+        PaymentHistory history = PaymentHistory.builder()
+                .order(order)
+                .buyer(order.getBuyer())
+                .buyBid(order.getBuyBid())
+                .commissionFee(buyerFee)
+                .deliveryFee(3000)
+                .totalAmount(totalAmount)
+                .status(PaymentHistoryStatus.COMPLETE)
+                .build();
+        paymentHistoryRepository.save(history);
     }
 }
 

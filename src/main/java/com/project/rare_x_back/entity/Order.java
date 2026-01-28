@@ -46,7 +46,6 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "bid_type")
-    @Enumerated(EnumType.STRING)
     private BidType type;                       /// 입찰 구분
 
     @Column(name = "price")

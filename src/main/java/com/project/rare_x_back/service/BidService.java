@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -30,6 +31,7 @@ public class BidService {
     private final PaymentService paymentService;
     private final StorageItemRepository storageItemRepository;
     private final InspectionRepository inspectionRepository;
+    private final AddressRepository addressRepository;
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
     @Value("${inspection-center.zipcode}")
@@ -40,7 +42,7 @@ public class BidService {
     /**
      * [판매 입찰 등록]
      * 1. 판매자가 상품을 등록 (완료)
-     * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면.?
+     * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면
      *
      */
     @Transactional
@@ -50,14 +52,19 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerSaleBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+        // 빌링키 존재 여부 검증 -> 판매 입찰 시에는 패널티 징수용 보증 수단
+        paymentService.validateBillingKey(user.getUserId());
 
-        /// 보관 판매 확인. 보관 판매가 아닐경우 DB에 NULL로 저장 및 Response에 false 출력
-        StorageItem storageItem = storageItemRepository.findByProduct(product);
-        boolean storageItemCheck = false;
-        if (storageItem != null && storageItem.getStorageId() != null) {
-            storageItem = storageItemRepository.findByProduct(product);
-            storageItemCheck = true;
-        }
+        Optional<StorageItem> storageItemOpt =
+                storageItemRepository
+                        .findFirstByUser_UserIdAndProduct_ProductIdAndStatusOrderByExpiredAtAsc(
+                                user.getUserId(),
+                                product.getProductId(),
+                                StorageStatus.STORED
+                        ); // -> 있으면  storageItemOpt.isPresent(); = true
+
+        boolean storageItemCheck = storageItemOpt.isPresent();  // -> true 일때  StorageItem = 위에서 찾은 재고
+        StorageItem storageItem = storageItemOpt.orElse(null);  // 없으면 StorageItem = null
 
         SaleBid build = SaleBid.builder()
                 .user(user)
@@ -67,7 +74,9 @@ public class BidService {
                 .storageItem(storageItem)
                 .expiresAt(LocalDateTime.now().plusDays(30))
                 .build();
-        saleBidRepository.save(build);
+        SaleBid savedBid = saleBidRepository.save(build);
+
+        attemptMatchForSaleBid(savedBid);
 
         return RegisterSaleBidResponseDto.builder()
                 .productName(product.getProductName())
@@ -91,17 +100,25 @@ public class BidService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+        Address address = addressRepository.findByAddressIdAndUser_UserId(registerBuyBidRequestDto.getAddressId(), user.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
 
+        // 빌링키 존재 여부 검증
+        paymentService.validateBillingKey(user.getUserId());
 
         BuyBid build = BuyBid.builder()
                 .user(user)
                 .product(product)
                 .price(registerBuyBidRequestDto.getPrice())
+                .addressId(registerBuyBidRequestDto.getAddressId())
                 .status(BidStatus.OPEN)
                 .expiresAt(LocalDateTime.now().plusDays(30))
                 .build();
 
-        buyBidRepository.save(build);
+        BuyBid savedBid = buyBidRepository.save(build);
+
+        attemptMatchForBuyBid(savedBid);
+
         return RegisterBuyBidResponseDto.builder()
                 .productName(product.getProductName())
                 .brandName(product.getBrand().getBrandName())
@@ -328,6 +345,8 @@ public class BidService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
         }
         updateBid.buyPriceUpdate(dto.getPrice());
+        // 가격 수정 시에도 매칭 돌려봄
+        attemptMatchForBuyBid(updateBid);
     }
 
     // 판매 입찰 가격 수정
@@ -339,6 +358,8 @@ public class BidService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
         }
         updateBid.salePriceUpdate(dto.getPrice());
+        // 가격 수정 시에도 매칭 돌려봄
+        attemptMatchForSaleBid(updateBid);
     }
 
     // 구매 입찰 취소
@@ -384,12 +405,16 @@ public class BidService {
             return;
         }
 
+        // 구매자 빌링키 검증 (자동결제 주체)
+        paymentService.validateBillingKey(buyBid.getUser().getUserId());
+
         // 매칭 대상을 찾았으면 상태 변경
         buyBid.statusUpdate(BidStatus.MATCHED);
         target.statusUpdate(BidStatus.MATCHED);
 
         // 체결 가격은 sell 가격 (왜? -> 가격 필터가 buy 가격보다 작거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
         int tradePrice = target.getPrice();
+        log.info("거래가 {} 원으로 체결됨",tradePrice);
 
         // 주문 생성
         Order order = orderService.createOrder(
@@ -402,8 +427,20 @@ public class BidService {
                 BidType.BUY, //구매 입찰이 들어와서 체결됨
                 buyBid.getAddressId()
         );
-        // 이건 페이먼츠 되면 ...
-        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
+        // 저장된 빌링키로 자동 결제 실행
+        AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
+                .userId(buyBid.getUser().getUserId())
+                .orderId(order.getOrderId())
+                .amount(tradePrice)
+                .tossOrderId(paymentService.createTossOrderId())
+                .orderName(buyBid.getProduct().getProductName())
+                .build();
+        try {
+            paymentService.payWithBillingKey(autoPaymentRequestDto);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.PAYMENT_FAILED);
+        }
+
     }
 
     // 판매 입찰 기준 매칭 메소드
@@ -428,13 +465,16 @@ public class BidService {
             return;
         }
 
+        // 구매자 빌링키 검증
+        paymentService.validateBillingKey(target.getUser().getUserId());
+
         // 매칭 대상을 찾았으면 상태 변경
         saleBid.statusUpdate(BidStatus.MATCHED);
         target.statusUpdate(BidStatus.MATCHED);
 
-        // 체결 가격은 buy 가격 (왜? -> 가격 필터가 sale 가격보다 크거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
+        // 체결 가격은 sell 가격
         int tradePrice = target.getPrice();
-
+        log.info("거래가 {} 원으로 체결됨",tradePrice);
         // 주문 생성
         Order order = orderService.createOrder(
                 target.getUser(),        // buyer (BuyBid 주인)
@@ -446,8 +486,20 @@ public class BidService {
                 BidType.SELL,
                 target.getAddressId()    // 구매자 주소
         );
-        // 이건 페이먼츠 되면 ...
-        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
+
+        // 4. 자동결제 실행
+        AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
+                .userId(target.getUser().getUserId())
+                .orderId(order.getOrderId())
+                .amount(tradePrice)
+                .tossOrderId(paymentService.createTossOrderId())
+                .orderName(saleBid.getProduct().getProductName())
+                .build();
+        try {
+            paymentService.payWithBillingKey(autoPaymentRequestDto);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.PAYMENT_FAILED);
+        }
 
     }
 }
