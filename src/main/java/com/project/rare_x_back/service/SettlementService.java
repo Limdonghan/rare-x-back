@@ -28,6 +28,7 @@ public class SettlementService {
                 .sellBid(order.getSellBid())
                 .commissionFee(commission)
                 .payout(payout)
+                .totalPrice(order.getPrice())
                 .status(SettlementStatus.PENDING)
                 .build();
 

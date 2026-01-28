@@ -1,6 +1,7 @@
 package com.project.rare_x_back.common;
 
 public class FeeCalculator {
+    private FeeCalculator() {}
 
     private static final double BUYER_FEE_RATE = 0.03;
     private static final double SELLER_FEE_RATE = 0.03;

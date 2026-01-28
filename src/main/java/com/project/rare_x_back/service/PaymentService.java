@@ -271,20 +271,18 @@ public class PaymentService {
     // 빌링키 존재 체크
     public BillingKeyResponseDto validateBillingKey(Long userId) {
 
-        boolean billingKeyCheck = false;
-
         boolean exists = billingKeyRepository.existsByUser_UserId(userId);
 
         if (exists) {
-            billingKeyCheck=true;
-            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
+            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED));
 
             return BillingKeyResponseDto.builder()
                     .cardCompany(billingKey.getCardCompany())
                     .cardNumber(billingKey.getCardNumber())
-                    .hasBillingKey(billingKeyCheck)
+                    .hasBillingKey(true)
                     .build();
-        }else {
+        } else {
             throw new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED);
         }
 

@@ -34,7 +34,7 @@ public class Settlement {
     private int totalPrice;        // 주문 총액
 
     @Column(name = "commission_fee", nullable = false)
-    private int commissionFee;     // 1.2% 수수료
+    private int commissionFee;     // 3% 수수료
 
     @Column(name = "delivery_fee", nullable = false)
     private int deliveryFee;       // 배송비

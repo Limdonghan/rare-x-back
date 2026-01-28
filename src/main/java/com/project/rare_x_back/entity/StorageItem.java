@@ -47,10 +47,11 @@ public class StorageItem {
     private StorageStatus status;
 
     @Builder
-    public StorageItem(Order order, User user, Product product, LocalDateTime expiredAt) {
+    public StorageItem(Order order, User user, Product product, LocalDateTime expiredAt, StorageStatus status) {
         this.order = order;
         this.user = user;
         this.product = product;
         this.expiredAt = expiredAt;
+        this.status = status;
     }
 }

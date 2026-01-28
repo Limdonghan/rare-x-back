@@ -100,6 +100,7 @@ public class BidService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+        // 주소 존재 여부 및 해당 사용자 소유 여부를 검증하기 위한 조회 (엔티티 자체는 이후 사용하지 않음)
         Address address = addressRepository.findByAddressIdAndUser_UserId(registerBuyBidRequestDto.getAddressId(), user.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
 
@@ -431,7 +432,6 @@ public class BidService {
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
                 .orderId(order.getOrderId())
-                .amount(tradePrice)
                 .tossOrderId(paymentService.createTossOrderId())
                 .orderName(buyBid.getProduct().getProductName())
                 .build();
@@ -473,7 +473,7 @@ public class BidService {
         target.statusUpdate(BidStatus.MATCHED);
 
         // 체결 가격은 sell 가격
-        int tradePrice = target.getPrice();
+        int tradePrice =  saleBid.getPrice();
         log.info("거래가 {} 원으로 체결됨",tradePrice);
         // 주문 생성
         Order order = orderService.createOrder(
