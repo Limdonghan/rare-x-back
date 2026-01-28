@@ -223,12 +223,9 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new RuntimeException("존재하지 않는 판매 입찰"));
-
-        buyBid.statusUpdate(BidStatus.MATCHED);
+        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
 
         String orderNumber = paymentService.createTossOrderId();
-
 
         /// [상태 변경] 구매입찰 -> 체결됨
         buyBid.statusUpdate(BidStatus.MATCHED);
@@ -251,7 +248,7 @@ public class BidService {
                 .orderId(saveOrder.getOrderId())
                 .amount(saveOrder.getPrice())
                 .tossOrderId(orderNumber)
-                .orderName(product.toString())
+                .orderName(product.getProductName())
                 .build();
 
         try {

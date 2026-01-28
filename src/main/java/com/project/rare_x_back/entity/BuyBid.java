@@ -32,7 +32,7 @@ public class BuyBid {
     @JoinColumn(name = "product_id")
     private Product product;              /// 구매 상품
 
-    @JoinColumn(name = "address_id")
+    @JoinColumn ( name = "address_id" , insertable = false , updatable = false )
     @ManyToOne(fetch = FetchType.LAZY)
     private Address address;
 

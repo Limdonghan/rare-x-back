@@ -129,7 +129,7 @@ public class PaymentService {
         /// 1. 유저 확인
         User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Order order = orderRepository.findById(autoPaymentRequestDto.getOrderId()).orElseThrow(() -> new RuntimeException("없는 주문임"));
+        Order order = orderRepository.findById(autoPaymentRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         /// 2. DB에서 저장된 빌링키 꺼내오기
         BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
@@ -141,7 +141,7 @@ public class PaymentService {
                     .bodyValue(Map.of(
                             "amount", autoPaymentRequestDto.getAmount(),
                             "customerKey", billingKey.getCustomerKey(),
-                            "orderId", autoPaymentRequestDto.getOrderId(),
+                            "orderId", autoPaymentRequestDto.getTossOrderId(),
                             "orderName", autoPaymentRequestDto.getOrderName()
                     ))                                          /// Request Body 설정
                     .retrieve()                                 /// 실제 HTTP 요청 실행
