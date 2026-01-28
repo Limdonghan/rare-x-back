@@ -64,8 +64,11 @@ public enum ErrorCode {
     TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다."),
 
     // bid 에러
-    PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST,"현재 판매중인 상품이 아닙니다.");
+    PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST,"현재 판매중인 상품이 아닙니다."),
+    PRODUCT_NOT_ON_BID(HttpStatus.BAD_REQUEST,"존재하지 않는 입찰입니다"),
 
+    // Order 에러
+    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");
     private final String message;
     private final HttpStatus status;
 

@@ -90,6 +90,7 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(registerBuyBidRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+
         BuyBid build = BuyBid.builder()
                 .user(user)
                 .product(product)
@@ -108,7 +109,7 @@ public class BidService {
     }
 
     /**
-     * [즉시 결제 처리]
+     * [즉시 구매 결제 처리]
      * 1. 구매자가 해당 상품 선택
      * 2. 주문 테이블 생성
      * 3. 입찰 상태 변경
@@ -149,10 +150,11 @@ public class BidService {
                 .paymentKey(purchaseRequestDto.getPaymentKey())
                 .tossOrderId(purchaseRequestDto.getTossOrderId())
                 .amount(purchaseRequestDto.getAmount())
-                .orderId(order)
+                .orderId(saveOrder.getOrderId())
                 .build();
         try {
             paymentService.confirmPayment(paymentConfirmRequestDto, email);
+
         } catch (Exception e) {
             log.error("결제 승인 실패 주문: {} , 사용자 {}.", order.getOrderId(), email, e);
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
@@ -207,182 +209,62 @@ public class BidService {
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }
 
-    // 자신의 구매입찰 내역 조회(마이페이지에서)
-    @Transactional(readOnly = true)
-    public List<MyBuyBidResponseDto> getMyBuyBids(String email, BidStatus status) {
+    /**
+     * [즉시 판매 결제 처리]
+     * 1. 구매자가 해당 상품 선택
+     * 2. 주문 테이블 생성
+     * 3. 입찰 상태 변경
+     * 4. 결제 시도
+     * */
+    @Transactional
+    public SellNowResponseDto sellNow (SellNowRequestDto sellNowRequestDto, String email) {
 
-        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+        ///  판매자 조회
+        User seller = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
-        List<BuyBid> bids;
+        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
 
-        if (status == null) {
-            bids = buyBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
-        } else {
-            bids = buyBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
-        }
+        String orderNumber = paymentService.createTossOrderId();
 
-        // DTO 변환
-        return bids.stream()
-                .map(MyBuyBidResponseDto::from)
-                .toList();
-    }
-
-    // 판매입찰 조회
-    @Transactional(readOnly = true)
-    public List<MySaleBidResponseDto> getMySaleBids (String email, BidStatus status) {
-        User user = userRepository.findByEmailAndIsDeletedFalse(email)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
-        List<SaleBid> bids;
-        if (status == null) {
-            bids = saleBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
-        } else {
-            bids = saleBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
-        }
-
-        return bids.stream()
-                .map(MySaleBidResponseDto::from)
-                .toList();
-    }
-
-    // 구매 입찰 가격 수정
-    @Transactional
-    public void updateBuyBidPrice(Long userId, Long buyId, UpdateBidPriceRequestDto dto) {
-        BuyBid updateBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (updateBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
-        }
-        updateBid.buyPriceUpdate(dto.getPrice());
-    }
-
-    // 판매 입찰 가격 수정
-    @Transactional
-    public void updateSaleBidPrice(Long userId, Long sellId, UpdateBidPriceRequestDto dto) {
-        SaleBid updateBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (updateBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 수정할 수 있습니다.");
-        }
-        updateBid.salePriceUpdate(dto.getPrice());
-    }
-  
-    // 구매 입찰 취소
-    @Transactional
-    public void cancelBuyBid(Long userId, Long buyId) {
-        BuyBid cancelBid = buyBidRepository.findByBuyIdAndUser_UserId(buyId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (cancelBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
-        }
-        cancelBid.statusUpdate(BidStatus.CANCELED);
-    }
-  
-    // 판매 입찰 취소
-    @Transactional
-    public void cancelSaleBid(Long userId, Long sellId) {
-        SaleBid cancelBid = saleBidRepository.findBySellIdAndUser_UserId(sellId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (cancelBid.getStatus() != BidStatus.OPEN) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
-        }
-        cancelBid.statusUpdate(BidStatus.CANCELED);
-    }
-  
-    // 구매 입찰 기준 매칭 메소드
-    @Transactional
-    public void  attemptMatchForBuyBid(BuyBid buyBid) {
-        // 이미 처리된 입찰 거름
-        if (buyBid.getStatus() != BidStatus.OPEN) return;
-
-        // 매칭 대상 saleBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
-        SaleBid target = saleBidRepository.findMatchTargetForBuy(
-                buyBid.getProduct(),
-                BidStatus.OPEN,
-                buyBid.getPrice(),
-                buyBid.getUser().getUserId(),
-                PageRequest.of(0, 1)
-            ).stream().findFirst().orElse(null);
-
-        if (target == null) return;
-        // 선점한 이후에도 여전히 OPEN 상태인지 재확인하여 동시성 문제 방어 추가
-        if (buyBid.getStatus() != BidStatus.OPEN || target.getStatus() != BidStatus.OPEN) {
-            return;
-        }
-
-        // 매칭 대상을 찾았으면 상태 변경
+        /// [상태 변경] 구매입찰 -> 체결됨
         buyBid.statusUpdate(BidStatus.MATCHED);
-        target.statusUpdate(BidStatus.MATCHED);
 
-        // 체결 가격은 sell 가격 (왜? -> 가격 필터가 buy 가격보다 작거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
-        int tradePrice = target.getPrice();
+        Order build = Order.builder()
+                .buyer(buyBid.getUser())
+                .seller(seller)
+                .product(product)
+                .buyBid(buyBid)
+                .sellBid(null)
+                .type(BidType.SELL)
+                .price(sellNowRequestDto.getPrice())
+                .currentStatus(CurrentStatus.PENDING)
+                .shipDeadline(LocalDateTime.now().plusDays(2))
+                .build();
+        Order saveOrder = orderRepository.save(build);
 
-        // 주문 생성
-        Order order = orderService.createOrder(
-                buyBid.getUser(),
-                target.getUser(),
-                buyBid.getProduct(),
-                buyBid,
-                target,
-                tradePrice,
-                BidType.BUY, //구매 입찰이 들어와서 체결됨
-                buyBid.getAddressId()
-        );
-        // 이건 페이먼츠 되면 ...
-        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
-    }
+        AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
+                .userId(buyBid.getUser().getUserId())
+                .orderId(saveOrder.getOrderId())
+                .amount(saveOrder.getPrice())
+                .tossOrderId(orderNumber)
+                .orderName(product.getProductName())
+                .build();
 
-    // 판매 입찰 기준 매칭 메소드
-    @Transactional
-    public void attemptMatchForSaleBid(SaleBid saleBid) {
-        // 이미 처리된 입찰 거름
-        if (saleBid.getStatus() != BidStatus.OPEN) return;
-
-        // 매칭 대상 buyBids 선점 매칭 대상 없으면 그냥 입찰 목록에 올려둠.
-        BuyBid target = buyBidRepository.findMatchTargetForSale(
-                saleBid.getProduct(),
-                BidStatus.OPEN,
-                saleBid.getPrice(),
-                saleBid.getUser().getUserId(),
-                PageRequest.of(0,1)
-        ).stream().findFirst().orElse(null);
-
-        if (target == null) return;
-
-        // 선점한 이후에도 여전히 OPEN 상태인지 재확인하여 동시성 문제 방어 추가
-        if (saleBid.getStatus() != BidStatus.OPEN || target.getStatus() != BidStatus.OPEN) {
-            return;
+        try {
+            paymentService.payWithBillingKey(autoPaymentRequestDto);
+        }catch (Exception e) {
+            throw new CustomException(ErrorCode.PAYMENT_FAILED);
         }
-
-        // 매칭 대상을 찾았으면 상태 변경
-        saleBid.statusUpdate(BidStatus.MATCHED);
-        target.statusUpdate(BidStatus.MATCHED);
-
-        // 체결 가격은 buy 가격 (왜? -> 가격 필터가 sale 가격보다 크거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
-        int tradePrice = target.getPrice();
-
-        // 주문 생성
-        Order order = orderService.createOrder(
-                target.getUser(),        // buyer (BuyBid 주인)
-                saleBid.getUser(),       // seller
-                saleBid.getProduct(),
-                target,                  // BuyBid
-                saleBid,                 // SaleBid
-                tradePrice,
-                BidType.SELL,
-                target.getAddressId()    // 구매자 주소
-        );
-        // 이건 페이먼츠 되면 ...
-        // paymentService.payWithBillingKey(buyBid.getUser(), order, tradePrice);
+        return SellNowResponseDto.builder()
+                .tossOrderId(orderNumber)
+                .productName(product.getProductName())
+                .brandName(product.getBrand().getBrandName())
+                .category(product.getCategory().getCategoryName())
+                .amount(saveOrder.getPrice())
+                .build();
 
     }
 
