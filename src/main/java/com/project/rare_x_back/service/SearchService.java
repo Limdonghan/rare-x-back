@@ -5,6 +5,8 @@ import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.entity.Order;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -47,7 +49,7 @@ public class SearchService {
 
         } catch (Exception e) {
             log.error("상품 검색 실패: {}", e.getMessage());
-            throw new RuntimeException("검색 중 오류가 발생했습니다.", e);
+            throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
 
@@ -70,7 +72,7 @@ public class SearchService {
 
         } catch (Exception e) {
             log.error("회원 검색 실패: {}", e.getMessage());
-            throw new RuntimeException("검색 중 오류가 발생했습니다.", e);
+            throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
 
@@ -93,7 +95,7 @@ public class SearchService {
 
         } catch (Exception e) {
             log.error("주문 검색 실패: {}", e.getMessage());
-            throw new RuntimeException("검색 중 오류가 발생했습니다.", e);
+            throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
 
@@ -116,7 +118,7 @@ public class SearchService {
 
         } catch (Exception e) {
             log.error("검수 검색 실패: {}", e.getMessage());
-            throw new RuntimeException("검색 중 오류가 발생했습니다.", e);
+            throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
 
