@@ -277,17 +277,21 @@ public class PaymentService {
 
         boolean exists = billingKeyRepository.existsByUser_UserId(userId);
 
-        if (exists) {
-            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED));
+        BillingKey billingKey = billingKeyRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED));
 
+        if (exists) {
             return BillingKeyResponseDto.builder()
                     .cardCompany(billingKey.getCardCompany())
                     .cardNumber(billingKey.getCardNumber())
                     .hasBillingKey(true)
                     .build();
         } else {
-            throw new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED);
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(billingKey.getCardCompany())
+                    .cardNumber(billingKey.getCardNumber())
+                    .hasBillingKey(false)
+                    .build();
         }
 
     }

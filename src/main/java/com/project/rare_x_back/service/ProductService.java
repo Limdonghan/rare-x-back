@@ -87,32 +87,32 @@ public class ProductService {
                 ));
 
         // [추가] 'OPEN' 상태인 모든 입찰 내역 조회
-        List<BuyBid> allBuyBids = buyBidRepository.findAllByProductAndStatus(product, BidStatus.OPEN);
-        List<SaleBid> allSaleBids = saleBidRepository.findAllByProductAndStatus(product, BidStatus.OPEN);
+        List<BuyBid> allBuyBids = buyBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
+        List<SaleBid> allSaleBids = saleBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
 
         // Java Stream으로 그룹핑 & 카운트 & 정렬
-        // 구매 입찰: 가격별로 묶기 -> 오름차순(싼 가격 우선)
+        // 구매 입찰 리스트: 가격별로 묶기 -> 내림차순
         List<BidInfo> buyBidList = allBuyBids.stream()
                 .collect(Collectors.groupingBy(BuyBid::getPrice, Collectors.counting()))
-                .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice))
-                .toList();
-
-        // 판매 입찰: 가격별로 묶기 -> 내림차순(비싼 가격 우선)
-        List<BidInfo> saleBidList = allSaleBids.stream()
-                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
                 .entrySet().stream()
                 .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
                 .sorted(Comparator.comparingInt(BidInfo::getPrice).reversed())
                 .toList();
 
+        // 판매 입찰 리스트: 가격별로 묶기 -> 오름차순
+        List<BidInfo> saleBidList = allSaleBids.stream()
+                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
+                .entrySet().stream()
+                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
+                .sorted(Comparator.comparingInt(BidInfo::getPrice))
+                .toList();
+
 
         // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
-        int buyPrice = buyBidList.isEmpty() ? 0 : buyBidList.getFirst().getPrice();
+        int buyPrice = saleBidList.isEmpty() ? 0 : saleBidList.getFirst().getPrice();
 
         // [추가] 상품 즉시 판매 최저가, 입찰이 없으며 0원
-        int salePrice = saleBidList.isEmpty() ? 0 : saleBidList.getFirst().getPrice();
+        int salePrice = buyBidList.isEmpty() ? 0 : buyBidList.getFirst().getPrice();
 
 
         // 이미지 객체 리스트를 URL만 있는 문자열 리스트로 변환

@@ -16,7 +16,7 @@ import java.util.Optional;
 public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
 
     /// [추가] 상품별 상태별 조회
-    List<SaleBid> findAllByProductAndStatus(Product product, BidStatus status);
+    List<SaleBid> findAllByProduct_ProductIdAndStatus(Long productId, BidStatus status);
 
     /// [추가] 상품별 상태별 가격순 조회
     List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
