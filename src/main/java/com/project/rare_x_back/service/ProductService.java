@@ -56,7 +56,7 @@ public class ProductService {
             List<SaleBid> saleBidPriceList = saleBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
 
             // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
-            int buyPrice = buyBidPriceList.isEmpty() ? 0 : buyBidPriceList.getFirst().getPrice();
+            int buyPrice = saleBidPriceList.isEmpty() ? 0 : saleBidPriceList.getFirst().getPrice();
 
 
             // 이미지 리스트에서 첫 번째 이미지(썸네일) URL 추출
