@@ -27,6 +27,8 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     // 유저 아이디로 판매 입찰 내역 조회
     List<SaleBid> findAllByUser_UserIdOrderByCreatedAtDesc(Long userId);
     List<SaleBid> findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(Long userId, BidStatus status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<SaleBid> findBySellIdAndUser_UserId(Long sellId, Long userId);
   
     // 베스트 매칭

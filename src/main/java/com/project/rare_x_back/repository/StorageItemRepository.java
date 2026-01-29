@@ -2,11 +2,13 @@ package com.project.rare_x_back.repository;
 
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.StorageItem;
+import com.project.rare_x_back.enums.StorageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StorageItemRepository extends JpaRepository<StorageItem, Long> {
 
@@ -20,4 +22,10 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
 
 
     StorageItem findByProduct(Product product);
+
+    Optional<StorageItem> findFirstByUser_UserIdAndProduct_ProductIdAndStatusOrderByExpiredAtAsc(
+            Long userId,
+            Long productId,
+            StorageStatus status
+    );
 }

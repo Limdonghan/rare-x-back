@@ -24,6 +24,9 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
     // 유저아이디로 구매입찰 내역 조회
     List<BuyBid> findAllByUser_UserIdOrderByCreatedAtDesc(Long userId);
     List<BuyBid> findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(Long userId, BidStatus status);
+
+    // 가격 수정, 삭제 중인 로우 잠김
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<BuyBid> findByBuyIdAndUser_UserId(Long buyId, Long userId);
   
     @Lock(LockModeType.PESSIMISTIC_WRITE)
