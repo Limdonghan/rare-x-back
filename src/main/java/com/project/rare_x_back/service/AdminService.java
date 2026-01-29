@@ -244,7 +244,7 @@ public class AdminService {
         }
 
         product.updateIsDeleted(true);
-        searchService.deleteProduct(productId);  // Typesense 인덱스 삭제
+        searchService.indexProduct(product);  // Typesense 인덱스 업데이트 (is_deleted=true)
     }
 
     //카테고리 조회

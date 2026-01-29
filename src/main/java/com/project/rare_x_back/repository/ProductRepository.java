@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -33,4 +34,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 전체 상품 조회 (페이징 없이) - Typesense 초기 동기화용
     @EntityGraph(attributePaths = {"brand", "category"})
     List<Product> findAllByIsDeletedFalse();
+
+    // 동기화용 - N+1 방지
+    @EntityGraph(attributePaths = {"brand", "category"})
+    @Query("SELECT p FROM Product p WHERE p.isDeleted = false")
+    List<Product> findAllForSync();
 }

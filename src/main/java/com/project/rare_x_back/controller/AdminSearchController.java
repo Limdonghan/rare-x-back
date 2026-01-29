@@ -88,7 +88,7 @@ public class AdminSearchController {
      */
     @PostMapping("/sync/products")
     public ResponseEntity<ApiResponse<String>> syncProducts() {
-        var products = productRepository.findAllByIsDeletedFalse();
+        var products = productRepository.findAllForSync();
         int count = searchService.syncAllProducts(products);
         return ResponseEntity.ok(ApiResponse.success("상품 동기화 완료: " + count + "건"));
     }
@@ -108,7 +108,7 @@ public class AdminSearchController {
      */
     @PostMapping("/sync/orders")
     public ResponseEntity<ApiResponse<String>> syncOrders() {
-        List<Order> orders = orderRepository.findAll();
+        List<Order> orders = orderRepository.findAllForSync();
         int count = searchService.syncAllOrders(orders);
         return ResponseEntity.ok(ApiResponse.success("주문 동기화 완료: " + count + "건"));
     }
@@ -118,7 +118,7 @@ public class AdminSearchController {
      */
     @PostMapping("/sync/inspections")
     public ResponseEntity<ApiResponse<String>> syncInspections() {
-        List<Inspection> inspections = inspectionRepository.findAll();
+        List<Inspection> inspections = inspectionRepository.findAllForSync();
         int count = searchService.syncAllInspections(inspections);
         return ResponseEntity.ok(ApiResponse.success("검수 동기화 완료: " + count + "건"));
     }

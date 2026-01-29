@@ -7,6 +7,7 @@ import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +39,8 @@ public class SearchService {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("product_name,brand_name,category_name")
+                    .filterBy("is_deleted:false")
+                    .sortBy("created_at:desc")
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
@@ -61,6 +64,8 @@ public class SearchService {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("email,name")
+                    .filterBy("is_deleted:false")
+                    .sortBy("created_at:desc")
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
@@ -84,6 +89,7 @@ public class SearchService {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("product_name,buyer_name,seller_name")
+                    .sortBy("created_at:desc")
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
@@ -107,6 +113,7 @@ public class SearchService {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("product_name,seller_name,inspector_name")
+                    .sortBy("created_at:desc")
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
@@ -137,6 +144,8 @@ public class SearchService {
             document.put("category_name", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
             document.put("product_description", product.getProductDescription());
             document.put("retail_price", product.getRetailPrice());
+            document.put("is_deleted", product.isDeleted());
+            document.put("created_at", product.getCreatedAt() != null ? product.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
             typesenseClient.collections("products")
                     .documents()
@@ -161,6 +170,9 @@ public class SearchService {
             document.put("name", user.getName());
             document.put("role", user.getRole().name());
             document.put("status", user.getStatus().name());
+            document.put("is_deleted", user.getIsDeleted());
+            document.put("created_at", user.getCreatedAt() != null
+                    ? user.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);   // 검색엔진에서 쓰기 좋은 초 단위 숫자로 바꿔서 저장
 
             typesenseClient.collections("users")
                     .documents()
@@ -187,6 +199,8 @@ public class SearchService {
             document.put("price", order.getPrice());
             document.put("current_status", order.getCurrentStatus() != null ? order.getCurrentStatus().name() : "");
             document.put("bid_type", order.getType() != null ? order.getType().name() : "");
+            document.put("created_at", order.getCreatedAt() != null
+                    ? order.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
             typesenseClient.collections("orders")
                     .documents()
@@ -236,52 +250,6 @@ public class SearchService {
 
         } catch (Exception e) {
             log.error("검수 인덱싱 실패: {}", e.getMessage());
-        }
-    }
-
-    // ==================== 삭제 메서드 ====================
-
-    public void deleteProduct(Long productId) {
-        try {
-            typesenseClient.collections("products")
-                    .documents(String.valueOf(productId))
-                    .delete();
-            log.info("상품 인덱스 삭제 완료: {}", productId);
-        } catch (Exception e) {
-            log.error("상품 인덱스 삭제 실패: {}", e.getMessage());
-        }
-    }
-
-    public void deleteUser(Long userId) {
-        try {
-            typesenseClient.collections("users")
-                    .documents(String.valueOf(userId))
-                    .delete();
-            log.info("회원 인덱스 삭제 완료: {}", userId);
-        } catch (Exception e) {
-            log.error("회원 인덱스 삭제 실패: {}", e.getMessage());
-        }
-    }
-
-    public void deleteOrder(Long orderId) {
-        try {
-            typesenseClient.collections("orders")
-                    .documents(String.valueOf(orderId))
-                    .delete();
-            log.info("주문 인덱스 삭제 완료: {}", orderId);
-        } catch (Exception e) {
-            log.error("주문 인덱스 삭제 실패: {}", e.getMessage());
-        }
-    }
-
-    public void deleteInspection(Long inspectionId) {
-        try {
-            typesenseClient.collections("inspections")
-                    .documents(String.valueOf(inspectionId))
-                    .delete();
-            log.info("검수 인덱스 삭제 완료: {}", inspectionId);
-        } catch (Exception e) {
-            log.error("검수 인덱스 삭제 실패: {}", e.getMessage());
         }
     }
 
@@ -350,20 +318,24 @@ public class SearchService {
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
-                Map<String, Object> doc = hit.getDocument();
-                items.add(ProductSearchResponseDto.builder()
-                        .productId(((Number) doc.get("product_id")).longValue())
-                        .productName((String) doc.get("product_name"))
-                        .brandName((String) doc.get("brand_name"))
-                        .categoryName((String) doc.get("category_name"))
-                        .productDescription((String) doc.get("product_description"))
-                        .retailPrice(((Number) doc.get("retail_price")).intValue())
-                        .build());
+                try {
+                    Map<String, Object> doc = hit.getDocument();
+                    items.add(ProductSearchResponseDto.builder()
+                            .productId(doc.get("product_id") != null ? ((Number) doc.get("product_id")).longValue() : 0L)
+                            .productName((String) doc.getOrDefault("product_name", ""))
+                            .brandName((String) doc.getOrDefault("brand_name", ""))
+                            .categoryName((String) doc.getOrDefault("category_name", ""))
+                            .productDescription((String) doc.getOrDefault("product_description", ""))
+                            .retailPrice(doc.get("retail_price") != null ? ((Number) doc.get("retail_price")).intValue() : 0)
+                            .build());
+                } catch (Exception e) {
+                    log.error("상품 DTO 변환 실패: {}", e.getMessage());
+                }
             }
         }
 
         return SearchResultDto.<ProductSearchResponseDto>builder()
-                .totalCount(result.getFound())
+                .totalCount(result.getFound() != null ? result.getFound() : 0)
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
                 .items(items)
@@ -375,19 +347,23 @@ public class SearchService {
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
-                Map<String, Object> doc = hit.getDocument();
-                items.add(UserSearchResponseDto.builder()
-                        .userId(((Number) doc.get("user_id")).longValue())
-                        .email((String) doc.get("email"))
-                        .name((String) doc.get("name"))
-                        .role((String) doc.get("role"))
-                        .status((String) doc.get("status"))
-                        .build());
+                try {
+                    Map<String, Object> doc = hit.getDocument();
+                    items.add(UserSearchResponseDto.builder()
+                            .userId(doc.get("user_id") != null ? ((Number) doc.get("user_id")).longValue() : 0L)
+                            .email((String) doc.getOrDefault("email", ""))
+                            .name((String) doc.getOrDefault("name", ""))
+                            .role((String) doc.getOrDefault("role", ""))
+                            .status((String) doc.getOrDefault("status", ""))
+                            .build());
+                } catch (Exception e) {
+                    log.error("회원 DTO 변환 실패: {}", e.getMessage());
+                }
             }
         }
 
         return SearchResultDto.<UserSearchResponseDto>builder()
-                .totalCount(result.getFound())
+                .totalCount(result.getFound() != null ? result.getFound() : 0)
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
                 .items(items)
@@ -399,20 +375,24 @@ public class SearchService {
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
-                Map<String, Object> doc = hit.getDocument();
-                items.add(OrderSearchResponseDto.builder()
-                        .orderId(((Number) doc.get("order_id")).longValue())
-                        .buyerName((String) doc.get("buyer_name"))
-                        .sellerName((String) doc.get("seller_name"))
-                        .productName((String) doc.get("product_name"))
-                        .price(((Number) doc.get("price")).intValue())
-                        .currentStatus((String) doc.get("current_status"))
-                        .build());
+                try {
+                    Map<String, Object> doc = hit.getDocument();
+                    items.add(OrderSearchResponseDto.builder()
+                            .orderId(doc.get("order_id") != null ? ((Number) doc.get("order_id")).longValue() : 0L)
+                            .buyerName((String) doc.getOrDefault("buyer_name", ""))
+                            .sellerName((String) doc.getOrDefault("seller_name", ""))
+                            .productName((String) doc.getOrDefault("product_name", ""))
+                            .price(doc.get("price") != null ? ((Number) doc.get("price")).intValue() : 0)
+                            .currentStatus((String) doc.getOrDefault("current_status", ""))
+                            .build());
+                } catch (Exception e) {
+                    log.error("주문 DTO 변환 실패: {}", e.getMessage());
+                }
             }
         }
 
         return SearchResultDto.<OrderSearchResponseDto>builder()
-                .totalCount(result.getFound())
+                .totalCount(result.getFound() != null ? result.getFound() : 0)
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
                 .items(items)
@@ -424,23 +404,57 @@ public class SearchService {
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
-                Map<String, Object> doc = hit.getDocument();
-                items.add(InspectionSearchResponseDto.builder()
-                        .inspectionId(((Number) doc.get("inspection_id")).longValue())
-                        .productName((String) doc.get("product_name"))
-                        .sellerName((String) doc.get("seller_name"))
-                        .inspectorName((String) doc.get("inspector_name"))
-                        .type((String) doc.get("type"))
-                        .status((String) doc.get("status"))
-                        .build());
+                try {
+                    Map<String, Object> doc = hit.getDocument();
+                    items.add(InspectionSearchResponseDto.builder()
+                            .inspectionId(doc.get("inspection_id") != null ? ((Number) doc.get("inspection_id")).longValue() : 0L)
+                            .productName((String) doc.getOrDefault("product_name", ""))
+                            .sellerName((String) doc.getOrDefault("seller_name", ""))
+                            .inspectorName((String) doc.getOrDefault("inspector_name", ""))
+                            .type((String) doc.getOrDefault("type", ""))
+                            .status((String) doc.getOrDefault("status", ""))
+                            .build());
+                } catch (Exception e) {
+                    log.error("검수 DTO 변환 실패: {}", e.getMessage());
+                }
             }
         }
 
         return SearchResultDto.<InspectionSearchResponseDto>builder()
-                .totalCount(result.getFound())
+                .totalCount(result.getFound() != null ? result.getFound() : 0)
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
                 .items(items)
                 .build();
+    }
+
+    // ==================== 유틸 메서드 ====================
+
+    /**
+     * 컬렉션 존재 여부 체크
+     */
+    public boolean collectionExists(String collectionName) {
+        try {
+            typesenseClient.collections(collectionName).retrieve();
+            return true;
+        } catch (Exception e) {
+            log.warn("컬렉션 없음: {}", collectionName);
+            return false;
+        }
+    }
+
+    /**
+     * 스프링부트 시작 시 전체 컬렉션 존재 여부 체크
+     */
+    @PostConstruct  // 서버 시작할 때 메서드 자동 실행
+    public void init() {
+        String[] collections = {"products", "users", "orders", "inspections"};
+        for (String name : collections) {
+            if (!collectionExists(name)) {
+                log.error("Typesense 컬렉션 없음: {} - Dashboard에서 생성 필요", name);
+            } else {
+                log.info("Typesense 컬렉션 확인: {}", name);
+            }
+        }
     }
 }
