@@ -122,7 +122,6 @@ public class BidService {
                 .product(product)
                 .addressId(registerBuyBidRequestDto.getAddressId())
                 .price(registerBuyBidRequestDto.getPrice())
-                .addressId(registerBuyBidRequestDto.getAddressId())
                 .status(BidStatus.OPEN)
                 .expiresAt(LocalDateTime.now().plusDays(30))
                 .build();
@@ -426,7 +425,7 @@ public class BidService {
 
         // 체결 가격은 sell 가격 (왜? -> 가격 필터가 buy 가격보다 작거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
         int tradePrice = target.getPrice();
-        log.info("거래가 {} 원으로 체결됨",tradePrice);
+        log.info("구매 입찰 거래가 {} 원으로 체결됨",tradePrice);
 
         // 주문 생성
         Order order = orderService.createOrder(
@@ -443,7 +442,7 @@ public class BidService {
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
                 .orderId(order.getOrderId())
-                .tossOrderId(paymentService.createdUUID())
+                .tossOrderId(paymentService.generateUUID())
                 .orderName(buyBid.getProduct().getProductName())
                 .build();
         try {
@@ -485,7 +484,7 @@ public class BidService {
 
         // 체결 가격은 sell 가격
         int tradePrice =  saleBid.getPrice();
-        log.info("거래가 {} 원으로 체결됨",tradePrice);
+        log.info("판매 입찰 거래가 {} 원으로 체결됨",tradePrice);
         // 주문 생성
         Order order = orderService.createOrder(
                 target.getUser(),        // buyer (BuyBid 주인)
@@ -503,7 +502,7 @@ public class BidService {
                 .userId(target.getUser().getUserId())
                 .orderId(order.getOrderId())
                 .amount(tradePrice)
-                .tossOrderId(paymentService.createdUUID())
+                .tossOrderId(paymentService.generateUUID())
                 .orderName(saleBid.getProduct().getProductName())
                 .build();
         try {

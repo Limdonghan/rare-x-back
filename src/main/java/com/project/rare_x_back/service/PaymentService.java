@@ -267,7 +267,7 @@ public class PaymentService {
     }
 
 
-    public String createdUUID(){
+    public String generateUUID(){
         return UUID.randomUUID().toString();
     }
 
@@ -277,8 +277,7 @@ public class PaymentService {
 
         boolean exists = billingKeyRepository.existsByUser_UserId(userId);
 
-        BillingKey billingKey = billingKeyRepository.findByUserUserId(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED));
+        BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
 
         if (exists) {
             return BillingKeyResponseDto.builder()
@@ -288,8 +287,8 @@ public class PaymentService {
                     .build();
         } else {
             return BillingKeyResponseDto.builder()
-                    .cardCompany(billingKey.getCardCompany())
-                    .cardNumber(billingKey.getCardNumber())
+                    .cardCompany(null)
+                    .cardNumber(null)
                     .hasBillingKey(false)
                     .build();
         }

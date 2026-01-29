@@ -54,9 +54,9 @@ public class PaymentController {
      * 프론트엔드에서 결제 위젯을 띄우기 전 호출하여 orderId를 받아감
      */
     @GetMapping("/created-uuid")
-    public ApiResponse<String> createTossOrderId() {
-        String uuid = paymentService.createdUUID();
-        return ApiResponse.success(uuid, "Toss Order ID 생성 완료");
+    public ApiResponse<String> generateUUID() {
+        String uuid = paymentService.generateUUID();
+        return ApiResponse.success(uuid, "UUID 생성 완료");
     }
 
     /**
