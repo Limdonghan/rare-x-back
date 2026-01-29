@@ -63,7 +63,7 @@ public class OrderService {
         saveHistory(order, newStatus);
     }
 
-    // 구매 확정
+    // 구매 확정 SHIPPED -> DELIVERED
     public void confirmPurchase (Long orderId, Long buyerId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
@@ -84,7 +84,7 @@ public class OrderService {
 
 
 
-
+    // 배송지 스냅샷
     private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
         Address address = addressRepository
                 .findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
@@ -92,6 +92,7 @@ public class OrderService {
         snapshotRepository.save(OrderShippingSnapshot.from(order, address));
     }
 
+    // 주문 이력 저장
     private void saveHistory(Order order, CurrentStatus status) {
         historyRepository.save(OrderHistory.create(order, status));
     }

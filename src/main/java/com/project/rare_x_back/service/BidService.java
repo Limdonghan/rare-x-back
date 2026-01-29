@@ -217,7 +217,8 @@ public class BidService {
         }
 
         // 5. Order 상태 변경
-        order.setCurrentStatus(CurrentStatus.SHIPPED_TO_WAREHOUSE);
+        // order.setCurrentStatus(CurrentStatus.SHIPPED_TO_WAREHOUSE);
+        orderService.updateOrderStatus(order, CurrentStatus.SHIPPED_TO_WAREHOUSE);
 
         // 6. Inspection 생성
         Inspection inspection = Inspection.builder()
