@@ -7,6 +7,7 @@ import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
+import com.project.rare_x_back.common.FeeCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,13 +34,20 @@ public class BidService {
     private final AddressRepository addressRepository;
     private final StorageItemRepository storageItemRepository;
     private final InspectionRepository inspectionRepository;
-    private final AddressRepository addressRepository;
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
     @Value("${inspection-center.zipcode}")
     private String inspectionCenterZipcode;
 
     private final OrderService orderService;
+
+    public FeeResponseDto getFees() {
+        return FeeResponseDto.builder()
+                .buyerFeeRate(FeeCalculator.BUYER_FEE_RATE)
+                .sellerFeeRate(FeeCalculator.SELLER_FEE_RATE)
+                .deliveryFee(FeeCalculator.DELIVERY_FEE)
+                .build();
+    }
 
     /**
      * [판매 입찰 등록]
@@ -106,8 +114,6 @@ public class BidService {
         Address address = addressRepository.findByAddressIdAndUser_UserId(registerBuyBidRequestDto.getAddressId(), user.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST));
 
-        Address address = addressRepository.findById(registerBuyBidRequestDto.getAddressId())
-                .orElseThrow(() -> new RuntimeException("주소 없는거임"));
         // 빌링키 존재 여부 검증
         paymentService.validateBillingKey(user.getUserId());
 
@@ -437,7 +443,7 @@ public class BidService {
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
                 .orderId(order.getOrderId())
-                .tossOrderId(paymentService.createTossOrderId())
+                .tossOrderId(paymentService.createdUUID())
                 .orderName(buyBid.getProduct().getProductName())
                 .build();
         try {
@@ -497,7 +503,7 @@ public class BidService {
                 .userId(target.getUser().getUserId())
                 .orderId(order.getOrderId())
                 .amount(tradePrice)
-                .tossOrderId(paymentService.createTossOrderId())
+                .tossOrderId(paymentService.createdUUID())
                 .orderName(saleBid.getProduct().getProductName())
                 .build();
         try {

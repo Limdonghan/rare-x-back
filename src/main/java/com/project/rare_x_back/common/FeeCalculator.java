@@ -3,9 +3,9 @@ package com.project.rare_x_back.common;
 public class FeeCalculator {
     private FeeCalculator() {}
 
-    private static final double BUYER_FEE_RATE = 0.03;
-    private static final double SELLER_FEE_RATE = 0.03;
-    private static final int DELIVERY_FEE = 3000;
+    public static final double BUYER_FEE_RATE = 0.03;
+    public static final double SELLER_FEE_RATE = 0.03;
+    public static final int DELIVERY_FEE = 3000;
 
     public static int buyerFee(int price) {
         return (int) Math.ceil(price * BUYER_FEE_RATE);

@@ -62,7 +62,7 @@ public class PaymentController {
     /**
      * [Toss 빌링키 존재 체크]
      */
-    @PostMapping("/billingKey-check")
+    @GetMapping("/billing-key-check")
     public ApiResponse<BillingKeyResponseDto> checkBillingKey(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
