@@ -365,6 +365,6 @@ public class InspectionService {
 
         // 3. order 상태 변경, order_history 이력 저장
         orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
-
     }
+
 }
