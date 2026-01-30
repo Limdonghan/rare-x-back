@@ -36,4 +36,15 @@ public class BuyingOrderDetailResponseDto {
     // 검수 정보 (실패 시에만)
     private String inspectionStatus;
     private String failReason;
+
+    // 상태 이력 (주문상세에서 배송조회)
+    private List<StatusHistory> statusHistories;
+
+    // Inner Class
+    @Getter
+    @Builder
+    public static class StatusHistory {
+        private String status;
+        private LocalDateTime createdAt;
+    }
 }
