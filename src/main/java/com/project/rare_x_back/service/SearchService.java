@@ -145,7 +145,8 @@ public class SearchService {
             document.put("product_description", product.getProductDescription());
             document.put("retail_price", product.getRetailPrice());
             document.put("is_deleted", product.isDeleted());
-            document.put("created_at", product.getCreatedAt() != null ? product.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
+            document.put("created_at", product.getCreatedAt() != null
+                    ? product.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
             typesenseClient.collections("products")
                     .documents()
@@ -241,6 +242,8 @@ public class SearchService {
             document.put("inspector_name", inspection.getUser() != null ? inspection.getUser().getName() : "");
             document.put("type", inspection.getType().name());
             document.put("status", inspection.getStatus().name());
+            document.put("created_at", inspection.getCreatedAt() != null
+                    ? inspection.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
             typesenseClient.collections("inspections")
                     .documents()
