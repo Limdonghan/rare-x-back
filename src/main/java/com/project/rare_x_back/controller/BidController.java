@@ -21,6 +21,13 @@ public class BidController {
 
     private final BidService bidService;
 
+    /// 수수료 설정 조회
+    @GetMapping("/fees")
+    public ResponseEntity<ApiResponse<FeeResponseDto>> getFees() {
+        FeeResponseDto feeResponseDto = bidService.getFees();
+        return ResponseEntity.ok(ApiResponse.success(feeResponseDto, "수수료 정보 조회가 완료되었습니다."));
+    }
+
     /// 판매 입찰 등록
     @PostMapping("/sale")
     public ResponseEntity<ApiResponse<RegisterSaleBidResponseDto>> registerSaleBid(@Valid @RequestBody RegisterSaleBidRequestDto registerSaleBidRequestDto,

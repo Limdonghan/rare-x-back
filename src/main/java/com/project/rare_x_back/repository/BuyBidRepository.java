@@ -15,8 +15,7 @@ import java.util.Optional;
 
 public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
-    /// [추가] 상품별 상태별 입찰 목록 조회
-    List<BuyBid> findAllByProductAndStatus(Product product, BidStatus status);
+    List<BuyBid> findAllByProduct_ProductIdAndStatus(Long productId, BidStatus status);
 
     /// [추가] 상품별 상태별 가격순 조회
     List<BuyBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);

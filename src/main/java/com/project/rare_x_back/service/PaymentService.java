@@ -5,6 +5,10 @@ import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
+import com.project.rare_x_back.entity.BillingKey;
+import com.project.rare_x_back.entity.Order;
+import com.project.rare_x_back.entity.Payment;
+import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.PaymentHistoryStatus;
 import com.project.rare_x_back.exceptions.CustomException;
@@ -263,7 +267,7 @@ public class PaymentService {
     }
 
 
-    public String createTossOrderId(){
+    public String generateUUID(){
         return UUID.randomUUID().toString();
     }
 
@@ -273,17 +277,20 @@ public class PaymentService {
 
         boolean exists = billingKeyRepository.existsByUser_UserId(userId);
 
-        if (exists) {
-            BillingKey billingKey = billingKeyRepository.findByUserUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED));
+        BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
 
+        if (exists) {
             return BillingKeyResponseDto.builder()
                     .cardCompany(billingKey.getCardCompany())
                     .cardNumber(billingKey.getCardNumber())
                     .hasBillingKey(true)
                     .build();
         } else {
-            throw new CustomException(ErrorCode.BILLING_KEY_NOT_REGISTERED);
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(null)
+                    .cardNumber(null)
+                    .hasBillingKey(false)
+                    .build();
         }
 
     }
