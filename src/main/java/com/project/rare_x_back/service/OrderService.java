@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class OrderService {
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
+    private final SettlementService settlementService;
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
@@ -46,16 +48,16 @@ public class OrderService {
                 .price(price)
                 .type(type)
                 .currentStatus(CurrentStatus.PENDING)
+                .shipDeadline(LocalDateTime.now().plusDays(2))
                 .build();
+
         Order savedOrder = orderRepository.save(order);
 
-        // 2. 배송지 스냅샷 저장
-        Address address = addressRepository.findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "본인의 배송지만 사용할 수 있습니다."));
-        snapshotRepository.save(OrderShippingSnapshot.from(savedOrder, address));
+        // 배송지 스냅샷 저장
+        saveShippingSnapshot(savedOrder, buyer, addressId);
 
-        // 3. 주문 이력 저장
-        historyRepository.save(OrderHistory.create(savedOrder, savedOrder.getCurrentStatus()));
+        // 주문 이력 저장
+        saveHistory(savedOrder, CurrentStatus.PENDING);
 
         return savedOrder;
     }
@@ -67,7 +69,6 @@ public class OrderService {
         if (order == null || newStatus == null) {
             return;
         }
-
         // 1. 상태 업데이트 및 저장
         order.setCurrentStatus(newStatus);
         orderRepository.save(order);
@@ -76,10 +77,39 @@ public class OrderService {
         searchService.indexOrder(order);
 
         // 2. 이력 자동 저장
-        addOrderHistory(order, newStatus);
-    } //이력 저장을 담당하는 내부 메서드
+        saveHistory(order, newStatus);
+    }
 
-    private void addOrderHistory(Order order, CurrentStatus status) {
+    // 구매 확정
+    public void confirmPurchase (Long orderId, Long buyerId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getBuyer().getUserId().equals(buyerId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "배송 완료 후에만 구매 확정 가능이 가능합니다.");
+        }
+
+        // 주문 상태 변경
+       // updateOrderStatus(order, CurrentStatus.);
+
+        // 정산 완료 + 지갑 적립..
+    }
+
+
+
+
+    private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
+        Address address = addressRepository
+                .findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "본인의 배송지만 사용할 수 있습니다."));
+        snapshotRepository.save(OrderShippingSnapshot.from(order, address));
+    }
+
+    private void saveHistory(Order order, CurrentStatus status) {
         historyRepository.save(OrderHistory.create(order, status));
     }
 
