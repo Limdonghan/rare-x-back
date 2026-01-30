@@ -20,11 +20,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -103,8 +98,6 @@ public class OrderService {
 
         // 정산 완료 + 지갑 적립..
     }
-
-
 
 
     private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
@@ -235,6 +228,16 @@ public class OrderService {
             failReason = inspection.get().getFailReason();
         }
 
+        // 7. 상태 이력 조회
+        List<BuyingOrderDetailResponseDto.StatusHistory> statusHistories = historyRepository
+                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)
+                .stream()
+                .map(history -> BuyingOrderDetailResponseDto.StatusHistory.builder()
+                        .status(history.getCurrentStatus().name())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .toList();
+
         return BuyingOrderDetailResponseDto.builder()
                 .orderId(order.getOrderId())
                 .orderNumber("ORD-00" + order.getOrderId())
@@ -254,6 +257,7 @@ public class OrderService {
                 .detailAddress(snapshot != null ? snapshot.getDetailAddress() : null)
                 .inspectionStatus(inspectionStatus)
                 .failReason(failReason)
+                .statusHistories(statusHistories)
                 .build();
     }
 }
