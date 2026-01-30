@@ -36,7 +36,7 @@ public class UserOrderController {
     }
 
     // 구매자 구매 확정
-    @PostMapping("/{orderId}/ship")
+    @PostMapping("/{orderId}/confirm")
     public ResponseEntity<ApiResponse<Void>> purchaseConfirm (
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long orderId

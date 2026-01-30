@@ -87,13 +87,14 @@ public class OrderService {
 
         // 주문 상태가 배송완료인지 확인
         if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
-            return;
+            throw new CustomException(ErrorCode.BAD_REQUEST);
         }
 
         // 주문 상태 변경
         updateOrderStatus(order, CurrentStatus.CONFIRMED_PURCHASE);
 
-        // 정산 상태 완료 변경 + 지갑 적립.
+        // 정산 상태 완료 변경
+        settlementService.completeSettlement(order);
     }
 
     // 유저 -> 구매확정

@@ -56,4 +56,8 @@ public class Settlement {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    public void complete() {
+        this.status = SettlementStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+    }
 }
