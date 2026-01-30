@@ -14,6 +14,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 
 import java.util.List;
@@ -29,10 +33,10 @@ public class OrderService {
     private final OrderHistoryRepository historyRepository;
     private final AddressRepository addressRepository;
     private final SearchService searchService;
-    private final SettlementService settlementService;
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
+    private final SettlementService settlementService;
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
