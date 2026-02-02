@@ -2,10 +2,12 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
+import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
+import com.project.rare_x_back.enums.ReturnStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
@@ -40,6 +42,15 @@ public class OrderService {
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
 
+        // 보관상품 판매 여부 확인
+        boolean isStorageSale = saleBid != null && saleBid.getStorageItem() != null;
+
+        // 보관상품이면 PASSED, 아니면 PENDING
+        CurrentStatus initialStatus = isStorageSale ? CurrentStatus.PASSED : CurrentStatus.PENDING;
+
+        // 보관상품이면 shipDeadline 불필요
+        LocalDateTime shipDeadline = isStorageSale ? null : LocalDateTime.now().plusDays(2);
+
         // 1. 주문(Order) 저장
         Order order = Order.builder()
                 .buyer(buyer)
@@ -49,8 +60,9 @@ public class OrderService {
                 .sellBid(saleBid)
                 .price(price)
                 .type(type)
-                .currentStatus(CurrentStatus.PENDING)
-                .shipDeadline(LocalDateTime.now().plusDays(2))
+                .currentStatus(initialStatus)
+                .shipDeadline(shipDeadline)
+                .returnStatus(ReturnStatus.NONE)  // 추가!
                 .build();
 
         Order savedOrder = orderRepository.save(order);
@@ -59,7 +71,7 @@ public class OrderService {
         saveShippingSnapshot(savedOrder, buyer, addressId);
 
         // 주문 이력 저장
-        saveHistory(savedOrder, CurrentStatus.PENDING);
+        saveHistory(savedOrder, initialStatus);
 
         return savedOrder;
     }
@@ -412,6 +424,72 @@ public class OrderService {
                 .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
                 .shipDeadline(order.getShipDeadline())
                 .inspectionFailReason(inspectionFailReason)
+                .build();
+    }
+
+    // 판매 상세 조회 (ORDER-007)
+    @Transactional(readOnly = true)
+    public SellingOrderDetailResponseDto getSellingOrderDetail(Long userId, Long orderId) {
+        // 1. 주문 조회 + 권한 체크
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getSeller().getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 2. 상품 이미지
+        List<String> productImages = order.getProduct().getImages().stream()
+                .map(ProductImage::getImageUrl)
+                .toList();
+
+        // 3. 정산 정보
+        Integer settlementPayout = null;
+        LocalDateTime settlementCompletedAt = null;
+
+        Optional<Settlement> settlement = settlementRepository.findByOrder_OrderId(orderId);
+        if (settlement.isPresent()) {
+            settlementPayout = settlement.get().getPayout();
+            settlementCompletedAt = settlement.get().getCompletedAt();
+        }
+
+        // 4. 검수 정보
+        String inspectionStatus = null;
+        String inspectionFailReason = null;
+
+        Optional<Inspection> inspection = inspectionRepository.findByOrder_OrderId(orderId);
+        if (inspection.isPresent()) {
+            inspectionStatus = inspection.get().getStatus().name();
+            inspectionFailReason = inspection.get().getFailReason();
+        }
+
+        // 5. 상태 이력 조회
+        List<SellingOrderDetailResponseDto.StatusHistory> statusHistories = historyRepository
+                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)
+                .stream()
+                .map(history -> SellingOrderDetailResponseDto.StatusHistory.builder()
+                        .status(history.getCurrentStatus().name())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .toList();
+
+        return SellingOrderDetailResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber("ORD-00" + order.getOrderId())
+                .createdAt(order.getCreatedAt())
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImages(productImages)
+                .price(order.getPrice())
+                .settlementPayout(settlementPayout)
+                .settlementCompletedAt(settlementCompletedAt)
+                .currentStatus(order.getCurrentStatus().name())
+                .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
+                .shipDeadline(order.getShipDeadline())
+                .sellerShippedAt(order.getSellerShippedAt())
+                .inspectionStatus(inspectionStatus)
+                .inspectionFailReason(inspectionFailReason)
+                .statusHistories(statusHistories)
                 .build();
     }
 }

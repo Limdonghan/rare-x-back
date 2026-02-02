@@ -6,10 +6,7 @@ import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.*;
-import com.project.rare_x_back.enums.CurrentStatus;
-import com.project.rare_x_back.enums.InspectionStatus;
-import com.project.rare_x_back.enums.InspectionType;
-import com.project.rare_x_back.enums.StorageRequestStatus;
+import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.InspectionChecklistRepository;
@@ -252,6 +249,7 @@ public class InspectionService {
             StorageItem storageItem = StorageItem.builder()
                     .user(storageRequest.getUser())
                     .product(storageRequest.getProduct())
+                    .status(StorageStatus.STORED)
                     .build();
             storageItemRepository.save(storageItem);
         }

@@ -2,10 +2,7 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
-import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
-import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
-import com.project.rare_x_back.dto.response.OrderShipResponseDto;
-import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.service.BidService;
 import com.project.rare_x_back.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -94,6 +91,17 @@ public class UserOrderController {
         );
         return ResponseEntity.ok(ApiResponse.success(result));
     }
-    // TODO: 판매 상세 조회 (ORDER-007)
-    // GET /sales/{orderId}
+
+    // 판매 상세 조회 (ORDER-007)
+    @GetMapping("/sales/{orderId}")
+    public ResponseEntity<ApiResponse<SellingOrderDetailResponseDto>> getSellingOrderDetail(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        SellingOrderDetailResponseDto result = orderService.getSellingOrderDetail(
+                userDetails.getUserId(),
+                orderId
+        );
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 }
