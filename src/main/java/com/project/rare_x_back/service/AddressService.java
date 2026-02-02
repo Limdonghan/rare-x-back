@@ -96,6 +96,7 @@ public class AddressService {
 
         for (Address address : results) {
             UserAddressResponseDto newResult = UserAddressResponseDto.builder()
+                    .addressId(address.getAddressId())
                     .recipientName(address.getRecipientName())
                     .postalCode(address.getPostalCode())
                     .address(address.getAddress())

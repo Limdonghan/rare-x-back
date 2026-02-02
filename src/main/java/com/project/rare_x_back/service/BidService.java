@@ -7,6 +7,7 @@ import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
+import com.project.rare_x_back.common.FeeCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.Optional;
 
 @Service
@@ -29,15 +31,23 @@ public class BidService {
     private final SaleBidRepository saleBidRepository;
     private final OrderRepository orderRepository;
     private final PaymentService paymentService;
+    private final AddressRepository addressRepository;
     private final StorageItemRepository storageItemRepository;
     private final InspectionRepository inspectionRepository;
-    private final AddressRepository addressRepository;
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
     @Value("${inspection-center.zipcode}")
     private String inspectionCenterZipcode;
 
     private final OrderService orderService;
+
+    public FeeResponseDto getFees() {
+        return FeeResponseDto.builder()
+                .buyerFeeRate(FeeCalculator.BUYER_FEE_RATE)
+                .sellerFeeRate(FeeCalculator.SELLER_FEE_RATE)
+                .deliveryFee(FeeCalculator.DELIVERY_FEE)
+                .build();
+    }
 
     /**
      * [판매 입찰 등록]
@@ -110,8 +120,8 @@ public class BidService {
         BuyBid build = BuyBid.builder()
                 .user(user)
                 .product(product)
-                .price(registerBuyBidRequestDto.getPrice())
                 .addressId(registerBuyBidRequestDto.getAddressId())
+                .price(registerBuyBidRequestDto.getPrice())
                 .status(BidStatus.OPEN)
                 .expiresAt(LocalDateTime.now().plusDays(30))
                 .build();
@@ -250,7 +260,7 @@ public class BidService {
 
         BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
 
-        String orderNumber = paymentService.createTossOrderId();
+        String orderNumber = UUID.randomUUID().toString();
 
         /// [상태 변경] 구매입찰 -> 체결됨
         buyBid.statusUpdate(BidStatus.MATCHED);
@@ -416,7 +426,7 @@ public class BidService {
 
         // 체결 가격은 sell 가격 (왜? -> 가격 필터가 buy 가격보다 작거나 같게 해놨어서 입찰 올린 가격 보다 더 쌀 수도 있으니까)
         int tradePrice = target.getPrice();
-        log.info("거래가 {} 원으로 체결됨",tradePrice);
+        log.info("구매 입찰 거래가 {} 원으로 체결됨",tradePrice);
 
         // 주문 생성
         Order order = orderService.createOrder(
@@ -433,7 +443,7 @@ public class BidService {
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
                 .orderId(order.getOrderId())
-                .tossOrderId(paymentService.createTossOrderId())
+                .tossOrderId(paymentService.generateUUID())
                 .orderName(buyBid.getProduct().getProductName())
                 .build();
         try {
@@ -475,7 +485,7 @@ public class BidService {
 
         // 체결 가격은 sell 가격
         int tradePrice =  saleBid.getPrice();
-        log.info("거래가 {} 원으로 체결됨",tradePrice);
+        log.info("판매 입찰 거래가 {} 원으로 체결됨",tradePrice);
         // 주문 생성
         Order order = orderService.createOrder(
                 target.getUser(),        // buyer (BuyBid 주인)
@@ -493,7 +503,7 @@ public class BidService {
                 .userId(target.getUser().getUserId())
                 .orderId(order.getOrderId())
                 .amount(tradePrice)
-                .tossOrderId(paymentService.createTossOrderId())
+                .tossOrderId(paymentService.generateUUID())
                 .orderName(saleBid.getProduct().getProductName())
                 .build();
         try {

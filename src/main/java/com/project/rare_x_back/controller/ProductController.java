@@ -3,7 +3,10 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.dto.response.ProductSearchResponseDto;
+import com.project.rare_x_back.dto.response.SearchResultDto;
 import com.project.rare_x_back.service.ProductService;
+import com.project.rare_x_back.service.SearchService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProductController {
 
     private final ProductService productService;
+    private final SearchService searchService;
 
     //상품 전체 조회(목록, 썸네일이미지만 응답)
     @GetMapping
@@ -39,5 +43,13 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-
+    //상품 검색 (회원용)
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<SearchResultDto<ProductSearchResponseDto>>> searchProducts(
+            @RequestParam String keyword,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        SearchResultDto<ProductSearchResponseDto> result = searchService.searchProducts(keyword, pageable);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 }

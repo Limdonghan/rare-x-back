@@ -23,6 +23,7 @@ public class OrderService {
     private final OrderShippingSnapshotRepository snapshotRepository;
     private final OrderHistoryRepository historyRepository;
     private final AddressRepository addressRepository;
+    private final SearchService searchService;
     private final SettlementService settlementService;
 
     @Transactional
@@ -62,6 +63,9 @@ public class OrderService {
         // 1. 상태 업데이트 및 저장
         order.setCurrentStatus(newStatus);
         orderRepository.save(order);
+
+        // Typesense 인덱싱 업데이트
+        searchService.indexOrder(order);
 
         // 2. 이력 자동 저장
         saveHistory(order, newStatus);

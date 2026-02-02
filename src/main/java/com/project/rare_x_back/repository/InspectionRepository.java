@@ -121,4 +121,17 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     })
     @Query("SELECT i FROM Inspection i WHERE i.status = :status")
     Page<Inspection> findHistoryByStatus(@Param("status") InspectionStatus status, Pageable pageable);
+
+    // ===== 동기화용 (N+1 방지) =====
+    @EntityGraph(attributePaths = {
+            "user",
+            "storageRequest",
+            "storageRequest.product",
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.seller"
+    })
+    @Query("SELECT i FROM Inspection i")
+    List<Inspection> findAllForSync();
 }

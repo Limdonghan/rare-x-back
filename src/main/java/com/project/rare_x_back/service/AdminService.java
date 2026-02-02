@@ -35,6 +35,7 @@ public class AdminService {
     private final CategoryRepository categoryRepository;
     private final S3ImageService s3ImageService;
     private final ProductImageRepository productImageRepository;
+    private final SearchService searchService;
 
     //상품 등록
     public Long createProduct(ProductCreateRequestDto productCreateRequestDto) {
@@ -60,8 +61,8 @@ public class AdminService {
                 .build();
 
         Product savedProduct = productRepository.save(product);
+        searchService.indexProduct(savedProduct);
         return savedProduct.getProductId();
-
     }
 
     //상품 이미지 등록 (DB저장 실패 시 S3 롤백 로직 추가)
@@ -221,6 +222,7 @@ public class AdminService {
                 }
             }
         }
+        searchService.indexProduct(product); // Typesense 인덱싱 (업데이트)
     }
 
     //상품 삭제 (연결된 s3이미지도 같이 삭제 추가)
@@ -242,6 +244,7 @@ public class AdminService {
         }
 
         product.updateIsDeleted(true);
+        searchService.indexProduct(product);  // Typesense 인덱스 업데이트 (is_deleted=true)
     }
 
     //카테고리 조회

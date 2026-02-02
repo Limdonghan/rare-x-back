@@ -34,6 +34,7 @@ public class InspectionService {
     private final UserRepository userRepository;
     private final StorageItemRepository storageItemRepository;
     private final OrderService orderService;
+    private final SearchService searchService;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -128,6 +129,9 @@ public class InspectionService {
             orderService.updateOrderStatus(inspection.getOrder(),CurrentStatus.PENDING_INSPECTION);
         }
 
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
+
         return InspectionResponseDto.from(inspection);
     }
 
@@ -171,6 +175,9 @@ public class InspectionService {
                 .inspection(inspection)
                 .build();
         inspectionChecklistRepository.save(checklist);
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
 
         return InspectionResponseDto.from(inspection);
     }
@@ -261,6 +268,9 @@ public class InspectionService {
             orderService.updateOrderStatus(order, CurrentStatus.PASSED);
         }
 
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
+
         return InspectionResponseDto.from(inspection);
     }
 
@@ -307,6 +317,9 @@ public class InspectionService {
             // order 상태 변경, order_history 이력 저장 (검수 불합격 → 반송)
             orderService.updateOrderStatus(order, CurrentStatus.RETURN);
         }
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
 
         return InspectionResponseDto.from(inspection);
     }

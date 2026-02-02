@@ -5,8 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -28,4 +30,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 카테고리 + 브랜드 필터링
     @EntityGraph(attributePaths = {"category", "brand", "images"})
     Page<Product> findByCategory_CategoryIdAndBrand_BrandIdAndIsDeletedFalse(Long categoryId, Long brandId, Pageable pageable);
+
+    // 동기화용 - N+1 방지
+    @EntityGraph(attributePaths = {"brand", "category"})
+    @Query("SELECT p FROM Product p WHERE p.isDeleted = false")
+    List<Product> findAllForSync();
 }

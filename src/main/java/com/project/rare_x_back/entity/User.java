@@ -47,9 +47,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-//    @Column(name = "point", nullable = false)
-//    private Integer point;
-
     @Column(name = "profile_url", length = 500)
     private String profileUrl;
 
