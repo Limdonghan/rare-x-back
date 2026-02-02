@@ -31,12 +31,6 @@ public class OrderService {
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
-    private final SettlementService settlementService;
-    private final InspectionRepository inspectionRepository;
-    private final PaymentRepository paymentRepository;
-    private final BillingKeyRepository billingKeyRepository;
-
-    private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
@@ -103,7 +97,6 @@ public class OrderService {
 
         // 정산 완료 + 지갑 적립..
     }
-
 
     private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
         Address address = addressRepository
