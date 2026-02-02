@@ -7,23 +7,19 @@ import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.AddressRepository;
-import com.project.rare_x_back.repository.OrderHistoryRepository;
-import com.project.rare_x_back.repository.OrderRepository;
-import com.project.rare_x_back.repository.OrderShippingSnapshotRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.time.LocalDateTime;
-import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -115,12 +111,6 @@ public class OrderService {
         orderProcessService.processIndividualConfirm(orderId);
 
     }
-
-    private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
-        Address address = addressRepository
-                .findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "본인의 배송지만 사용할 수 있습니다."));
-        snapshotRepository.save(OrderShippingSnapshot.from(order, address));
 
     // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
     public void autoConfirmPurchase() {
