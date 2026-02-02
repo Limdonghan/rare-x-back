@@ -43,7 +43,7 @@ public class Settlement {
     private int payout;            // 판매자 지급액
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private SettlementStatus status;   // PENDING, COMPLETED, FAILED
 
     @Column(name = "fail_reason")
@@ -57,7 +57,7 @@ public class Settlement {
     private LocalDateTime completedAt;
 
     public void complete() {
-        this.status = SettlementStatus.COMPLETED;
+        this.status = SettlementStatus.COMPLETE;
         this.completedAt = LocalDateTime.now();
     }
 }

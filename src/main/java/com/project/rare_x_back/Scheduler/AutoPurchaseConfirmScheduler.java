@@ -11,7 +11,7 @@ public class AutoPurchaseConfirmScheduler {
 
     private final OrderService orderService;
 
-    @Scheduled(cron = "0 */5 * * * *") //테스트하고 일주일로 바꿔야함
+    @Scheduled(cron = "0 0 */6 * * *" )
     public void run() {
         orderService.autoConfirmPurchase();
     }

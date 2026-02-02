@@ -37,17 +37,15 @@ public class UserWalletService {
                 });
     }
 
-    /**
-     * 정산 완료 → 판매자 지갑에 금액 적립
-     */
+    // 정산 완료 → 판매자 지갑에 금액 적립
     @Transactional
-    public void depositSettlementAmount(User seller, Long amount) {
-        if (amount <= 0) {
+    public void depositSettlementAmount(User seller, int settleAmount) {
+        if (settleAmount <= 0) {
             throw new IllegalArgumentException("정산 금액은 0보다 커야 합니다.");
         }
 
         UserWallet wallet = getOrCreateWallet(seller);
-        wallet.increase(amount);
+        wallet.increase(settleAmount);
     }
 
 }

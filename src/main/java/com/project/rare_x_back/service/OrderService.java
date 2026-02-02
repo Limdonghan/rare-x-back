@@ -114,10 +114,10 @@ public class OrderService {
     }
 
 
-    // 자동 스케줄링 메서드
+    // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
     @Transactional
     public void autoConfirmPurchase() {
-        List<Order> orders = orderRepository.findDeliveredOrder(LocalDateTime.now().minusMinutes(10));
+        List<Order> orders = orderRepository.findDeliveredOrder(LocalDateTime.now().minusDays(5));
 
         for (Order order : orders) {
             confirmPurchase(order); // 공통 메서드
@@ -126,7 +126,7 @@ public class OrderService {
     }
 
 
-    // 주문 배송 완료로 상태 변경 (AdminController) SHIPPED -> DELIVERED
+    // 관리자 주문 배송 완료로 상태 변경 (AdminController) SHIPPED -> DELIVERED
     @Transactional
     public void deliveryComplete (Long orderId) {
         // 1. 주문 조회
