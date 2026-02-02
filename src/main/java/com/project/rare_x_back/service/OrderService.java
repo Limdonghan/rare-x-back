@@ -7,10 +7,14 @@ import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.*;
+import com.project.rare_x_back.repository.AddressRepository;
+import com.project.rare_x_back.repository.OrderHistoryRepository;
+import com.project.rare_x_back.repository.OrderRepository;
+import com.project.rare_x_back.repository.OrderShippingSnapshotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-
+import java.util.List;
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -33,6 +38,8 @@ public class OrderService {
     private final BillingKeyRepository billingKeyRepository;
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
+    private final SettlementService settlementService;
+    private final OrderProcessService orderProcessService;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -79,25 +86,7 @@ public class OrderService {
         saveHistory(order, newStatus);
     }
 
-    // 구매 확정
-    public void confirmPurchase (Long orderId, Long buyerId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-
-        if (!order.getBuyer().getUserId().equals(buyerId)) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED);
-        }
-
-        if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "배송 완료 후에만 구매 확정 가능이 가능합니다.");
-        }
-
-        // 주문 상태 변경
-       // updateOrderStatus(order, CurrentStatus.);
-
-        // 정산 완료 + 지갑 적립..
-    }
-
+    // 배송지 스냅샷
     private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
         Address address = addressRepository
                 .findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
@@ -105,8 +94,67 @@ public class OrderService {
         snapshotRepository.save(OrderShippingSnapshot.from(order, address));
     }
 
+    // 주문 이력 저장
     private void saveHistory(Order order, CurrentStatus status) {
         historyRepository.save(OrderHistory.create(order, status));
+    }
+
+
+    // 유저 -> 구매확정
+    @Transactional
+    public void userConfirmPurchase(Long orderId, Long buyerId) {
+        // 주문 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        // 구매자가 아니면 권한 없음
+        if (!order.getBuyer().getUserId().equals(buyerId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        orderProcessService.processIndividualConfirm(orderId);
+
+    }
+
+    private void saveShippingSnapshot(Order order, User buyer, Long addressId) {
+        Address address = addressRepository
+                .findByAddressIdAndUser_UserId(addressId, buyer.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "본인의 배송지만 사용할 수 있습니다."));
+        snapshotRepository.save(OrderShippingSnapshot.from(order, address));
+
+    // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
+    public void autoConfirmPurchase() {
+        //5일전 시점 계산
+        LocalDateTime threshold = LocalDateTime.now().minusDays(5);
+
+        List<Order> orders = orderRepository.findDeliveredOrders(threshold);
+
+        for (Order order : orders) {
+            try { // 각 주문마다 완전히 새로운 트랜잭션 시작
+                orderProcessService.processIndividualConfirm(order.getOrderId());
+                log.info("자동 구매 확정 처리: OrderId = {}", order.getOrderId());
+            } catch (Exception e) {
+                // 여기서 에러가 나도 다음 루프는 정상 작동하고 이전의 성공건은 커밋됨.
+                log.error("주문 {} 처리 중 오류 발생: {}", order.getOrderId(), e.getMessage());
+            }
+        }
+
+    }
+
+
+    // 관리자 주문 배송 완료로 상태 변경 (AdminController) SHIPPED -> DELIVERED
+    @Transactional
+    public void deliveryComplete (Long orderId) {
+        // 1. 주문 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        //2. 상태가 검수 통과 후 발송한 상태인지 확인
+        if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "발송된 주문이 아닙니다.");
+        }
+        // 주문 상태 변경 및 주문 이력 저장
+        updateOrderStatus(order, CurrentStatus.DELIVERED);
     }
 
     // 주문 내역 조회

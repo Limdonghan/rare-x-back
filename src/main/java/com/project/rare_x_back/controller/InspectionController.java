@@ -144,4 +144,11 @@ public class InspectionController {
         InspectionHistoryDetailResponseDto response = inspectionService.getInspectionHistoryDetail(inspectionId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    // 검수 통과 후 구매자에게 발송함
+    @PostMapping("/{inspectionId}/delivery")
+    public ResponseEntity<ApiResponse<Void>> deliveryToBuyer (@PathVariable Long inspectionId) {
+        inspectionService.deliveryToBuyer(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success("구매자에게 발송 완료"));
+    }
 }

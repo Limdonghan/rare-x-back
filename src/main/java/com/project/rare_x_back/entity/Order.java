@@ -5,6 +5,7 @@ import com.project.rare_x_back.enums.CurrentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -59,6 +60,7 @@ public class Order {
     @CreatedDate
     private LocalDateTime createdAt;       /// 주문 생성일
 
+    @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
