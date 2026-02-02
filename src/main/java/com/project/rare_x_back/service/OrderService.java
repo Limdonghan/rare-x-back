@@ -2,27 +2,24 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
+import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.AddressRepository;
-import com.project.rare_x_back.repository.OrderHistoryRepository;
-import com.project.rare_x_back.repository.OrderRepository;
-import com.project.rare_x_back.repository.OrderShippingSnapshotRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +32,8 @@ public class OrderService {
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
+    private final SettlementService settlementService;
+    private final SettlementRepository settlementRepository;
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
@@ -305,5 +304,114 @@ public class OrderService {
         }
         // 주문 상태 변경 및 주문 이력 저장
         updateOrderStatus(order, CurrentStatus.DELIVERED);
+    }
+
+    // 판매 내역 조회 (ORDER-006)
+    @Transactional(readOnly = true)
+    public Page<SellingOrderResponseDto> getSellingOrders(Long userId, String status, Pageable pageable) {
+        Page<Order> orders;
+
+        if ("PENDING".equals(status)) {
+            // 발송대기
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.PENDING),
+                    pageable
+            );
+        } else if ("INSPECTING".equals(status)) {
+            // 검수중
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.SHIPPED_TO_WAREHOUSE, CurrentStatus.PENDING_INSPECTION, CurrentStatus.INSPECTING),
+                    pageable
+            );
+        } else if ("SHIPPING".equals(status)) {
+            // 배송중
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED),
+                    pageable
+            );
+        } else if ("SETTLEMENT_PENDING".equals(status)) {
+            // 정산대기
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.DELIVERED),
+                    pageable
+            );
+        } else if ("COMPLETED".equals(status)) {
+            // 완료
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.CONFIRMED_PURCHASE),
+                    pageable
+            );
+        } else if ("CANCELLED".equals(status)) {
+            // 취소·반송
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    userId,
+                    List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN),
+                    pageable
+            );
+        } else {
+            // 전체
+            orders = orderRepository.findBySeller_UserId(userId, pageable);
+        }
+
+        // 정산 정보 한 번에 조회 (N+1 방지)
+        List<Long> orderIds = orders.getContent().stream()
+                .map(Order::getOrderId)
+                .toList();
+
+        Map<Long, Settlement> settlementMap = settlementRepository.findByOrder_OrderIdIn(orderIds).stream()
+                .collect(Collectors.toMap(
+                        settlement -> settlement.getOrder().getOrderId(),   // Key: 주문ID
+                        settlement -> settlement                            // Value: 정산정보 객체
+                ));
+
+        // 검수 정보 한 번에 조회 (N+1 방지)
+        Map<Long, Inspection> inspectionMap = inspectionRepository.findByOrder_OrderIdIn(orderIds).stream()
+                .collect(Collectors.toMap(
+                        inspection -> inspection.getOrder().getOrderId(),
+                        inspection -> inspection
+                ));
+
+        return orders.map(order -> toSellingOrderResponseDto(
+                order,
+                settlementMap.get(order.getOrderId()),
+                inspectionMap.get(order.getOrderId())
+        ));
+    }
+
+    // 변환 메서드
+    private SellingOrderResponseDto toSellingOrderResponseDto(Order order, Settlement settlement, Inspection inspection) {
+        String productImage = order.getProduct().getImages().isEmpty()
+                ? null
+                : order.getProduct().getImages().get(0).getImageUrl();
+
+        Integer settlementPayout = null;
+        if (settlement != null) {
+            settlementPayout = settlement.getPayout();
+        }
+
+        String inspectionFailReason = null;
+        if (inspection != null && inspection.getFailReason() != null) {
+            inspectionFailReason = inspection.getFailReason();
+        }
+
+        return SellingOrderResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber("ORD-00" + order.getOrderId())
+                .createdAt(order.getCreatedAt())
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImage(productImage)
+                .price(order.getPrice())
+                .settlementPayout(settlementPayout)
+                .currentStatus(order.getCurrentStatus().name())
+                .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
+                .shipDeadline(order.getShipDeadline())
+                .inspectionFailReason(inspectionFailReason)
+                .build();
     }
 }
