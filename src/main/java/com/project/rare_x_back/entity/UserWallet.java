@@ -43,8 +43,8 @@ public class UserWallet {
         return wallet;
     }
 
-    public void increase(int settleAmount) {
-        if (settleAmount <= 0) {
+    public void increase(long settleAmount) {
+        if (settleAmount <= 0L) {
             throw new IllegalArgumentException("정산 적립 금액은 0보다 커야 합니다.");
         }
         this.balance += settleAmount;

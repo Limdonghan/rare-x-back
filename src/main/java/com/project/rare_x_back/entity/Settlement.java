@@ -44,7 +44,7 @@ public class Settlement {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private SettlementStatus status;   // PENDING, COMPLETED, FAILED
+    private SettlementStatus status;   // PENDING, COMPLETE, FAILED
 
     @Column(name = "fail_reason")
     private String failReason;

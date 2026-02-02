@@ -3,7 +3,7 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.entity.UserWallet;
 import com.project.rare_x_back.repository.UserWalletRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -39,8 +39,8 @@ public class UserWalletService {
 
     // 정산 완료 → 판매자 지갑에 금액 적립
     @Transactional
-    public void depositSettlementAmount(User seller, int settleAmount) {
-        if (settleAmount <= 0) {
+    public void depositSettlementAmount(User seller, long settleAmount) {
+        if (settleAmount <= 0L) {
             throw new IllegalArgumentException("정산 금액은 0보다 커야 합니다.");
         }
 

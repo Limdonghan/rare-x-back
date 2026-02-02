@@ -10,12 +10,13 @@ import com.project.rare_x_back.repository.OrderHistoryRepository;
 import com.project.rare_x_back.repository.OrderRepository;
 import com.project.rare_x_back.repository.OrderShippingSnapshotRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -86,19 +87,21 @@ public class OrderService {
 
 
     // 구매 확정 DELIVERED -> CONFIRM_PURCHASE
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void confirmPurchase (Order order) {
 
         // 주문 상태가 배송완료인지 확인
         if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
-            throw new CustomException(ErrorCode.BAD_REQUEST);
+            throw new CustomException(ErrorCode.BAD_REQUEST,"배송 완료 후에만 구매확정 가능 합니다.");
         }
+
+        // 정산 상태 완료 변경
+        settlementService.completeSettlement(order);
 
         // 주문 상태 변경
         updateOrderStatus(order, CurrentStatus.CONFIRMED_PURCHASE);
 
-        // 정산 상태 완료 변경
-        settlementService.completeSettlement(order);
+
     }
 
     // 유저 -> 구매확정
@@ -121,10 +124,15 @@ public class OrderService {
     // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
     @Transactional
     public void autoConfirmPurchase() {
-        List<Order> orders = orderRepository.findDeliveredOrder(LocalDateTime.now().minusDays(5));
+        List<Order> orders = orderRepository.findDeliveredOrders(LocalDateTime.now().minusDays(5));
 
         for (Order order : orders) {
-            confirmPurchase(order); // 공통 메서드
+            try {
+                confirmPurchase(order); // 공통 메서드
+                log.info("자동 구매 확정 처리: OrderId = {}", order.getOrderId());
+            } catch (Exception e) {
+                log.error("주문 {} 처리 중 오류 발생: {}", order.getOrderId(), e.getMessage());
+            }
         }
 
     }
