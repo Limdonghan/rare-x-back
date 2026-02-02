@@ -42,7 +42,7 @@ public class UserOrderController {
             @PathVariable Long orderId
     ) {
        orderService.userConfirmPurchase(orderId, userDetails.getUserId());
-       return ResponseEntity.ok(ApiResponse.success("구매 확정이 완료 되었습니다."));
+       return ResponseEntity.ok(ApiResponse.success("구매 확정이 완료되었습니다."));
     }
 
 

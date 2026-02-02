@@ -26,6 +26,7 @@ public class OrderService {
     private final AddressRepository addressRepository;
     private final SearchService searchService;
     private final SettlementService settlementService;
+    private final OrderProcessService orderProcessService;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -86,24 +87,6 @@ public class OrderService {
     }
 
 
-    // 구매 확정 DELIVERED -> CONFIRM_PURCHASE
-    @Transactional(rollbackFor = Exception.class)
-    public void confirmPurchase (Order order) {
-
-        // 주문 상태가 배송완료인지 확인
-        if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
-            throw new CustomException(ErrorCode.BAD_REQUEST,"배송 완료 후에만 구매확정 가능 합니다.");
-        }
-
-        // 정산 상태 완료 변경
-        settlementService.completeSettlement(order);
-
-        // 주문 상태 변경
-        updateOrderStatus(order, CurrentStatus.CONFIRMED_PURCHASE);
-
-
-    }
-
     // 유저 -> 구매확정
     @Transactional
     public void userConfirmPurchase(Long orderId, Long buyerId) {
@@ -116,21 +99,24 @@ public class OrderService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
-        confirmPurchase(order);
+        orderProcessService.processIndividualConfirm(orderId);
 
     }
 
 
     // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
-    @Transactional
     public void autoConfirmPurchase() {
-        List<Order> orders = orderRepository.findDeliveredOrders(LocalDateTime.now().minusDays(5));
+        //5일전 시점 계산
+        LocalDateTime threshold = LocalDateTime.now().minusDays(5);
+
+        List<Order> orders = orderRepository.findDeliveredOrders(threshold);
 
         for (Order order : orders) {
-            try {
-                confirmPurchase(order); // 공통 메서드
+            try { // 각 주문마다 완전히 새로운 트랜잭션 시작
+                orderProcessService.processIndividualConfirm(order.getOrderId());
                 log.info("자동 구매 확정 처리: OrderId = {}", order.getOrderId());
             } catch (Exception e) {
+                // 여기서 에러가 나도 다음 루프는 정상 작동하고 이전의 성공건은 커밋됨.
                 log.error("주문 {} 처리 중 오류 발생: {}", order.getOrderId(), e.getMessage());
             }
         }

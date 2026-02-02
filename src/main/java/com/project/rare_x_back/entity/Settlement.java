@@ -4,6 +4,8 @@ import com.project.rare_x_back.enums.SettlementStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EnableJpaAuditing
 public class Settlement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,11 +56,11 @@ public class Settlement {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @LastModifiedDate
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
     public void complete() {
         this.status = SettlementStatus.COMPLETE;
-        this.completedAt = LocalDateTime.now();
     }
 }

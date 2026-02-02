@@ -40,10 +40,6 @@ public class UserWalletService {
     // 정산 완료 → 판매자 지갑에 금액 적립
     @Transactional
     public void depositSettlementAmount(User seller, long settleAmount) {
-        if (settleAmount <= 0L) {
-            throw new IllegalArgumentException("정산 금액은 0보다 커야 합니다.");
-        }
-
         UserWallet wallet = getOrCreateWallet(seller);
         wallet.increase(settleAmount);
     }

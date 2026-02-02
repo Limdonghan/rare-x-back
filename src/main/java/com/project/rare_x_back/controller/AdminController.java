@@ -79,7 +79,7 @@ public class AdminController {
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
             @Valid @RequestPart("data")  ProductUpdateRequestDto productUpdateRequestDto,
-            @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
+            @RequestParam(value = "deleteIds", required = false) List<String> deleteIds,
             @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages,
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
@@ -164,9 +164,13 @@ public class AdminController {
     // 주문 상세 조회
 
     // 주문 배송 완료로 상태 변경
-    @PatchMapping("orders/{orderId}/delivered")
-    public ResponseEntity <ApiResponse<Void>> deliveredOrder (@PathVariable Long orderId) {
+    @PatchMapping("/orders/{orderId}/delivered")
+    public ResponseEntity <ApiResponse<Void>> deliveredOrder (
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+            ) {
         orderService.deliveryComplete(orderId);
+        log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
     }
 
