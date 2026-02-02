@@ -9,5 +9,5 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByTossPaymentKey(String tossPaymentKey);
 
     // 주문 ID로 결제 정보 조회
-    Optional<Payment> findByOrder_OrderId(Long orderId);
+    Optional<Payment> findTopByOrder_OrderIdOrderByApprovedAtDesc(Long orderId);
 }

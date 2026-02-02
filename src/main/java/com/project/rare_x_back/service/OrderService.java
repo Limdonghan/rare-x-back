@@ -31,7 +31,6 @@ public class OrderService {
     private final SearchService searchService;
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
-    private final BillingKeyRepository billingKeyRepository;
 
     private static final int SHIPPING_FEE = 3000;   // 배송비 상수
     private final SettlementService settlementService;
@@ -183,7 +182,8 @@ public class OrderService {
         Map<Long, Inspection> inspectionMap = inspectionRepository.findByOrder_OrderIdIn(orderIds).stream()
                 .collect(Collectors.toMap(
                         inspection -> inspection.getOrder().getOrderId(),   // Key: 주문번호
-                        inspection -> inspection                            // Value: 검수정보 객체
+                        inspection -> inspection,                            // Value: 검수정보 객체
+                        (existing, replagement) -> existing         // 중복키 발생 시 첫번째 유지
                 ));
 
         return orders.map(order -> toBuyingOrderResponseDto(order, inspectionMap.get(order.getOrderId())));
@@ -234,21 +234,14 @@ public class OrderService {
                 .toList();
 
         // 3. 결제 정보
-        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+        Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
                 .orElse(null);
 
         int totalAmount = payment != null ? payment.getAmount() : order.getPrice();
-        int productPrice = totalAmount - SHIPPING_FEE;
+        int productPrice = order.getPrice();
 
-        // 4. 카드 정보
-        String cardCompany = null;
-        String cardNumberLast4 = null;
-
-        Optional<BillingKey> billingKey = billingKeyRepository.findByUser(order.getBuyer());
-        if (billingKey.isPresent()) {
-            cardCompany = billingKey.get().getCardCompany();
-            cardNumberLast4 = billingKey.get().getCardNumber();
-        }
+        // 4. 결제 방식
+        String paymentMethod = (payment != null) ? payment.getMethod() : null;
 
         // 5. 배송지 정보
         OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
@@ -258,7 +251,7 @@ public class OrderService {
         String inspectionStatus = null;
         String failReason = null;
 
-        Optional<Inspection> inspection = inspectionRepository.findByOrder_OrderId(orderId);
+        Optional<Inspection> inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId);
         if (inspection.isPresent()) {
             inspectionStatus = inspection.get().getStatus().name();
             failReason = inspection.get().getFailReason();
@@ -285,8 +278,7 @@ public class OrderService {
                 .productPrice(productPrice)
                 .shippingFee(SHIPPING_FEE)
                 .totalAmount(totalAmount)
-                .cardCompany(cardCompany)
-                .cardNumberLast4(cardNumberLast4)
+                .paymentMethod(paymentMethod)
                 .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
                 .postalCode(snapshot != null ? snapshot.getPostalCode() : null)
                 .address(snapshot != null ? snapshot.getAddress() : null)
