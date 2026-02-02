@@ -75,17 +75,4 @@ public class BidController {
                 .ok().body(ApiResponse.success(sellNowResponseDto,"즉시 판매가 완료되었습니다"));
     }
 
-    /**
-     * [Order 발송 처리]
-     * 판매자가 검수센터로 상품 발송 완료 처리
-     */
-    @PostMapping("/orders/{orderId}/ship")
-    public ResponseEntity<ApiResponse<OrderShipResponseDto>> shipOrderToWarehouse(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long orderId) {
-
-        OrderShipResponseDto response = bidService.shipOrderToWarehouse(userDetails.getUsername(), orderId);
-
-        return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다."));
-    }
 }

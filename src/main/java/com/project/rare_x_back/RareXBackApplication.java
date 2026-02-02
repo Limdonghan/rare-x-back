@@ -5,11 +5,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 @EnableJpaAuditing  // 엔티티 @CreatedDate, @LastModifiedDate 어노테이션 활성화 전역 스위치 역할(시간 자동 기록)
 @SpringBootApplication
+@EnableScheduling
 @EnableAsync	///  비동기 처리
 public class RareXBackApplication {
 
