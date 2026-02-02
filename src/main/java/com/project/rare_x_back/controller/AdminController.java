@@ -6,8 +6,10 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.service.AdminService;
 import com.project.rare_x_back.service.S3ImageService;
+import com.project.rare_x_back.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,8 @@ public class AdminController {
 
     private final AdminService adminService;
     private final S3ImageService s3ImageService;
+    private final SearchService searchService;
+    private final ProductRepository productRepository;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",

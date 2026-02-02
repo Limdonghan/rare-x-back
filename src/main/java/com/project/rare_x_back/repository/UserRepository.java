@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -21,6 +22,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 삭제되지 않은 유저만 조회 (Email 기준)
     Optional<User> findByEmailAndIsDeletedFalse(String email);
+
+    // 삭제되지 않은 유저 전체 조회
+    List<User> findAllByIsDeletedFalse();
 
     //비밀번호 업데이트
     @Modifying

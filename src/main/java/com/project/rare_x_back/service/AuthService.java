@@ -34,6 +34,7 @@ public class AuthService {
     private final RedisTemplate<String, String> redisTemplate;
     private final TokenBlacklistService tokenBlacklistService;
     private final PasswordlessService passwordlessService;
+    private final SearchService searchService;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -68,6 +69,7 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+        searchService.indexUser(user);  // Typesense 인덱싱 추가
 
         // 4. 응답 DTO 생성
         return SignUpResponseDto.builder()
