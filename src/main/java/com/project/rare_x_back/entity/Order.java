@@ -79,7 +79,10 @@ public class Order {
         this.currentStatus = newStatus;
     }
 
-
+    // 판매자 -> 검수센터 발송완료 시간 기록
+    public void updateToShipped() {
+        this.sellerShippedAt = LocalDateTime.now(); // 현재 시간 기록
+    }
 
 
 
