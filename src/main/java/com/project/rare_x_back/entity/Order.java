@@ -66,7 +66,7 @@ public class Order {
     private LocalDateTime updatedAt;
 
     @Column(name = "expired_at")
-    private LocalDateTime expiresAt;       /// 거래 만료일
+    private LocalDateTime expiresAt;       /// 거래 만료일 = 구매 확정된 날
 
     @Column(name = "seller_shipped_at")
     private LocalDateTime sellerShippedAt;
@@ -82,5 +82,15 @@ public class Order {
     // 상태 업데이트
     public void updateStatus(CurrentStatus newStatus) {
         this.currentStatus = newStatus;
+    }
+
+    // 판매자 -> 검수센터 발송완료 시간 기록
+    public void updateToShipped() {
+        this.sellerShippedAt = LocalDateTime.now(); // 현재 시간 기록
+    }
+
+    // 거래만료일 -> 구매 확정 시점
+    public void updateExpAt() {
+        this.expiresAt = LocalDateTime.now();
     }
 }

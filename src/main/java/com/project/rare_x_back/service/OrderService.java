@@ -213,7 +213,7 @@ public class OrderService {
 
         return BuyingOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber("ORD-00" + order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -277,7 +277,7 @@ public class OrderService {
 
         return BuyingOrderDetailResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber("ORD-00" + order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .currentStatus(order.getCurrentStatus().name())
                 .productId(order.getProduct().getProductId())
@@ -363,8 +363,9 @@ public class OrderService {
         // 검수 정보 한 번에 조회 (N+1 방지)
         Map<Long, Inspection> inspectionMap = inspectionRepository.findByOrder_OrderIdIn(orderIds).stream()
                 .collect(Collectors.toMap(
-                        inspection -> inspection.getOrder().getOrderId(),
-                        inspection -> inspection
+                        inspection -> inspection.getOrder().getOrderId(),     // Key: 주문번호
+                        inspection -> inspection,                             // Value: 검수정보 객체
+                        (existing, replacement) -> existing          // 중복키 발생 시 첫번째 유지
                 ));
 
         return orders.map(order -> toSellingOrderResponseDto(
@@ -392,7 +393,7 @@ public class OrderService {
 
         return SellingOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber("ORD-00" + order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -454,7 +455,7 @@ public class OrderService {
 
         return SellingOrderDetailResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber("ORD-00" + order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())

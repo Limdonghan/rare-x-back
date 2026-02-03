@@ -4,7 +4,6 @@ import com.project.rare_x_back.enums.SettlementStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.time.LocalDateTime;
@@ -34,7 +33,7 @@ public class Settlement {
     private SaleBid sellBid;
 
     @Column(name = "total_price", nullable = false)
-    private int totalPrice;        // 주문 총액
+    private int totalPrice;        // 주문 총액 (거래 체결 가격)
 
     @Column(name = "commission_fee", nullable = false)
     private int commissionFee;     // 3% 수수료
@@ -56,11 +55,11 @@ public class Settlement {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @LastModifiedDate
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
     public void complete() {
         this.status = SettlementStatus.COMPLETE;
+        this.completedAt = LocalDateTime.now();
     }
 }

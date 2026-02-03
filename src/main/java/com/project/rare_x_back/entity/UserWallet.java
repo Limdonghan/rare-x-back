@@ -1,9 +1,7 @@
 package com.project.rare_x_back.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -11,6 +9,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "user_wallets", uniqueConstraints = {@UniqueConstraint(columnNames = "user_id")})
@@ -35,6 +35,14 @@ public class UserWallet {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // 회원가입 시 지갑 생성 메서드
+    public static UserWallet createEmptyWallet(User user) {
+        return UserWallet.builder()
+                .user(user)
+                .balance(0L)
+                .build();
+    }
 
     public static UserWallet create(User user) {
         UserWallet wallet = new UserWallet();
