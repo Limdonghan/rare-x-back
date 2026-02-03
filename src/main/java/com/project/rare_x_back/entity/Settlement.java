@@ -33,7 +33,7 @@ public class Settlement {
     private SaleBid sellBid;
 
     @Column(name = "total_price", nullable = false)
-    private int totalPrice;        // 주문 총액
+    private int totalPrice;        // 주문 총액 (거래 체결 가격)
 
     @Column(name = "commission_fee", nullable = false)
     private int commissionFee;     // 3% 수수료

@@ -69,16 +69,18 @@ public class UserWalletService {
 
         List<UserSettlementHistoryDto.SettlementItemDto> settlementDtos = settlements.stream()
                 .map(s -> UserSettlementHistoryDto.SettlementItemDto.builder()
-                        .orderProductName(s.getOrder().getProduct().getProductName())
-                        .description("판매 정산")
-                        .completedAt(s.getCompletedAt())
-                        .formattedChange(String.format("+%,d원", s.getPayout())) // 정산되어 더해진 금액, 콤마와 + 기호 추가
+                        .orderProductName(s.getOrder().getProduct().getProductName()) // 거래 상품
+                        .description("판매 정산") // 지갑에 적립된 사유
+                        .completedAt(s.getCompletedAt()) // 정산 시점
+                        .tradePrice(String.format("%,d원", s.getTotalPrice()))  // 거래체결가격
+                        .commissionFee(String.format("-%,d원", s.getCommissionFee()))  // - 수수료
+                        .formattedChange(String.format("+%,d원", s.getPayout()))   // 정산되어 더해진 금액, 콤마와 + 기호 추가
                         .build())
                 .toList();
 
         return List.of(UserSettlementHistoryDto.builder()
                 .userName(user.getName())
-                .currentBalance(wallet.getBalance())
+                .currentBalance(String.format("%,d원",wallet.getBalance()))
                 .settlements(settlementDtos)
                 .build());
 
