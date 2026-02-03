@@ -24,8 +24,7 @@ public class BuyingOrderDetailResponseDto {
     private int productPrice;
     private int shippingFee;
     private int totalAmount;
-    private String cardCompany;
-    private String cardNumberLast4;
+    private String paymentMethod;
 
     // 배송지 정보
     private String recipientName;

@@ -50,15 +50,12 @@ public class SettlementService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "이미 완료된 정산 입니다.");
         }
 
-        // Long sellerId = order.getSeller().getUserId();
-        int settleAmount = settlement.getPayout(); // 수수료 제외 금액
+        long settleAmount = settlement.getPayout(); // 수수료 제외 금액
 
         // 정산 상태 완료 처리
         settlement.complete();
 
         // 판매자 지갑 적립
         userWalletService.depositSettlementAmount(order.getSeller(), settleAmount);
-
-
     }
 }

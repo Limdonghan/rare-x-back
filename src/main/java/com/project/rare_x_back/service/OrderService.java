@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
@@ -12,6 +13,7 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -33,11 +36,8 @@ public class OrderService {
     private final SearchService searchService;
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
-    private final BillingKeyRepository billingKeyRepository;
-    private final SettlementService settlementService;
+    private final OrderProcessService orderProcessService;
     private final SettlementRepository settlementRepository;
-
-    private static final int SHIPPING_FEE = 3000;   // 배송비 상수
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -108,22 +108,6 @@ public class OrderService {
     }
 
 
-    // 구매 확정 DELIVERED -> CONFIRM_PURCHASE
-    @Transactional
-    public void confirmPurchase (Order order) {
-
-        // 주문 상태가 배송완료인지 확인
-        if (order.getCurrentStatus() != CurrentStatus.DELIVERED) {
-            throw new CustomException(ErrorCode.BAD_REQUEST);
-        }
-
-        // 주문 상태 변경
-        updateOrderStatus(order, CurrentStatus.CONFIRMED_PURCHASE);
-
-        // 정산 상태 완료 변경
-        settlementService.completeSettlement(order);
-    }
-
     // 유저 -> 구매확정
     @Transactional
     public void userConfirmPurchase(Long orderId, Long buyerId) {
@@ -136,20 +120,41 @@ public class OrderService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
-        confirmPurchase(order);
+        orderProcessService.processIndividualConfirm(orderId);
 
     }
 
-
     // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
-    @Transactional
     public void autoConfirmPurchase() {
-        List<Order> orders = orderRepository.findDeliveredOrder(LocalDateTime.now().minusDays(5));
+        //5일전 시점 계산
+        LocalDateTime threshold = LocalDateTime.now().minusDays(5);
+
+        List<Order> orders = orderRepository.findDeliveredOrders(threshold);
 
         for (Order order : orders) {
-            confirmPurchase(order); // 공통 메서드
+            try { // 각 주문마다 완전히 새로운 트랜잭션 시작
+                orderProcessService.processIndividualConfirm(order.getOrderId());
+                log.info("자동 구매 확정 처리: OrderId = {}", order.getOrderId());
+            } catch (Exception e) {
+                // 여기서 에러가 나도 다음 루프는 정상 작동하고 이전의 성공건은 커밋됨.
+                log.error("주문 {} 처리 중 오류 발생: {}", order.getOrderId(), e.getMessage());
+            }
         }
+    }
 
+    // 관리자 주문 배송 완료로 상태 변경 (AdminController) SHIPPED -> DELIVERED
+    @Transactional
+    public void deliveryComplete (Long orderId) {
+        // 1. 주문 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        //2. 상태가 검수 통과 후 발송한 상태인지 확인
+        if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "발송된 주문이 아닙니다.");
+        }
+        // 주문 상태 변경 및 주문 이력 저장
+        updateOrderStatus(order, CurrentStatus.DELIVERED);
     }
 
     // 주문 내역 조회
@@ -188,7 +193,8 @@ public class OrderService {
         Map<Long, Inspection> inspectionMap = inspectionRepository.findByOrder_OrderIdIn(orderIds).stream()
                 .collect(Collectors.toMap(
                         inspection -> inspection.getOrder().getOrderId(),   // Key: 주문번호
-                        inspection -> inspection                            // Value: 검수정보 객체
+                        inspection -> inspection,                            // Value: 검수정보 객체
+                        (existing, replacement) -> existing         // 중복키 발생 시 첫번째 유지
                 ));
 
         return orders.map(order -> toBuyingOrderResponseDto(order, inspectionMap.get(order.getOrderId())));
@@ -239,21 +245,14 @@ public class OrderService {
                 .toList();
 
         // 3. 결제 정보
-        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+        Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
                 .orElse(null);
 
-        int totalAmount = payment != null ? payment.getAmount() : order.getPrice();
-        int productPrice = totalAmount - SHIPPING_FEE;
+        int productPrice = order.getPrice();
+        int totalAmount = (payment != null) ? payment.getAmount() : FeeCalculator.buyerTotalAmount(productPrice);
 
-        // 4. 카드 정보
-        String cardCompany = null;
-        String cardNumberLast4 = null;
-
-        Optional<BillingKey> billingKey = billingKeyRepository.findByUser(order.getBuyer());
-        if (billingKey.isPresent()) {
-            cardCompany = billingKey.get().getCardCompany();
-            cardNumberLast4 = billingKey.get().getCardNumber();
-        }
+        // 4. 결제 방식
+        String paymentMethod = (payment != null) ? payment.getMethod() : null;
 
         // 5. 배송지 정보
         OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
@@ -263,7 +262,7 @@ public class OrderService {
         String inspectionStatus = null;
         String failReason = null;
 
-        Optional<Inspection> inspection = inspectionRepository.findByOrder_OrderId(orderId);
+        Optional<Inspection> inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId);
         if (inspection.isPresent()) {
             inspectionStatus = inspection.get().getStatus().name();
             failReason = inspection.get().getFailReason();
@@ -288,10 +287,9 @@ public class OrderService {
                 .productName(order.getProduct().getProductName())
                 .productImages(productImages)
                 .productPrice(productPrice)
-                .shippingFee(SHIPPING_FEE)
+                .shippingFee(FeeCalculator.DELIVERY_FEE)
                 .totalAmount(totalAmount)
-                .cardCompany(cardCompany)
-                .cardNumberLast4(cardNumberLast4)
+                .paymentMethod(paymentMethod)
                 .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
                 .postalCode(snapshot != null ? snapshot.getPostalCode() : null)
                 .address(snapshot != null ? snapshot.getAddress() : null)
@@ -300,22 +298,6 @@ public class OrderService {
                 .failReason(failReason)
                 .statusHistories(statusHistories)
                 .build();
-    }
-
-
-    // 관리자 주문 배송 완료로 상태 변경 (AdminController) SHIPPED -> DELIVERED
-    @Transactional
-    public void deliveryComplete (Long orderId) {
-        // 1. 주문 조회
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
-
-        //2. 상태가 검수 통과 후 발송한 상태인지 확인
-        if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
-            throw new CustomException(ErrorCode.BAD_REQUEST, "발송된 주문이 아닙니다.");
-        }
-        // 주문 상태 변경 및 주문 이력 저장
-        updateOrderStatus(order, CurrentStatus.DELIVERED);
     }
 
     // 판매 내역 조회 (ORDER-006)
@@ -457,7 +439,7 @@ public class OrderService {
         String inspectionStatus = null;
         String inspectionFailReason = null;
 
-        Optional<Inspection> inspection = inspectionRepository.findByOrder_OrderId(orderId);
+        Optional<Inspection> inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId);
         if (inspection.isPresent()) {
             inspectionStatus = inspection.get().getStatus().name();
             inspectionFailReason = inspection.get().getFailReason();

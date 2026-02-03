@@ -161,7 +161,7 @@ public class AdminService {
 
     //상품 정보 수정
     public void updateProduct(ProductUpdateRequestDto productUpdateRequestDto, Long productId,
-                              List<Long> deleteImageIds, List<MultipartFile> newFiles
+                              List<String> deleteImageIds, List<MultipartFile> newFiles
     ){
         //수정할 상품 존재여부 확인
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
@@ -197,10 +197,8 @@ public class AdminService {
         );
         //이미지 선택 삭제 (deleteImageIds 있을 때만)
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
-            for (Long id : deleteImageIds) {      //DB에서 이미지 정보 조회
-                ProductImage productImage = productImageRepository.findById(id)
-                        .orElseThrow(() -> new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND, "삭제할 이미지를 찾을 수 없습니다."));
+            for (String urls : deleteImageIds) {      //DB에서 이미지 정보 조회
+                ProductImage productImage = productImageRepository.findByImageUrl(urls);
                 //s3에서 실제 파일 삭제
                 s3ImageService.deleteImageByUrl(productImage.getImageUrl());
                 //product의 리스트에서 삭제 (DB row 삭제)
