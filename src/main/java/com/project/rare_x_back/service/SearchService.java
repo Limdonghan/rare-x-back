@@ -10,6 +10,8 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.typesense.api.Client;
@@ -17,6 +19,7 @@ import org.typesense.model.SearchParameters;
 import org.typesense.model.SearchResult;
 import org.typesense.model.SearchResultHit;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +32,7 @@ public class SearchService {
 
     private final Client typesenseClient;
 
-    // ==================== 상품 검색 ====================
+    // ==================== 검색 메서드 ====================
 
     /**
      * 상품 검색 (회원용 + 관리자용 공통)
@@ -82,9 +85,13 @@ public class SearchService {
     }
 
     /**
-     * 주문 검색 (관리자용)
+     * 관리자 주문 목록 검색 (MANAGER-009)
+     * 키워드 + 상태/날짜 필터 지원
      */
-    public SearchResultDto<OrderSearchResponseDto> searchOrders(String keyword, Pageable pageable) {
+    public Page<AdminOrderResponseDto> searchOrders(
+            String keyword, String status,
+            LocalDateTime startDate, LocalDateTime endDate,
+            Pageable pageable) {
         try {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
@@ -93,6 +100,21 @@ public class SearchService {
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
+            // 필터 조건 동적 조합
+            List<String> filters = new ArrayList<>();
+            if (status != null && !status.isBlank()) {
+                filters.add("current_status:=" + status);
+            }
+            if (startDate != null) {
+                filters.add("created_at:>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+            }
+            if (endDate != null) {
+                filters.add("created_at:<=" + endDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+            }
+            if (!filters.isEmpty()) {
+                params.filterBy(String.join(" && ", filters));
+            }
+
             SearchResult result = typesenseClient.collections("orders")
                     .documents()
                     .search(params);
@@ -100,7 +122,7 @@ public class SearchService {
             return convertToOrderDto(result, pageable);
 
         } catch (Exception e) {
-            log.error("주문 검색 실패: {}", e.getMessage());
+            log.error("관리자 주문 검색 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
@@ -373,15 +395,28 @@ public class SearchService {
                 .build();
     }
 
-    private SearchResultDto<OrderSearchResponseDto> convertToOrderDto(SearchResult result, Pageable pageable) {
-        List<OrderSearchResponseDto> items = new ArrayList<>();
+    private Page<AdminOrderResponseDto> convertToOrderDto(SearchResult result, Pageable pageable) {
+        List<AdminOrderResponseDto> items = new ArrayList<>();
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
                     Map<String, Object> doc = hit.getDocument();
-                    items.add(OrderSearchResponseDto.builder()
-                            .orderId(doc.get("order_id") != null ? ((Number) doc.get("order_id")).longValue() : 0L)
+                    Long orderId = doc.get("order_id") != null
+                            ? ((Number) doc.get("order_id")).longValue() : 0L;
+
+                    LocalDateTime createdAt = null;
+                    if (doc.get("created_at") != null) {
+                        long epoch = ((Number) doc.get("created_at")).longValue();
+                        createdAt = LocalDateTime.ofInstant(
+                                java.time.Instant.ofEpochSecond(epoch),
+                                java.time.ZoneId.systemDefault());
+                    }
+
+                    items.add(AdminOrderResponseDto.builder()
+                            .orderId(orderId)
+                            .orderNumber("ORD-00" + orderId)
+                            .createdAt(createdAt)
                             .buyerName((String) doc.getOrDefault("buyer_name", ""))
                             .sellerName((String) doc.getOrDefault("seller_name", ""))
                             .productName((String) doc.getOrDefault("product_name", ""))
@@ -389,17 +424,13 @@ public class SearchService {
                             .currentStatus((String) doc.getOrDefault("current_status", ""))
                             .build());
                 } catch (Exception e) {
-                    log.error("주문 DTO 변환 실패: {}", e.getMessage());
+                    log.error("관리자 주문 DTO 변환 실패: {}", e.getMessage());
                 }
             }
         }
 
-        return SearchResultDto.<OrderSearchResponseDto>builder()
-                .totalCount(result.getFound() != null ? result.getFound() : 0)
-                .page(pageable.getPageNumber())
-                .size(pageable.getPageSize())
-                .items(items)
-                .build();
+        long totalCount = result.getFound() != null ? result.getFound() : 0;
+        return new PageImpl<>(items, pageable, totalCount);
     }
 
     private SearchResultDto<InspectionSearchResponseDto> convertToInspectionDto(SearchResult result, Pageable pageable) {

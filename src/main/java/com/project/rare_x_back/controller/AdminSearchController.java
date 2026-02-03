@@ -11,12 +11,16 @@ import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import com.project.rare_x_back.service.SearchService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -61,11 +65,18 @@ public class AdminSearchController {
      * 주문 검색
      */
     @GetMapping("/orders")
-    public ResponseEntity<ApiResponse<SearchResultDto<OrderSearchResponseDto>>> searchOrders(
+    public ResponseEntity<ApiResponse<Page<AdminOrderResponseDto>>> searchOrders(
             @RequestParam String keyword,
-            @PageableDefault(size = 20) Pageable pageable
-    ) {
-        SearchResultDto<OrderSearchResponseDto> result = searchService.searchOrders(keyword, pageable);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
+
+        Page<AdminOrderResponseDto> result = searchService.searchOrders(
+                keyword, status, startDateTime, endDateTime, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
