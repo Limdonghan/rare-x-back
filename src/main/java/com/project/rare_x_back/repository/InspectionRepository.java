@@ -11,8 +11,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InspectionRepository extends JpaRepository<Inspection, Long> {
+    // 주문 ID로 검수 정보 조회 (단건 - ORDER-003용)
+    Optional<Inspection> findTopByOrder_OrderIdOrderByCreatedAtDesc(Long orderId);
+
+    // 주문 ID 목록으로 검수 정보 일괄 조회 (다건 - ORDER-002용)
+    List<Inspection> findByOrder_OrderIdIn(List<Long> orderIds);
 
     // ===== VER-001 검수 대기 목록 조회 (페이징) =====
 
