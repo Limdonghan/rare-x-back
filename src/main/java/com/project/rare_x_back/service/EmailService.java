@@ -180,8 +180,7 @@ public class EmailService {
         log.info("임시 비밀번호 : {}", tempPassword);
 
         try {
-            SimpleMailMessage message = createTempPasswordMailMessage(email, tempPassword);
-            mailSender.send(message);
+            sendMailTempPassword(email, tempPassword);
 
             log.info("==============");
             log.info("이메일 발송 성공");
@@ -193,6 +192,11 @@ public class EmailService {
             log.error("이메일 발송 실패 : {} ", e.getMessage());
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
+    }
+    @Async("taskExecutor")
+    public void sendMailTempPassword(String email, String tempPassword) {
+        mailSender.send(createTempPasswordMailMessage(email, tempPassword));
+
     }
 
     //임시 비밀번호 검증 및 삭제

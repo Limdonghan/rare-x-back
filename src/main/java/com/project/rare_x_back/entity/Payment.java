@@ -18,13 +18,9 @@ public class Payment {
     @Column (name = "payment_id")
     private Long paymentId;
 
-    /// TODO 주문 테이블 완성 후 매핑 할 것
-    //@ManyToOne(fetch = FetchType.LAZY)
-//    @Column (name = "order_id")
-//    private Long orderId;
-
-    @Column (name = "order_id") // 임시로 ID만 저장
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn (name = "order_id")
+    private Order order;
 
     @Column (name = "toss_order_id")
     private String tossOrderId;                     /// 토스 내부에서 관리하는 orderId

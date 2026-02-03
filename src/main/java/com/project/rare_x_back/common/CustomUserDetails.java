@@ -2,6 +2,7 @@ package com.project.rare_x_back.common;
 
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.Role;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,7 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.Collections;
 
-
+@Getter
 public class CustomUserDetails implements UserDetails {
 
         private final Long userId;
@@ -47,6 +48,8 @@ public class CustomUserDetails implements UserDetails {
 
         @Override
         public String getUsername() { return this.email; }  //우리 프로젝트는 아이디 = 이메일
+
+        public Long getUserId() { return this.userId; }
 
     // 계정 상태 설정 (기본값 true)
         @Override public boolean isAccountNonExpired() {

@@ -5,18 +5,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-@Builder
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductListResponseDto {
+@Builder
+public class ProductSearchResponseDto {
     private Long productId;
     private String productName;
     private String brandName;
     private String categoryName;
-    private String imageUrl;
     private String productDescription;
-    private List<String> imageUrls;
+    private int retailPrice;
 }

@@ -57,10 +57,16 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/passwordless/**",
                                 "/*.html",
-                                "/favicon.ico"
+                                "/favicon.ico",
+                                "/api/product/**"
                         ).permitAll()
-
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/inspections/**").hasRole("ADMIN")
 
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()

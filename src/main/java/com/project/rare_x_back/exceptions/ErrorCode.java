@@ -36,6 +36,9 @@ public enum ErrorCode {
     // 서버 에러
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다"),
 
+    // 검색 관련
+    SEARCH_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "검색 중 오류가 발생했습니다"),
+
     // 찾는 데이터가 없을 시 에러
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리소스가 존재하지 않습니다."),
 
@@ -56,12 +59,20 @@ public enum ErrorCode {
     // TossPayment 에러
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST,"결제 승인에 실패했습니다."),
     TOSS_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "토스 페이먼츠 연동 중 오류가 발생했습니다."),
+    BILLING_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 빌링키입니다."),
+    BILLING_KEY_NOT_REGISTERED(HttpStatus.BAD_REQUEST, "카드 등록이 필요합니다."),
 
     // Passwordless 에러
     PASSWORDLESS_ALREADY_IN_USE(HttpStatus.CONFLICT, "이미 패스워드리스 서비스를 사용 중입니다."),
     TEMPORARY_TOKEN_NOT_FOUND(HttpStatus.BAD_REQUEST, "임시 인증 토큰이 없습니다."),
-    TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다.");
+    TEMPORARY_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 인증 토큰이 만료되었습니다."),
 
+    // bid 에러
+    PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST,"현재 판매중인 상품이 아닙니다."),
+    PRODUCT_NOT_ON_BID(HttpStatus.BAD_REQUEST,"존재하지 않는 입찰입니다"),
+
+    // Order 에러
+    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");
     private final String message;
     private final HttpStatus status;
 

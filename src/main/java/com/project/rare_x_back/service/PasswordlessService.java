@@ -108,7 +108,7 @@ public class PasswordlessService {
         String response = passwordlessApiClient.callApi(PasswordlessApiEndpoint.JOIN_AP, params);
 
         Object parsedData = parseJsonString(response);
-        
+
         userRepository.updatePasswordlessStatus(user.getEmail(), true);
 
         log.info("2. 패스워드리스 등록 완료: {}", user.getEmail());
@@ -231,7 +231,7 @@ public class PasswordlessService {
                         userRepository.updatePasswordByEmail(email, encodedPassword);
                         httpSession.setAttribute("LOGIN_USER_EMAIL", email);
                         log.info("Passwordless authentication successful for user: {}", email);
-                        
+
                         // 토큰 생성
                         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(),user.getRole().name(),user.getEmail());
                         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(),user.getRole().name());
@@ -251,7 +251,7 @@ public class PasswordlessService {
                                 .build();
                     }
                 }
-                
+
                 // Wait for 2 seconds before retrying
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
@@ -260,7 +260,7 @@ public class PasswordlessService {
                 break;
             } catch (Exception e) {
                 log.error("Failed to check authentication result", e);
-                // Continue polling even if one request fails? Or break? 
+                // Continue polling even if one request fails? Or break?
                 // Let's sleep and retry mostly
                 try {
                     Thread.sleep(2000);

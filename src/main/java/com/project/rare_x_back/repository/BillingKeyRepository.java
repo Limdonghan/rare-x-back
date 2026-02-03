@@ -7,9 +7,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface BillingKeyRepository extends JpaRepository<BillingKey, Long> {
-    
+
     /// 유저 ID로 빌링키 찾기
     Optional<BillingKey> findByUser(User user);
 
     boolean existsByBillingKey(String billingKey);
+
+    boolean existsByUser_UserId(Long userId);
+
+    BillingKey findByUserUserId(Long userId);
 }
