@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
@@ -31,8 +32,6 @@ public class OrderService {
     private final SearchService searchService;
     private final InspectionRepository inspectionRepository;
     private final PaymentRepository paymentRepository;
-
-    private static final int SHIPPING_FEE = 3000;   // 배송비 상수
     private final SettlementService settlementService;
     private final OrderProcessService orderProcessService;
 
@@ -183,7 +182,7 @@ public class OrderService {
                 .collect(Collectors.toMap(
                         inspection -> inspection.getOrder().getOrderId(),   // Key: 주문번호
                         inspection -> inspection,                            // Value: 검수정보 객체
-                        (existing, replagement) -> existing         // 중복키 발생 시 첫번째 유지
+                        (existing, replacement) -> existing         // 중복키 발생 시 첫번째 유지
                 ));
 
         return orders.map(order -> toBuyingOrderResponseDto(order, inspectionMap.get(order.getOrderId())));
@@ -237,8 +236,8 @@ public class OrderService {
         Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
                 .orElse(null);
 
-        int totalAmount = payment != null ? payment.getAmount() : order.getPrice();
         int productPrice = order.getPrice();
+        int totalAmount = (payment != null) ? payment.getAmount() : FeeCalculator.buyerTotalAmount(productPrice);
 
         // 4. 결제 방식
         String paymentMethod = (payment != null) ? payment.getMethod() : null;
@@ -276,7 +275,7 @@ public class OrderService {
                 .productName(order.getProduct().getProductName())
                 .productImages(productImages)
                 .productPrice(productPrice)
-                .shippingFee(SHIPPING_FEE)
+                .shippingFee(FeeCalculator.DELIVERY_FEE)
                 .totalAmount(totalAmount)
                 .paymentMethod(paymentMethod)
                 .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
