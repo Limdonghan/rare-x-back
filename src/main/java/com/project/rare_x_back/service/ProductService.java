@@ -1,6 +1,8 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.BidInfo;
+import com.project.rare_x_back.dto.response.BrandListResponseDto;
+import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.entity.BuyBid;
@@ -10,9 +12,7 @@ import com.project.rare_x_back.entity.SaleBid;
 import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.BuyBidRepository;
-import com.project.rare_x_back.repository.ProductRepository;
-import com.project.rare_x_back.repository.SaleBidRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +31,8 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final BuyBidRepository buyBidRepository;
     private final SaleBidRepository saleBidRepository;
+    private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
 
     /**
     * [상품 목록 조회]
@@ -52,7 +54,6 @@ public class ProductService {
         // DTO 변환 및 이미지 처리
         return productPage.map(product -> {
             // [추가] 구매 가격 리스트 조회
-            List<BuyBid> buyBidPriceList = buyBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
             List<SaleBid> saleBidPriceList = saleBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
 
             // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
@@ -138,4 +139,31 @@ public class ProductService {
 
     }
 
+    /**
+     * [공용 카테고리 목록 조회]
+     */
+    public List<CategoryListResponseDto> getAllCategories() {
+        return categoryRepository.findAll().stream()
+                .map(category -> CategoryListResponseDto.builder()
+                        .categoryId(category.getCategoryId())
+                        .categoryName(category.getCategoryName())
+                        .productCount(productRepository.countByCategory_CategoryIdAndIsDeletedFalse(category.getCategoryId()))
+                        .createdAt(category.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * [공용 브랜드 목록 조회]
+     */
+    public List<BrandListResponseDto> getAllBrands() {
+        return brandRepository.findBrandsByIsDeletedFalse(Pageable.unpaged()).stream()
+                .map(brand -> BrandListResponseDto.builder()
+                        .brandId(brand.getBrandId())
+                        .brandName(brand.getBrandName())
+                        .productCount(productRepository.countByBrand_BrandIdAndIsDeletedFalse(brand.getBrandId()))
+                        .createdAt(brand.getCreatedAt())
+                        .build())
+                .toList();
+    }
 }
