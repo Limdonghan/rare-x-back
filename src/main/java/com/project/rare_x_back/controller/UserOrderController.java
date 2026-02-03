@@ -77,11 +77,11 @@ public class UserOrderController {
         return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다."));
     }
 
-// 판매 내역 목록 조회 (ORDER-006)
+    // 판매 내역 목록 조회 (ORDER-006)
     @GetMapping("/sales")
     public ResponseEntity<ApiResponse<Page<SellingOrderResponseDto>>> getSellingOrders(
             @RequestParam(defaultValue = "ALL") String status,
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         Page<SellingOrderResponseDto> result = orderService.getSellingOrders(
