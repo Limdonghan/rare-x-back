@@ -230,7 +230,7 @@ public class BidService {
         order.updateToShipped();
         // 5-2 Order 상태 변경 + 주문 이력 저장
         orderService.updateOrderStatus(order, CurrentStatus.SHIPPED_TO_WAREHOUSE);
-
+        
         // 6. Inspection 생성
         Inspection inspection = Inspection.builder()
                 .order(order)
@@ -512,6 +512,5 @@ public class BidService {
         } catch (Exception e) {
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
         }
-
     }
 }
