@@ -12,7 +12,7 @@ public class AutoPurchaseConfirmScheduler {
 
     private final OrderService orderService;
 
-    @Scheduled(cron = "0 0 */6 * * *" )
+    @Scheduled(cron = "0 0 */6 * * *")
     public void run() {
         try {
             log.info("자동 구매 확정 스케줄러가 시작되었습니다.");

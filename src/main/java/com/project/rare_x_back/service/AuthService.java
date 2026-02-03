@@ -6,12 +6,14 @@ import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
 import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.UserWallet;
 import com.project.rare_x_back.enums.ProviderType;
 import com.project.rare_x_back.enums.Role;
 import com.project.rare_x_back.enums.Status;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.UserWalletRepository;
 import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ public class AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final PasswordlessService passwordlessService;
     private final SearchService searchService;
+    private final UserWalletRepository userWalletRepository;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -70,6 +73,10 @@ public class AuthService {
 
         userRepository.save(user);
         searchService.indexUser(user);  // Typesense 인덱싱 추가
+
+        // 유저 생성시 유저의 지갑 생성 추가
+        UserWallet wallet = UserWallet.createEmptyWallet(user);
+        userWalletRepository.save(wallet);
 
         // 4. 응답 DTO 생성
         return SignUpResponseDto.builder()
