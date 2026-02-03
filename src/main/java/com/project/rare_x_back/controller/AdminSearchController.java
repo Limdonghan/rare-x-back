@@ -9,6 +9,7 @@ import com.project.rare_x_back.repository.InspectionRepository;
 import com.project.rare_x_back.repository.OrderRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.service.OrderService;
 import com.project.rare_x_back.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,6 +31,7 @@ import java.util.List;
 public class AdminSearchController {
 
     private final SearchService searchService;
+    private final OrderService orderService;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
@@ -62,11 +64,11 @@ public class AdminSearchController {
     }
 
     /**
-     * 주문 검색
+     * 관리자 주문 조회 (키워드 검색 + 필터)
      */
     @GetMapping("/orders")
-    public ResponseEntity<ApiResponse<Page<AdminOrderResponseDto>>> searchOrders(
-            @RequestParam String keyword,
+    public ResponseEntity<ApiResponse<Page<AdminOrderResponseDto>>> getAdminOrders(
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -75,8 +77,24 @@ public class AdminSearchController {
         LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
 
-        Page<AdminOrderResponseDto> result = searchService.searchOrders(
-                keyword, status, startDateTime, endDateTime, pageable);
+        Page<AdminOrderResponseDto> result;
+
+        if (keyword != null && !keyword.isBlank()) {
+            result = searchService.searchOrders(keyword, status, startDateTime, endDateTime, pageable);
+        } else {
+            result = orderService.getAdminOrders(status, startDateTime, endDateTime, pageable);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * 관리자 주문 상세 조회
+     */
+    @GetMapping("/orders/{orderId}")
+    public ResponseEntity<ApiResponse<AdminOrderDetailResponseDto>> getAdminOrderDetail(
+            @PathVariable Long orderId) {
+        AdminOrderDetailResponseDto result = orderService.getAdminOrderDetail(orderId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

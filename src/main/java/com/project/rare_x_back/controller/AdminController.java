@@ -159,10 +159,6 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
     }
 
-    // 주문 조회
-
-    // 주문 상세 조회
-
     // 주문 배송 완료로 상태 변경
     @PatchMapping("/orders/{orderId}/delivered")
     public ResponseEntity <ApiResponse<Void>> deliveredOrder (
