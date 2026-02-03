@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @AllArgsConstructor
 @RestController
 @RequestMapping("/api/mypage/settlement")
@@ -32,10 +30,10 @@ public class UserSettlementController {
 
     // 유저 지갑 상세 조회 (정산 내역)
     @GetMapping("/wallet/detailHistory")
-    public ResponseEntity<ApiResponse<List<UserSettlementHistoryDto>>> userWalletDetail(
+    public ResponseEntity<ApiResponse<UserSettlementHistoryDto>> userWalletDetail(
             @AuthenticationPrincipal CustomUserDetails userDetails
             ){
-        List<UserSettlementHistoryDto> dto = userWalletService.userSettlementHistory(userDetails.getUserId());
+        UserSettlementHistoryDto dto = userWalletService.userSettlementHistory(userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 

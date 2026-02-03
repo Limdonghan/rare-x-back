@@ -7,7 +7,6 @@ import com.project.rare_x_back.dto.response.MyBuyBidResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidResponseDto;
 import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.service.BidService;
-import com.project.rare_x_back.service.UserWalletService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +22,6 @@ import java.util.List;
 @RequestMapping("/api/mypage/bids")
 public class UserBidsController {
     private final BidService bidService;
-    private final UserWalletService userWalletService;
 
     // 구매 입찰 목록 조회
     @GetMapping("/buybid")

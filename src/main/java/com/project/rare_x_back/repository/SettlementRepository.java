@@ -4,6 +4,7 @@ import com.project.rare_x_back.entity.Settlement;
 import com.project.rare_x_back.enums.SettlementStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,18 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     // 유저 아이디와 상태로 조회
     List<Settlement> findAllBySeller_UserIdAndStatus(Long userId, SettlementStatus status);
 
-    List<Settlement>findAllBySeller_UserIdAndStatusOrderByCompletedAtDesc(Long userId, SettlementStatus status);
 
+
+    @Query("""
+        select s from Settlement s
+        join fetch s.order o
+        join fetch o.product
+        where s.seller.userId = :userId
+          and s.status = :status
+        order by s.completedAt desc
+    """)
+    List<Settlement> findAllWithOrderAndProduct(
+            @Param("userId") Long userId,
+            @Param("status") SettlementStatus status
+    );
 }

@@ -75,9 +75,8 @@ public class AuthService {
         searchService.indexUser(user);  // Typesense 인덱싱 추가
 
         // 유저 생성시 유저의 지갑 생성 추가
-        UserWallet wallet =UserWallet.createEmptyWallet(user);
+        UserWallet wallet = UserWallet.createEmptyWallet(user);
         userWalletRepository.save(wallet);
-
 
         // 4. 응답 DTO 생성
         return SignUpResponseDto.builder()

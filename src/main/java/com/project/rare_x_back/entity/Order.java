@@ -85,8 +85,7 @@ public class Order {
     }
 
     // 거래만료일 -> 구매 확정 시점
-    public void updateExpAt() {this.expiresAt = LocalDateTime.now();}
-
-
-
+    public void updateExpAt() {
+        this.expiresAt = LocalDateTime.now();
+    }
 }
