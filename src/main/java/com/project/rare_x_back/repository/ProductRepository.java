@@ -35,4 +35,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"brand", "category"})
     @Query("SELECT p FROM Product p WHERE p.isDeleted = false")
     List<Product> findAllForSync();
+
+    /// 특정 카테고리에 속하며 삭제되지 않은 상품의 개수를 조회
+    long countByCategory_CategoryIdAndIsDeletedFalse(Long categoryId);
+
+    /// 특정 브랜드에 속하며 삭제되지 않은 상품의 개수를 조회
+    long countByBrand_BrandIdAndIsDeletedFalse(Long brandId);
 }

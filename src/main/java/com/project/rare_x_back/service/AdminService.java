@@ -245,20 +245,26 @@ public class AdminService {
         searchService.indexProduct(product);  // Typesense 인덱스 업데이트 (is_deleted=true)
     }
 
-    //카테고리 조회
+    /**
+     * 관리자용 전체 카테고리 목록 조회
+     * 각 카테고리별로 등록된 상품 수와 카테고리 생성일 정보 반환
+     * 
+     * @return 카테고리 정보와 상품 수, 생성일이 포함된 DTO 리스트
+     */
     public List<CategoryListResponseDto> getAllCategory () {
-        //카테고리 전체 조회
+        // 모든 카테고리를 DB에서 조회합니다.
         List<Category> results = categoryRepository.findAll();
-        List<CategoryListResponseDto> response = new ArrayList<>();
-
-        for(Category category : results){
-            CategoryListResponseDto newResult = new CategoryListResponseDto(
-                    category.getCategoryId(),
-                    category.getCategoryName()
-            );
-            response.add(newResult);
-        }
-        return response;
+        
+        // 조회된 각 카테고리 엔티티를 응답 DTO로 변환합니다.
+        return results.stream().map(category -> 
+            CategoryListResponseDto.builder()
+                    .categoryId(category.getCategoryId())
+                    .categoryName(category.getCategoryName())
+                    // 해당 카테고리에 속한 삭제되지 않은 상품의 개수를 계산합니다.
+                    .productCount(productRepository.countByCategory_CategoryIdAndIsDeletedFalse(category.getCategoryId()))
+                    .createdAt(category.getCreatedAt())
+                    .build()
+        ).toList();
     }
 
     //카테고리 등록
@@ -292,20 +298,27 @@ public class AdminService {
         categoryRepository.deleteById(category.getCategoryId());
     }
 
-    //브랜드 조회
+    /**
+     * 관리자용 전체 브랜드 목록 조회
+     * 각 브랜드별 상품 수와 브랜드 등록일 정보를 포함한 목록을 페이징하여 반환
+     * 
+     * @param pageable 페이징 정보
+     * @return 브랜드 정보와 상품 수, 등록일이 포함된 DTO 리스트
+     */
     public List<BrandListResponseDto> getAllBrand (Pageable pageable) {
-        //브랜드 전체 조회
+        // 삭제되지 않은 모든 브랜드를 DB에서 조회합니다.
         List<Brand> results = brandRepository.findBrandsByIsDeletedFalse(pageable);
-        List<BrandListResponseDto> response = new ArrayList<>();
-
-        for(Brand brand : results){
-            BrandListResponseDto newResult = new BrandListResponseDto(
-                    brand.getBrandId(),
-                    brand.getBrandName()
-                    );
-            response.add(newResult);
-        }
-        return response;
+        
+        // 조회된 브랜드 엔티티를 응답 DTO로 변환합니다.
+        return results.stream().map(brand -> 
+            BrandListResponseDto.builder()
+                    .brandId(brand.getBrandId())
+                    .brandName(brand.getBrandName())
+                    // 해당 브랜드로 등록된 삭제되지 않은 상품의 개수를 계산합니다.
+                    .productCount(productRepository.countByBrand_BrandIdAndIsDeletedFalse(brand.getBrandId()))
+                    .createdAt(brand.getCreatedAt())
+                    .build()
+        ).toList();
     }
 
     //브랜드 등록
