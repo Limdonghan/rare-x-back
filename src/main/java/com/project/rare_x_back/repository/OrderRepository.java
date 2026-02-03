@@ -63,7 +63,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // 상태 필터
     @EntityGraph(attributePaths = {"buyer", "seller", "product"})
-    Page<Order> findByCurrentStatus(CurrentStatus currentStatus, Pageable pageable);
+    Page<Order> findByCurrentStatusIn(List<CurrentStatus> statuses, Pageable pageable);
 
     // 날짜 필터
     @EntityGraph(attributePaths = {"buyer", "seller", "product"})
@@ -71,11 +71,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // 상태 + 날짜 필터
     @EntityGraph(attributePaths = {"buyer", "seller", "product"})
-    Page<Order> findByCurrentStatusAndCreatedAtBetween(
-            CurrentStatus currentStatus, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+    Page<Order> findByCurrentStatusInAndCreatedAtBetween(List<CurrentStatus> statuses, LocalDateTime start, LocalDateTime end, Pageable pageable);
 
     // 상세 조회 (이미지까지 한방 로딩)
-    @EntityGraph(attributePaths = {"buyer", "seller", "product", "product.images"})
+    @EntityGraph(attributePaths = {"buyer", "seller", "product", "product.images", "product.brand"})
     @Query("SELECT o FROM Order o WHERE o.orderId = :orderId")
     Optional<Order> findAdminOrderDetail(@Param("orderId") Long orderId);
 }

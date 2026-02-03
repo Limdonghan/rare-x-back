@@ -13,6 +13,7 @@ public class AdminOrderDetailResponseDto {
     private Long orderId;
     private String orderNumber;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     // 구매자 정보
     private String buyerName;
@@ -26,6 +27,7 @@ public class AdminOrderDetailResponseDto {
     private Long productId;
     private String productName;
     private List<String> productImages;
+    private String brandName;
 
     // 거래 정보
     private int price;

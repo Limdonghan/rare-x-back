@@ -476,13 +476,15 @@ public class OrderService {
     // ====== 관리자 주문 목록 조회 (MANAGER-009) ======
     @Transactional(readOnly = true)
     public Page<AdminOrderResponseDto> getAdminOrders(
-            String status, LocalDateTime startDate, LocalDateTime endDate,
+            List<String> status, LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
 
         // DB 직접 조회
-        CurrentStatus currentStatus = null;
-        if (status != null && !status.isBlank()) {
-            currentStatus = CurrentStatus.valueOf(status);
+        List<CurrentStatus> statuses = null;
+        if (status != null && !status.isEmpty()) {
+            statuses = status.stream()
+                    .map(CurrentStatus::valueOf)
+                    .toList();
         }
 
         // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
@@ -495,11 +497,11 @@ public class OrderService {
 
         Page<Order> orders;
 
-        if (currentStatus != null && startDate != null) {
-            orders = orderRepository.findByCurrentStatusAndCreatedAtBetween(
-                    currentStatus, startDate, endDate, pageable);
-        } else if (currentStatus != null) {
-            orders = orderRepository.findByCurrentStatus(currentStatus, pageable);
+        if (statuses != null && startDate != null) {
+            orders = orderRepository.findByCurrentStatusInAndCreatedAtBetween(
+                    statuses, startDate, endDate, pageable);
+        } else if (statuses != null) {
+            orders = orderRepository.findByCurrentStatusIn(statuses, pageable);
         } else if (startDate != null) {
             orders = orderRepository.findByCreatedAtBetween(startDate, endDate, pageable);
         } else {
@@ -565,6 +567,7 @@ public class OrderService {
                 .orderId(order.getOrderId())
                 .orderNumber(String.format("ORD-%08d", order.getOrderId()))
                 .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
                 // 구매자
                 .buyerName(order.getBuyer().getName())
                 .buyerEmail(order.getBuyer().getEmail())
@@ -575,6 +578,7 @@ public class OrderService {
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
                 .productImages(productImages)
+                .brandName(order.getProduct().getBrand().getBrandName())
                 // 거래
                 .price(order.getPrice())
                 .bidType(order.getType() != null ? order.getType().name() : null)

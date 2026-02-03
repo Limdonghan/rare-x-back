@@ -69,7 +69,7 @@ public class AdminSearchController {
     @GetMapping("/orders")
     public ResponseEntity<ApiResponse<Page<AdminOrderResponseDto>>> getAdminOrders(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) List<String> status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 20) Pageable pageable) {

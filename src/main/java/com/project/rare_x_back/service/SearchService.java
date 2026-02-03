@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -89,7 +90,7 @@ public class SearchService {
      * 키워드 + 상태/날짜 필터 지원
      */
     public Page<AdminOrderResponseDto> searchOrders(
-            String keyword, String status,
+            String keyword, List<String> status,
             LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
         try {
@@ -102,8 +103,10 @@ public class SearchService {
 
             // 필터 조건 동적 조합
             List<String> filters = new ArrayList<>();
-            if (status != null && !status.isBlank()) {
-                filters.add("current_status:=" + status);
+            if (status != null && !status.isEmpty()) {
+                String statusFilter = status.stream()
+                        .collect(Collectors.joining(","));
+                filters.add("current_status:[" + statusFilter + "]");
             }
             if (startDate != null) {
                 filters.add("created_at:>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
