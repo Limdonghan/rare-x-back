@@ -226,8 +226,9 @@ public class BidService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 대기 상태에서만 발송 처리가 가능합니다.");
         }
 
-        // 5. Order 상태 변경 + 주문 이력 저장
-        // order.setCurrentStatus(CurrentStatus.SHIPPED_TO_WAREHOUSE);
+        // 5-1 판매자 -> 검수센터 발송 완료 시간 기록
+        order.updateToShipped();
+        // 5-2 Order 상태 변경 + 주문 이력 저장
         orderService.updateOrderStatus(order, CurrentStatus.SHIPPED_TO_WAREHOUSE);
 
         // 6. Inspection 생성

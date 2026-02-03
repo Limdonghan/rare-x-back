@@ -35,6 +35,7 @@ public class OrderProcessService {
 
         // 상태 변경 로직 (updateOrderStatus가 OrderService에 있다면 직접 필드 수정)
         order.updateStatus(CurrentStatus.CONFIRMED_PURCHASE);
+        order.updateExpAt();
         historyRepository.save(OrderHistory.create(order, CurrentStatus.CONFIRMED_PURCHASE));
 
     }

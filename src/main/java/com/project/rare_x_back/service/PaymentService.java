@@ -5,10 +5,6 @@ import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
-import com.project.rare_x_back.entity.BillingKey;
-import com.project.rare_x_back.entity.Order;
-import com.project.rare_x_back.entity.Payment;
-import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.PaymentHistoryStatus;
 import com.project.rare_x_back.exceptions.CustomException;
@@ -22,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -309,6 +306,8 @@ public class PaymentService {
                 .deliveryFee(3000)
                 .totalAmount(totalAmount)
                 .status(PaymentHistoryStatus.COMPLETE)
+                .reqDate(order.getCreatedAt())
+                .resDate(LocalDateTime.now())
                 .build();
         paymentHistoryRepository.save(history);
     }
