@@ -17,6 +17,7 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    // 구매자에게 배송완료된 주문
     @Query("""
         select o from Order o
         where o.currentStatus = 'DELIVERED'
@@ -26,8 +27,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // 동시성 제어를 위한 비관적 락
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT o FROM Order o WHERE o.orderId = :id")
-    Optional<Order> findByIdWithLock(@Param("id") Long id);
+    @Query("SELECT o FROM Order o WHERE o.orderId = :orderId")
+    Optional<Order> findByIdWithLock(@Param("orderId") Long orderId);
 
     // 동기화용 - N+1 방지
     @EntityGraph(attributePaths = {
