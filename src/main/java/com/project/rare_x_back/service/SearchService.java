@@ -5,6 +5,7 @@ import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.entity.Order;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import jakarta.annotation.PostConstruct;
@@ -26,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -119,9 +119,19 @@ public class SearchService {
 
             // 상태(status) 필터 추가
             if (status != null && !status.isEmpty()) {
-                String statusFilter = status.stream()
-                        .collect(Collectors.joining(","));  // 여러 상태를 콤마로 연결
-                filters.add("current_status:[" + statusFilter + "]");   // 예: current_status:[PENDING,COMPLETED]
+
+                // 리스트 안의 값을 하나씩 검사해서 새로운 리스트로 만들기
+                List<String> validatedStatuses = status.stream()
+                        .map(s -> {
+                            try {
+                                return CurrentStatus.valueOf(s).name();
+                            } catch (IllegalArgumentException e) {
+                                throw new CustomException(ErrorCode.BAD_REQUEST);
+                            }
+                        })
+                        .toList();
+                String statusFilter = String.join(",", validatedStatuses);    // 검증된 값들을 콤마로 연결
+                filters.add("current_status:[" + statusFilter + "]");   // 최종적으로 검색 조건에 추가
             }
 
             // 시작 날짜 필터 추가

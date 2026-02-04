@@ -76,7 +76,7 @@ public class AdminSearchController {
 
         // 날짜를 LocalDateTime으로 변환 (검색 범위 지정)
         LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
-        LocalDateTime endDateTime = endDate != null ? endDate.atTime(23, 59, 59, 999_999_999) : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
         Page<AdminOrderResponseDto> result;
 
