@@ -58,7 +58,6 @@ public class SecurityConfig {
                                 "/api/passwordless/**",
                                 "/*.html",
                                 "/favicon.ico",
-                                "/test/payments/**",
                                 "/api/product/**"
                         ).permitAll()
                         .requestMatchers(

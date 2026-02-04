@@ -58,7 +58,7 @@ public class Payment {
 
     @Builder.Default
     @Column(name = "canceled_amount", nullable = false)
-    private int canceledAmount = 0; //환불(취소)된 금액
+    private long canceledAmount = 0; //환불(취소)된 금액
 
     @Column(name = "last_canceled_at")
     private LocalDateTime lastCanceledAt; //환불 성공 시점
@@ -71,7 +71,7 @@ public class Payment {
     }
 
     // 취소 성공 시 호출
-    public void applyCancelSuccess(int cancelAmount) {
+    public void applyCancelSuccess(long cancelAmount) {
         this.canceledAmount = cancelAmount;
 
         // 전액, 부분 취소 구분

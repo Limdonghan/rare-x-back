@@ -25,7 +25,7 @@ public class PaymentCancel {
 
     // 실제 환불 금액
     @Column(name = "cancel_amount")
-    private int cancelAmount;
+    private long cancelAmount;
 
     // BUYER_CANCELED / SELLER_CANCELED / INSPECTION_FAILED 등..
     @Column(name = "cancel_reason")

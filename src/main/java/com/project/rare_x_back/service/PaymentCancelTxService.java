@@ -26,7 +26,7 @@ public class PaymentCancelTxService {
 
      // 취소 요청 락 + 검증 + REQUESTED
     @Transactional
-    public Payment markRequested(Long orderId, int cancelAmount) {
+    public Payment markRequested(Long orderId, long cancelAmount) {
         Payment payment = paymentRepository.findByOrder_OrderId(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
@@ -53,17 +53,25 @@ public class PaymentCancelTxService {
 
      // 취소 성공 확정 락 + 상태 확정 + 취소 로그 저장
     @Transactional
-    public void applySuccess(String paymentKey, int cancelAmount, String reason, String requestedBy) {
+    public void applySuccess(String paymentKey, long cancelAmount, String reason, String requestedBy) {
         //  락 걸고 조회
         Payment locked = paymentRepository.findByTossPaymentKeyForUpdate(paymentKey)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        // 이미 취소 로그 있으면(멱등) 그대로 종료
-        if (paymentCancelRepository.existsByPayment_PaymentId(locked.getPaymentId())) {
+        // 1차 체크 상태 값으로 확인
+        if (locked.getCancelStatus() == CancelStatus.CANCELED || locked.getCancelStatus() == CancelStatus.PARTIAL_CANCELED) {
             return;
         }
 
-        locked.applyCancelSuccess(cancelAmount);
+        // 2차 체크 이미 취소 로그 있으면(멱등) 그대로 종료
+        if (paymentCancelRepository.existsByPayment_PaymentId(locked.getPaymentId())) {
+            //상태는 취소가 아닌데, 혹시 취소 로그만 먼저 저장되어 있을 경우 대비
+            log.warn("이미 취소 로그가 존재합니다. 상태 동기화를 시도합니다.");
+            locked.applyCancelSuccess(cancelAmount); // 혹시 상태만 안바뀌었다면 업데이트
+            return;
+        }
+        // 상태 변경 및 로그 저장
+         locked.applyCancelSuccess(cancelAmount);
 
         try {
             paymentCancelRepository.save(
@@ -75,6 +83,7 @@ public class PaymentCancelTxService {
                             .canceledAt(LocalDateTime.now())
                             .build()
             );
+            paymentCancelRepository.flush(); // 저장 직후 DB에 넣어서 멱등성 확인
         } catch (DataIntegrityViolationException e) {
             // payment_id UNIQUE 위반이면 이미 저장된 것 → 멱등 성공 처리
             log.warn("중복 취소 로그 감지(payment_id UNIQUE). paymentId={}", locked.getPaymentId());

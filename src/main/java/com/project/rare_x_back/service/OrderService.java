@@ -484,7 +484,7 @@ public class OrderService {
     @Transactional
     public void cancelByBuyer(Long userId, Long orderId) {
         // 주문 검증
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
         // 구매자인지 검증
         if (!order.getBuyer().getUserId().equals(userId)) {
@@ -503,17 +503,41 @@ public class OrderService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
 
         // 구매자 패널티 계산 (거래 체결가의 5%)
-        int penalty = PenaltyCalculator.cancelPenalty(order.getPrice());
+        long penalty = PenaltyCalculator.cancelPenalty(order.getPrice());
 
         // 환불 금액
-        int cancelAmount = payment.getAmount() - penalty;
+        long cancelAmount = payment.getAmount() - penalty;
 
         // 취소 금액 음수 차단
         if (cancelAmount <= 0) {
-            throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
+            throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT, "패널티가 결제 금액보다 클 수 없습니다.");
         }
 
-        // 패널티 기록 (이미 차감되므로 PAID)
+        // 결제 취소 (환불금액 -> 결제 금액에서 - 패널티 차감 금액)
+        // 내부에서 markRequested -> API 호출 -> applySuccess 수행
+        //이 메서드가 끝나면 결제 취소 기록과 Payment 상태는 이미 DB에 반영
+        paymentCancelService.cancelOnce(
+                orderId,
+                cancelAmount,
+                "BUYER_CANCELED",
+                "BUYER"
+        );
+
+        // 주문, 주문 이력, 패널티 기록, 정산 상태, 판매자 보상 정보 확정 처리
+        finalizeBuyerCancellation(order, penalty);
+
+    }
+
+    // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
+    private void finalizeBuyerCancellation(Order order, long penalty) {
+        // 주문 상태 변경
+        order.updateStatus(CurrentStatus.CANCELLED);
+        order.updateExpAt();
+
+        // 이력 저장 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "구매자 취소"));
+
+        //패널티 기록
         userPenaltyRepository.save(
                 UserPenalty.builder()
                         .user(order.getBuyer())
@@ -526,22 +550,8 @@ public class OrderService {
                         .build()
         );
 
-        // 결제 취소(패널티 차감 금액)
-        paymentCancelService.cancelOnce(
-                orderId,
-                cancelAmount,
-                "BUYER_CANCELED",
-                "BUYER"
-        );
-
-        // 주문 상태 -> CANCELED
-        order.updateStatus(CurrentStatus.CANCELLED);
-        // 주문 이력 테이블에 CANCELED, description 기록
-        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "구매자 취소"));
-        order.updateExpAt();
-
         // 판매자 보상 (구매자에게 걷은 패널티의 50% -> 판매자 지갑에 적립)
-        int compensationAmount = penalty / 2;
+        long compensationAmount = penalty / 2; // 소수점 발생 시 버림 처리
         if (compensationAmount > 0) {
             walletService.compensate(
                     order.getSeller().getUserId(),
@@ -550,8 +560,9 @@ public class OrderService {
                     order.getOrderId()
             );
         }
-        // 정산 상태 변경
-        settlementService.failSettlement(orderId, "ORDER_CANCELED_BY_BUYER");
+        // 정산 상태 변경 (실패 처리)
+        settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_BUYER");
     }
+
 
 }

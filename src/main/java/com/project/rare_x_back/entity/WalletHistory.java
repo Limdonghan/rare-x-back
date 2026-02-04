@@ -24,7 +24,7 @@ public class WalletHistory {
     private UserWallet wallet;
 
     @Column(name = "amount")
-    private Long amount;
+    private long amount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false)
@@ -38,6 +38,6 @@ public class WalletHistory {
 
     @CreationTimestamp
     @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
 }

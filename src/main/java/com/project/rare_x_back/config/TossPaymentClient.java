@@ -30,7 +30,7 @@ public class TossPaymentClient {
      */
     public void cancelPayment(
             String paymentKey,
-            int cancelAmount,
+            long cancelAmount,
             String reason
     ) {
 

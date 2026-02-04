@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "user_penalties")
 @Getter
-@NoArgsConstructor (access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class UserPenalty {
@@ -38,7 +38,7 @@ public class UserPenalty {
     private PenaltyReason reason;
 
     @Column(nullable = false)
-    private int amount;
+    private long amount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

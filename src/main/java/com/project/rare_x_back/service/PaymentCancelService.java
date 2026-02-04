@@ -12,7 +12,7 @@ public class PaymentCancelService {
     private final PaymentCancelTxService txService;
     private final TossPaymentClient tossPaymentClient;
 
-    public void cancelOnce(Long orderId, int cancelAmount, String reason, String requestedBy) {
+    public void cancelOnce(Long orderId, long cancelAmount, String reason, String requestedBy) {
 
         // 락 + 검증 + REQUESTED
         Payment lockedPayment = txService.markRequested(orderId, cancelAmount);
