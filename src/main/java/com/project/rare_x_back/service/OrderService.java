@@ -536,11 +536,11 @@ public class OrderService {
                 .map(ProductImage::getImageUrl)
                 .toList();
 
-        // 3. 결제 정보
+        // 3. 결제 정보 (가장 최근 결제 내역)
         Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
                 .orElse(null);
 
-        // 4. 정산 정보
+        // 4. 정산 정보보 (판매자에게 지급된 금액 등)
         Settlement settlement = settlementRepository.findByOrder_OrderId(orderId)
                 .orElse(null);
 
@@ -548,13 +548,13 @@ public class OrderService {
         OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
                 .orElse(null);
 
-        // 6. 검수 정보
+        // 6. 검수 정보 (가장 최근 검수 내역)
         Inspection inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId)
                 .orElse(null);
 
         // 7. 상태 이력
         List<AdminOrderDetailResponseDto.StatusHistory> statusHistories = historyRepository
-                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)
+                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)    // 오래된 순으로 조회
                 .stream()
                 .map(history -> AdminOrderDetailResponseDto.StatusHistory.builder()
                         .status(history.getCurrentStatus().name())
@@ -562,6 +562,7 @@ public class OrderService {
                         .build())
                 .toList();
 
+        // 최종적으로 DTO 객체를 만들어 반환
         return AdminOrderDetailResponseDto.builder()
                 // 기본
                 .orderId(order.getOrderId())

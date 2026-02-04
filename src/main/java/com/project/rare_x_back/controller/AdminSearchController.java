@@ -74,14 +74,17 @@ public class AdminSearchController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 20) Pageable pageable) {
 
+        // 날짜를 LocalDateTime으로 변환 (검색 범위 지정)
         LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
 
         Page<AdminOrderResponseDto> result;
 
+        // 키워드가 있으면 검색 서비스 사용
         if (keyword != null && !keyword.isBlank()) {
             result = searchService.searchOrders(keyword, status, startDateTime, endDateTime, pageable);
         } else {
+            // 키워드가 없으면 일반 조회 서비스 사용
             result = orderService.getAdminOrders(status, startDateTime, endDateTime, pageable);
         }
 

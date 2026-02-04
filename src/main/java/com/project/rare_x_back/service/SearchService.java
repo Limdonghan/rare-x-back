@@ -94,6 +94,7 @@ public class SearchService {
             LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
         try {
+            // 검색 조건을 담을 객체 생성
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("product_name,buyer_name,seller_name")
@@ -103,17 +104,25 @@ public class SearchService {
 
             // 필터 조건 동적 조합
             List<String> filters = new ArrayList<>();
+
+            // 상태(status) 필터 추가
             if (status != null && !status.isEmpty()) {
                 String statusFilter = status.stream()
-                        .collect(Collectors.joining(","));
-                filters.add("current_status:[" + statusFilter + "]");
+                        .collect(Collectors.joining(","));  // 여러 상태를 콤마로 연결
+                filters.add("current_status:[" + statusFilter + "]");   // 예: current_status:[PENDING,COMPLETED]
             }
+
+            // 시작 날짜 필터 추가
             if (startDate != null) {
                 filters.add("created_at:>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
             }
+
+            // 종료 날짜 필터 추가
             if (endDate != null) {
                 filters.add("created_at:<=" + endDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
             }
+
+            // 필터 조건이 있으면 params에 추가
             if (!filters.isEmpty()) {
                 params.filterBy(String.join(" && ", filters));
             }
