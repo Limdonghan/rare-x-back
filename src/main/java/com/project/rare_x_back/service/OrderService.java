@@ -11,11 +11,13 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,9 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderProcessService orderProcessService;
     private final SettlementRepository settlementRepository;
+
+    @Value("${app.service-start-date}")
+    private String serviceStartDate;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -483,7 +488,13 @@ public class OrderService {
         List<CurrentStatus> statuses = null;
         if (status != null && !status.isEmpty()) {
             statuses = status.stream()
-                    .map(CurrentStatus::valueOf)
+                    .map(s -> {
+                        try {
+                           return CurrentStatus.valueOf(s);
+                        } catch (IllegalArgumentException e) {
+                            throw new CustomException(ErrorCode.BAD_REQUEST);
+                        }
+                    })
                     .toList();
         }
 
@@ -492,7 +503,7 @@ public class OrderService {
             endDate = LocalDateTime.now();
         }
         if (endDate != null && startDate == null) {
-            startDate = LocalDateTime.of(2020, 1, 1, 0, 0);
+            startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
         }
 
         Page<Order> orders;
@@ -540,7 +551,7 @@ public class OrderService {
         Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
                 .orElse(null);
 
-        // 4. 정산 정보보 (판매자에게 지급된 금액 등)
+        // 4. 정산 정보 (판매자에게 지급된 금액 등)
         Settlement settlement = settlementRepository.findByOrder_OrderId(orderId)
                 .orElse(null);
 

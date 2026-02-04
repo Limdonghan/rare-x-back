@@ -10,6 +10,7 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,7 @@ import org.typesense.model.SearchParameters;
 import org.typesense.model.SearchResult;
 import org.typesense.model.SearchResultHit;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 public class SearchService {
 
     private final Client typesenseClient;
+    @Value("${app.service-start-date}")
+    private String serviceStartDate;
 
     // ==================== 검색 메서드 ====================
 
@@ -103,6 +107,14 @@ public class SearchService {
                     .perPage(pageable.getPageSize());
 
             // 필터 조건 동적 조합
+            // 날짜 한쪽만 입력된 경우 보정 (OrderService와 일관성)
+            if (startDate != null && endDate == null) {
+                endDate = LocalDateTime.now();
+            }
+            if (endDate != null && startDate == null) {
+                startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
+            }
+
             List<String> filters = new ArrayList<>();
 
             // 상태(status) 필터 추가
@@ -414,7 +426,7 @@ public class SearchService {
             for (SearchResultHit hit : result.getHits()) {
                 try {
                     Map<String, Object> doc = hit.getDocument();
-                    Long orderId = doc.get("order_id") != null
+                    long orderId = doc.get("order_id") != null
                             ? ((Number) doc.get("order_id")).longValue() : 0L;
 
                     LocalDateTime createdAt = null;
@@ -427,7 +439,7 @@ public class SearchService {
 
                     items.add(AdminOrderResponseDto.builder()
                             .orderId(orderId)
-                            .orderNumber("ORD-00" + orderId)
+                            .orderNumber(String.format("ORD-%08d", orderId))
                             .createdAt(createdAt)
                             .buyerName((String) doc.getOrDefault("buyer_name", ""))
                             .sellerName((String) doc.getOrDefault("seller_name", ""))
