@@ -17,5 +17,5 @@ public class PurchaseRequestDto {
     private String tossOrderId; /// 토스 주문 ID
     private int amount;         /// 토스 실제 금액
 
-    private Long address;
+   // private Long address;
 }

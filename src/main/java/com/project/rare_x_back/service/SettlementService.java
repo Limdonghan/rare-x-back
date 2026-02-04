@@ -56,6 +56,20 @@ public class SettlementService {
         settlement.complete();
 
         // 판매자 지갑 적립
-        userWalletService.depositSettlementAmount(order.getSeller(), settleAmount);
+        userWalletService.depositSettlementAmount(order, settleAmount);
+    }
+
+    @Transactional
+    public void failSettlement(Long orderId, String reason) {
+
+        Settlement settlement = settlementRepository
+                .findByOrder_OrderId(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "정산 정보를 찾을 수 없습니다."));
+
+        if (settlement.getStatus() != SettlementStatus.PENDING) {
+            return; // 이미 처리된 정산이면 무시
+        }
+
+        settlement.fail(reason);
     }
 }

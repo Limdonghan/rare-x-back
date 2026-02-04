@@ -1,14 +1,13 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.common.FeeCalculator;
+import com.project.rare_x_back.common.PenaltyCalculator;
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
 import com.project.rare_x_back.entity.*;
-import com.project.rare_x_back.enums.BidType;
-import com.project.rare_x_back.enums.CurrentStatus;
-import com.project.rare_x_back.enums.ReturnStatus;
+import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
@@ -38,6 +37,11 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderProcessService orderProcessService;
     private final SettlementRepository settlementRepository;
+    private final UserRepository userRepository;
+    private final PaymentCancelService paymentCancelService;
+    private final UserWalletService walletService;
+    private final SettlementService settlementService;
+    private final UserPenaltyRepository userPenaltyRepository;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -475,4 +479,79 @@ public class OrderService {
                 .statusHistories(statusHistories)
                 .build();
     }
+
+    // 구매자 주문 취소 (패널티 -> 구매자 = 패널티 제외한 부분 환불)
+    @Transactional
+    public void cancelByBuyer(Long userId, Long orderId) {
+        // 주문 검증
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+        // 구매자인지 검증
+        if (!order.getBuyer().getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 주문 건만 취소할 수 있습니다.");
+        }
+        // 이미 취소된 주문인지 확인
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "이미 취소된 주문 입니다.");
+        }
+        // 판매자 발송 전 인지 검증
+        if (order.getSellerShippedAt() != null) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "판매자가 발송한 주문은 취소할 수 없습니다.");
+        }
+        //결제 내역 조회
+        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
+
+        // 구매자 패널티 계산 (거래 체결가의 5%)
+        int penalty = PenaltyCalculator.cancelPenalty(order.getPrice());
+
+        // 환불 금액
+        int cancelAmount = payment.getAmount() - penalty;
+
+        // 취소 금액 음수 차단
+        if (cancelAmount <= 0) {
+            throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
+        }
+
+        // 패널티 기록 (이미 차감되므로 PAID)
+        userPenaltyRepository.save(
+                UserPenalty.builder()
+                        .user(order.getBuyer())
+                        .order(order)
+                        .role(PenaltyRole.BUYER)
+                        .reason(PenaltyReason.BUYER_CANCEL)
+                        .amount(penalty)
+                        .status(PenaltyStatus.PAID)
+                        .processedAt(LocalDateTime.now())
+                        .build()
+        );
+
+        // 결제 취소(패널티 차감 금액)
+        paymentCancelService.cancelOnce(
+                orderId,
+                cancelAmount,
+                "BUYER_CANCELED",
+                "BUYER"
+        );
+
+        // 주문 상태 -> CANCELED
+        order.updateStatus(CurrentStatus.CANCELLED);
+        // 주문 이력 테이블에 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "구매자 취소"));
+        order.updateExpAt();
+
+        // 판매자 보상 (구매자에게 걷은 패널티의 50% -> 판매자 지갑에 적립)
+        int compensationAmount = penalty / 2;
+        if (compensationAmount > 0) {
+            walletService.compensate(
+                    order.getSeller().getUserId(),
+                    compensationAmount,
+                    "구매자 취소 패널티 보상",
+                    order.getOrderId()
+            );
+        }
+        // 정산 상태 변경
+        settlementService.failSettlement(orderId, "ORDER_CANCELED_BY_BUYER");
+    }
+
 }

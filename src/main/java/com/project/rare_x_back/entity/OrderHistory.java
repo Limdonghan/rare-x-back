@@ -34,10 +34,19 @@ public class OrderHistory {
     @CreatedDate
     private LocalDateTime createdAt;       /// 주문 생성일
 
+    @Column(name = "description")
+    private String description;
+
     public static OrderHistory create(Order order, CurrentStatus status) {
         OrderHistory history = new OrderHistory();
         history.order = order;
         history.currentStatus = status;
+        return history;
+    }
+
+    public static OrderHistory createCancelHistory(Order order, CurrentStatus status, String description) {
+        OrderHistory history = create(order, status);
+        history.description = description;
         return history;
     }
 

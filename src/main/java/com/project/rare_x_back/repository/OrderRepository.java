@@ -17,6 +17,7 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    // 구매자에세 배송완료된 주문
     @Query("""
         select o from Order o
         where o.currentStatus = 'DELIVERED'
