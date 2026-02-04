@@ -1,10 +1,7 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
-import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
-import com.project.rare_x_back.dto.response.ProductResponseDto;
-import com.project.rare_x_back.dto.response.ProductSearchResponseDto;
-import com.project.rare_x_back.dto.response.SearchResultDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.service.ProductService;
 import com.project.rare_x_back.service.SearchService;
 import lombok.AllArgsConstructor;
@@ -15,6 +12,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @AllArgsConstructor
@@ -51,5 +50,17 @@ public class ProductController {
     ) {
         SearchResultDto<ProductSearchResponseDto> result = searchService.searchProducts(keyword, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 전용 카테고리 목록 조회
+    @GetMapping("/categories")
+    public ResponseEntity<ApiResponse<List<CategoryListResponseDto>>> getAllCategories() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getAllCategories()));
+    }
+
+    // 전용 브랜드 목록 조회
+    @GetMapping("/brands")
+    public ResponseEntity<ApiResponse<List<BrandListResponseDto>>> getAllBrands() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getAllBrands()));
     }
 }

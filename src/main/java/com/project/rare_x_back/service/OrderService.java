@@ -6,6 +6,7 @@ import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
@@ -13,11 +14,13 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,9 @@ public class OrderService {
     private final UserWalletService walletService;
     private final SettlementService settlementService;
     private final UserPenaltyRepository userPenaltyRepository;
+
+    @Value("${app.service-start-date}")
+    private String serviceStartDate;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -565,4 +571,145 @@ public class OrderService {
     }
 
 
+    // ====== 관리자 주문 목록 조회 (MANAGER-009) ======
+    @Transactional(readOnly = true)
+    public Page<AdminOrderResponseDto> getAdminOrders(
+            List<String> status, LocalDateTime startDate, LocalDateTime endDate,
+            Pageable pageable) {
+
+        // DB 직접 조회
+        List<CurrentStatus> statuses = null;
+        if (status != null && !status.isEmpty()) {
+            statuses = status.stream()
+                    .map(s -> {
+                        try {
+                           return CurrentStatus.valueOf(s);
+                        } catch (IllegalArgumentException e) {
+                            throw new CustomException(ErrorCode.BAD_REQUEST);
+                        }
+                    })
+                    .toList();
+        }
+
+        // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
+        if (startDate != null && endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        if (endDate != null && startDate == null) {
+            startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
+        }
+
+        Page<Order> orders;
+
+        if (statuses != null && startDate != null) {
+            orders = orderRepository.findByCurrentStatusInAndCreatedAtBetween(
+                    statuses, startDate, endDate, pageable);
+        } else if (statuses != null) {
+            orders = orderRepository.findByCurrentStatusIn(statuses, pageable);
+        } else if (startDate != null) {
+            orders = orderRepository.findByCreatedAtBetween(startDate, endDate, pageable);
+        } else {
+            orders = orderRepository.findAllForAdmin(pageable);
+        }
+
+        return orders.map(this::toAdminOrderResponseDto);
+    }
+
+    private AdminOrderResponseDto toAdminOrderResponseDto(Order order) {
+        return AdminOrderResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .createdAt(order.getCreatedAt())
+                .buyerName(order.getBuyer().getName())
+                .sellerName(order.getSeller().getName())
+                .productName(order.getProduct().getProductName())
+                .price(order.getPrice())
+                .currentStatus(order.getCurrentStatus().name())
+                .build();
+    }
+
+    // ====== 관리자 주문 상세 조회 (MANAGER-009) ======
+    @Transactional(readOnly = true)
+    public AdminOrderDetailResponseDto getAdminOrderDetail(Long orderId) {
+        // 1. 주문 조회 (buyer, seller, product, images 한방 로딩)
+        Order order = orderRepository.findAdminOrderDetail(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        // 2. 상품 이미지
+        List<String> productImages = order.getProduct().getImages().stream()
+                .map(ProductImage::getImageUrl)
+                .toList();
+
+        // 3. 결제 정보 (가장 최근 결제 내역)
+        Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
+                .orElse(null);
+
+        // 4. 정산 정보 (판매자에게 지급된 금액 등)
+        Settlement settlement = settlementRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        // 5. 배송지 정보
+        OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        // 6. 검수 정보 (가장 최근 검수 내역)
+        Inspection inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId)
+                .orElse(null);
+
+        // 7. 상태 이력
+        List<AdminOrderDetailResponseDto.StatusHistory> statusHistories = historyRepository
+                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)    // 오래된 순으로 조회
+                .stream()
+                .map(history -> AdminOrderDetailResponseDto.StatusHistory.builder()
+                        .status(history.getCurrentStatus().name())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .toList();
+
+        // 최종적으로 DTO 객체를 만들어 반환
+        return AdminOrderDetailResponseDto.builder()
+                // 기본
+                .orderId(order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                // 구매자
+                .buyerName(order.getBuyer().getName())
+                .buyerEmail(order.getBuyer().getEmail())
+                // 판매자
+                .sellerName(order.getSeller().getName())
+                .sellerEmail(order.getSeller().getEmail())
+                // 상품
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImages(productImages)
+                .brandName(order.getProduct().getBrand().getBrandName())
+                // 거래
+                .price(order.getPrice())
+                .bidType(order.getType() != null ? order.getType().name() : null)
+                .currentStatus(order.getCurrentStatus().name())
+                .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
+                // 발송
+                .shipDeadline(order.getShipDeadline())
+                .sellerShippedAt(order.getSellerShippedAt())
+                // 결제
+                .paymentMethod(payment != null ? payment.getMethod() : null)
+                .paymentAmount(payment != null ? payment.getAmount() : null)
+                .paymentStatus(payment != null ? payment.getStatus() : null)
+                // 정산
+                .settlementPayout(settlement != null ? settlement.getPayout() : null)
+                .settlementStatus(settlement != null ? settlement.getStatus().name() : null)
+                .settlementCompletedAt(settlement != null ? settlement.getCompletedAt() : null)
+                // 배송지
+                .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
+                .postalCode(snapshot != null ? snapshot.getPostalCode() : null)
+                .address(snapshot != null ? snapshot.getAddress() : null)
+                .detailAddress(snapshot != null ? snapshot.getDetailAddress() : null)
+                // 검수
+                .inspectionStatus(inspection != null ? inspection.getStatus().name() : null)
+                .inspectionFailReason(inspection != null ? inspection.getFailReason() : null)
+                // 이력
+                .statusHistories(statusHistories)
+                .build();
+    }
 }
