@@ -1,16 +1,16 @@
 package com.project.rare_x_back.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
-public class OrderSearchResponseDto {
+public class AdminOrderResponseDto {
     private Long orderId;
+    private String orderNumber;
+    private LocalDateTime createdAt;
     private String buyerName;
     private String sellerName;
     private String productName;

@@ -5,11 +5,15 @@ import com.project.rare_x_back.entity.Inspection;
 import com.project.rare_x_back.entity.Order;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.typesense.api.Client;
@@ -17,6 +21,8 @@ import org.typesense.model.SearchParameters;
 import org.typesense.model.SearchResult;
 import org.typesense.model.SearchResultHit;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,8 +34,10 @@ import java.util.Map;
 public class SearchService {
 
     private final Client typesenseClient;
+    @Value("${app.service-start-date}")
+    private String serviceStartDate;
 
-    // ==================== 상품 검색 ====================
+    // ==================== 검색 메서드 ====================
 
     /**
      * 상품 검색 (회원용 + 관리자용 공통)
@@ -82,16 +90,64 @@ public class SearchService {
     }
 
     /**
-     * 주문 검색 (관리자용)
+     * 관리자 주문 목록 검색 (MANAGER-009)
+     * 키워드 + 상태/날짜 필터 지원
      */
-    public SearchResultDto<OrderSearchResponseDto> searchOrders(String keyword, Pageable pageable) {
+    public Page<AdminOrderResponseDto> searchOrders(
+            String keyword, List<String> status,
+            LocalDateTime startDate, LocalDateTime endDate,
+            Pageable pageable) {
         try {
+            // 검색 조건을 담을 객체 생성
             SearchParameters params = new SearchParameters()
                     .q(keyword)
                     .queryBy("product_name,buyer_name,seller_name")
                     .sortBy("created_at:desc")
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
+
+            // 필터 조건 동적 조합
+            // 날짜 한쪽만 입력된 경우 보정 (OrderService와 일관성)
+            if (startDate != null && endDate == null) {
+                endDate = LocalDateTime.now();
+            }
+            if (endDate != null && startDate == null) {
+                startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
+            }
+
+            List<String> filters = new ArrayList<>();
+
+            // 상태(status) 필터 추가
+            if (status != null && !status.isEmpty()) {
+
+                // 리스트 안의 값을 하나씩 검사해서 새로운 리스트로 만들기
+                List<String> validatedStatuses = status.stream()
+                        .map(s -> {
+                            try {
+                                return CurrentStatus.valueOf(s).name();
+                            } catch (IllegalArgumentException e) {
+                                throw new CustomException(ErrorCode.BAD_REQUEST);
+                            }
+                        })
+                        .toList();
+                String statusFilter = String.join(",", validatedStatuses);    // 검증된 값들을 콤마로 연결
+                filters.add("current_status:[" + statusFilter + "]");   // 최종적으로 검색 조건에 추가
+            }
+
+            // 시작 날짜 필터 추가
+            if (startDate != null) {
+                filters.add("created_at:>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+            }
+
+            // 종료 날짜 필터 추가
+            if (endDate != null) {
+                filters.add("created_at:<=" + endDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+            }
+
+            // 필터 조건이 있으면 params에 추가
+            if (!filters.isEmpty()) {
+                params.filterBy(String.join(" && ", filters));
+            }
 
             SearchResult result = typesenseClient.collections("orders")
                     .documents()
@@ -100,7 +156,7 @@ public class SearchService {
             return convertToOrderDto(result, pageable);
 
         } catch (Exception e) {
-            log.error("주문 검색 실패: {}", e.getMessage());
+            log.error("관리자 주문 검색 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.SEARCH_ERROR);
         }
     }
@@ -373,15 +429,28 @@ public class SearchService {
                 .build();
     }
 
-    private SearchResultDto<OrderSearchResponseDto> convertToOrderDto(SearchResult result, Pageable pageable) {
-        List<OrderSearchResponseDto> items = new ArrayList<>();
+    private Page<AdminOrderResponseDto> convertToOrderDto(SearchResult result, Pageable pageable) {
+        List<AdminOrderResponseDto> items = new ArrayList<>();
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
                     Map<String, Object> doc = hit.getDocument();
-                    items.add(OrderSearchResponseDto.builder()
-                            .orderId(doc.get("order_id") != null ? ((Number) doc.get("order_id")).longValue() : 0L)
+                    long orderId = doc.get("order_id") != null
+                            ? ((Number) doc.get("order_id")).longValue() : 0L;
+
+                    LocalDateTime createdAt = null;
+                    if (doc.get("created_at") != null) {
+                        long epoch = ((Number) doc.get("created_at")).longValue();
+                        createdAt = LocalDateTime.ofInstant(
+                                java.time.Instant.ofEpochSecond(epoch),
+                                java.time.ZoneId.systemDefault());
+                    }
+
+                    items.add(AdminOrderResponseDto.builder()
+                            .orderId(orderId)
+                            .orderNumber(String.format("ORD-%08d", orderId))
+                            .createdAt(createdAt)
                             .buyerName((String) doc.getOrDefault("buyer_name", ""))
                             .sellerName((String) doc.getOrDefault("seller_name", ""))
                             .productName((String) doc.getOrDefault("product_name", ""))
@@ -389,17 +458,13 @@ public class SearchService {
                             .currentStatus((String) doc.getOrDefault("current_status", ""))
                             .build());
                 } catch (Exception e) {
-                    log.error("주문 DTO 변환 실패: {}", e.getMessage());
+                    log.error("관리자 주문 DTO 변환 실패: {}", e.getMessage());
                 }
             }
         }
 
-        return SearchResultDto.<OrderSearchResponseDto>builder()
-                .totalCount(result.getFound() != null ? result.getFound() : 0)
-                .page(pageable.getPageNumber())
-                .size(pageable.getPageSize())
-                .items(items)
-                .build();
+        long totalCount = result.getFound() != null ? result.getFound() : 0;
+        return new PageImpl<>(items, pageable, totalCount);
     }
 
     private SearchResultDto<InspectionSearchResponseDto> convertToInspectionDto(SearchResult result, Pageable pageable) {

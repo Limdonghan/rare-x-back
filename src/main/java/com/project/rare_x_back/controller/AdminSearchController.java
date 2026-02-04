@@ -9,14 +9,19 @@ import com.project.rare_x_back.repository.InspectionRepository;
 import com.project.rare_x_back.repository.OrderRepository;
 import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.service.OrderService;
 import com.project.rare_x_back.service.SearchService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -26,6 +31,7 @@ import java.util.List;
 public class AdminSearchController {
 
     private final SearchService searchService;
+    private final OrderService orderService;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
@@ -58,14 +64,40 @@ public class AdminSearchController {
     }
 
     /**
-     * 주문 검색
+     * 관리자 주문 조회 (키워드 검색 + 필터)
      */
     @GetMapping("/orders")
-    public ResponseEntity<ApiResponse<SearchResultDto<OrderSearchResponseDto>>> searchOrders(
-            @RequestParam String keyword,
-            @PageableDefault(size = 20) Pageable pageable
-    ) {
-        SearchResultDto<OrderSearchResponseDto> result = searchService.searchOrders(keyword, pageable);
+    public ResponseEntity<ApiResponse<Page<AdminOrderResponseDto>>> getAdminOrders(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        // 날짜를 LocalDateTime으로 변환 (검색 범위 지정)
+        LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
+
+        Page<AdminOrderResponseDto> result;
+
+        // 키워드가 있으면 검색 서비스 사용
+        if (keyword != null && !keyword.isBlank()) {
+            result = searchService.searchOrders(keyword, status, startDateTime, endDateTime, pageable);
+        } else {
+            // 키워드가 없으면 일반 조회 서비스 사용
+            result = orderService.getAdminOrders(status, startDateTime, endDateTime, pageable);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * 관리자 주문 상세 조회
+     */
+    @GetMapping("/orders/{orderId}")
+    public ResponseEntity<ApiResponse<AdminOrderDetailResponseDto>> getAdminOrderDetail(
+            @PathVariable Long orderId) {
+        AdminOrderDetailResponseDto result = orderService.getAdminOrderDetail(orderId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
