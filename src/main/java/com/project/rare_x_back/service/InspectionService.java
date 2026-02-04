@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -196,7 +197,7 @@ public class InspectionService {
     @Transactional
     public InspectionChecklistResponseDto updateChecklist(Long inspectionId, InspectionChecklistRequestDto request) {
         // 1. 먼저 검수 존재 확인
-        Inspection inspection = inspectionRepository.findById(inspectionId)
+        inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
         // 2. 체크리스트 조회
@@ -250,6 +251,7 @@ public class InspectionService {
                     .user(storageRequest.getUser())
                     .product(storageRequest.getProduct())
                     .status(StorageStatus.STORED)
+                    .expiredAt(LocalDateTime.now().plusDays(180))
                     .build();
             storageItemRepository.save(storageItem);
         }
