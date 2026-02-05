@@ -1,5 +1,7 @@
 package com.project.rare_x_back.entity;
 
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -53,9 +55,16 @@ public class UserWallet {
 
     public void increase(long settleAmount) {
         if (settleAmount <= 0L) {
-            throw new IllegalArgumentException("정산 적립 금액은 0보다 커야 합니다.");
+            throw new CustomException(ErrorCode.BAD_REQUEST, "정산 적립 금액은 0보다 커야 합니다.");
         }
         this.balance += settleAmount;
+    }
+
+    public void decrease(long penalty) {
+        if (balance < penalty) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "차감 금액은 현재 잔액보다 클 수 없습니다.");
+        }
+        this.balance -= penalty;
     }
 
 }

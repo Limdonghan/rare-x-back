@@ -2,10 +2,6 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.common.PenaltyCalculator;
-import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
-import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
-import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
-import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
 import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
@@ -45,6 +41,8 @@ public class OrderService {
     private final UserWalletService walletService;
     private final SettlementService settlementService;
     private final UserPenaltyRepository userPenaltyRepository;
+    private final UserWalletRepository userWalletRepository;
+    private final BillingKeyRepository billingKeyRepository;
 
     @Value("${app.service-start-date}")
     private String serviceStartDate;
@@ -486,6 +484,7 @@ public class OrderService {
                 .build();
     }
 
+    //=================================== 주문 취소 관련 ===========================================
     // 구매자 주문 취소 (패널티 -> 구매자 = 패널티 제외한 부분 환불)
     @Transactional
     public void cancelByBuyer(Long userId, Long orderId) {
@@ -569,6 +568,64 @@ public class OrderService {
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_BUYER");
     }
+
+
+    // 판매자 주문 취소
+    @Transactional
+    public void cancelBySeller (Long userId, Long orderId) {
+        // 주문 존재 검증
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        // 판매자인지 검증
+        if (!order.getSeller().getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 판매 건만 취소할 수 있습니다.");
+        }
+
+        // 이미 취소 된 주문인지 확인
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "이미 취소된 주문 입니다.");
+        }
+
+        // 발송 여부 검증
+        if (order.getSellerShippedAt() != null) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "발송한 주문은 취소 할 수 없습니다.");
+        }
+
+        // 구매자 결제 내역 조회
+        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "구매자의 결제 내역을 찾을 수 없습니다."));
+
+        // 환불 금액 (전액 -> 판매자 취소이므로)
+        long cancelAmount = payment.getAmount();
+        // 구매자 환불 (전액)
+        paymentCancelService.cancelOnce(
+                orderId,
+                cancelAmount,
+                "SELLER_CANCELED",
+                "SELLER"
+        );
+
+        // 주문, 주문 이력, 정산 상태 fail 처리
+        finalizeSellerCancellation(order);
+
+    }
+
+    // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
+    private void finalizeSellerCancellation(Order order) {
+        // 주문 상태 변경
+        order.updateStatus(CurrentStatus.CANCELLED);
+        order.updateExpAt();
+
+        // 이력 저장 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "판매자 취소"));
+
+        // 정산 상태 변경 (실패 처리)
+        settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_SELLER");
+    }
+
+    //==============================================================================
+
 
 
     // ====== 관리자 주문 목록 조회 (MANAGER-009) ======
