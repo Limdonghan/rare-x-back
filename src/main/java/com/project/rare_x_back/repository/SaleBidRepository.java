@@ -51,6 +51,13 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             Pageable pageable
     );
 
+    // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
+    @Query("SELECT s.product.productId, MIN(s.price) FROM SaleBid s " +
+            "WHERE s.product.productId IN :productIds AND s.status = :status " +
+            "GROUP BY s.product.productId")
+    List<Object[]> findLowestPriceByProductIds(@Param("productIds") List<Long> productIds,
+                                               @Param("status") BidStatus status);
+
     @Modifying
     @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +
             "WHERE sb.storageItem.storageId = :storageId " +
