@@ -7,6 +7,10 @@ public class FeeCalculator {
     public static final double SELLER_FEE_RATE = 0.03;
     public static final int DELIVERY_FEE = 3000;
 
+    // 보관료 관련 상수
+    public static final int STORAGE_FREE_DAYS = 180;
+    public static final int STORAGE_FEE_PER_MONTH = 3000;
+
     public static int buyerFee(int price) {
         return (int) Math.ceil(price * BUYER_FEE_RATE);
     }

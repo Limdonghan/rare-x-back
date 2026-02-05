@@ -11,10 +11,7 @@ import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.enums.StorageRequestStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.InspectionRepository;
-import com.project.rare_x_back.repository.ProductRepository;
-import com.project.rare_x_back.repository.StorageRequestRepository;
-import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -32,6 +29,7 @@ public class StorageRequestService {
     private final InspectionRepository inspectionRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final BillingKeyRepository billingKeyRepository;
 
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
@@ -47,21 +45,27 @@ public class StorageRequestService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 상품 조회
+        // 2. 빌링키 등록 여부 확인 (180일 이후 자동결제용)
+        if (!billingKeyRepository.existsByUser_UserId(user.getUserId())) {
+            throw new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND,
+                    "보관 판매 신청을 위해 카드 등록이 필요합니다.");
+        }
+
+        // 3. 상품 조회
         Product product = productRepository.findByProductIdAndIsDeletedFalse(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // 3. 보관 신청 생성
+        // 4. 보관 신청 생성
         StorageRequest storageRequest = StorageRequest.builder()
                 .user(user)
                 .product(product)
                 .status(StorageRequestStatus.PENDING)
                 .build();
 
-        // 4. 저장
+        // 5. 저장
         StorageRequest saved = storageRequestRepository.save(storageRequest);
 
-        // 5. 응답 반환
+        // 6. 응답 반환
         return StorageRequestResponseDto.from(saved, inspectionCenterAddress, inspectionCenterZipcode);
     }
 

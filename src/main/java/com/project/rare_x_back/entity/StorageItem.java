@@ -54,4 +54,9 @@ public class StorageItem {
         this.expiredAt = expiredAt;
         this.status = status;
     }
+
+    // StorageItem.java에 추가
+    public void updateStatus(StorageStatus status) {
+        this.status = status;
+    }
 }

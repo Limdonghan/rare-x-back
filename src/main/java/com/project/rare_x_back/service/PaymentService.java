@@ -231,6 +231,62 @@ public class PaymentService {
         }
     }
 
+    /**
+     * 보관료 빌링키 결제
+     * Order 없이 빌링키로 결제 후 tossPaymentKey 반환
+     *
+     * @param userId 사용자 ID
+     * @param amount 결제 금액
+     * @return tossPaymentKey (결제 취소/조회에 사용)
+     */
+    public String payStorageFeeWithBillingKey(Long userId, int amount) {
+
+        // 1. 유저 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 빌링키 조회
+        BillingKey billingKey = billingKeyRepository.findByUser(user)
+                .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
+
+        // 3. 토스용 주문 ID 생성
+        String tossOrderId = "STORAGE_" + generateUUID();
+        String orderName = "보관료 결제";
+
+        try {
+            // 4. 토스 API 호출
+            Map<String, Object> response = webClient.post()
+                    .uri("billing/" + billingKey.getBillingKey())
+                    .bodyValue(Map.of(
+                            "amount", amount,
+                            "customerKey", billingKey.getCustomerKey(),
+                            "orderId", tossOrderId,
+                            "orderName", orderName
+                    ))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s)))
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s)))
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            // 5. paymentKey 추출 및 반환
+            String tossPaymentKey = String.valueOf(response.get("paymentKey"));
+            log.info("보관료 결제 성공: userId={}, amount={}, paymentKey={}", userId, amount, tossPaymentKey);
+
+            return tossPaymentKey;
+
+        } catch (CustomException e) {
+            log.error("보관료 결제 실패: userId={}, amount={}, error={}", userId, amount, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("보관료 결제 중 예외 발생: userId={}, amount={}, error={}", userId, amount, e.getMessage());
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 처리 중 오류 발생");
+        }
+    }
 
     /**
      * 공통 메서드 처리

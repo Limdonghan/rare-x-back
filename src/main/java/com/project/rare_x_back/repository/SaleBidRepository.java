@@ -7,6 +7,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -48,5 +49,15 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             @Param("buyPrice") int buyPrice,
             @Param("buyerId") Long buyerId,
             Pageable pageable
+    );
+
+    @Modifying
+    @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +
+            "WHERE sb.storageItem.storageId = :storageId " +
+            "AND sb.status = :openStatus")
+    void cancelByStorageId(
+            @Param("storageId") Long storageId,
+            @Param("cancelStatus") BidStatus cancelStatus,
+            @Param("openStatus") BidStatus openStatus
     );
 }

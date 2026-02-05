@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,5 +28,18 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             Long userId,
             Long productId,
             StorageStatus status
+    );
+
+    /**
+     * 180일 만료 + 활성 상태인 보관함 조회 (자동결제 대상)
+     * user 함께 로딩 (N+1 방지)
+     */
+    @Query("SELECT s FROM StorageItem s " +
+            "JOIN FETCH s.user " +
+            "WHERE s.expiredAt < :now " +
+            "AND s.status IN :statuses")
+    List<StorageItem> findExpiredByStatuses(
+            @Param("now") LocalDateTime now,
+            @Param("statuses") List<StorageStatus> statuses
     );
 }
