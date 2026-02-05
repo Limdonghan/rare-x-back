@@ -61,7 +61,8 @@ public class SecurityConfig {
                                 "/api/product/**",
                                 "/api/serving/login-trigger",
                                 "/api/serving/result",
-                                "/api/serving/cancel"
+                                "/api/serving/cancel",
+                                "/api/serving/status"
                         ).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
