@@ -3,18 +3,15 @@ package com.project.rare_x_back.scheduler;
 import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.entity.StorageItem;
 import com.project.rare_x_back.entity.StoragePayment;
-import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.enums.StoragePaymentStatus;
 import com.project.rare_x_back.enums.StorageStatus;
-import com.project.rare_x_back.repository.SaleBidRepository;
 import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.StoragePaymentRepository;
-import com.project.rare_x_back.service.PaymentService;
+import com.project.rare_x_back.service.StorageBillingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,8 +24,7 @@ public class StorageFeeScheduler {
 
     private final StorageItemRepository storageItemRepository;
     private final StoragePaymentRepository storagePaymentRepository;
-    private final PaymentService paymentService;
-    private final SaleBidRepository saleBidRepository;
+    private final StorageBillingService storageBillingService;
 
     private static final int MAX_RETRY = 3;
 
@@ -89,8 +85,8 @@ public class StorageFeeScheduler {
                         .build();
                 storagePaymentRepository.save(payment);
 
-                // 결제 시도
-                attemptPayment(payment, item);
+                // 결제 시도 (트랜잭션 적용)
+                storageBillingService.attemptPayment(payment, item);
 
             } catch (Exception e) {
                 log.error("보관함 {} 과금 처리 실패: {}", item.getStorageId(), e.getMessage());
@@ -112,60 +108,13 @@ public class StorageFeeScheduler {
         for (StoragePayment payment : retryTargets) {
             try {
                 payment.resetForRetry();
-                attemptPayment(payment, payment.getStorageItem());
+                // 결제 시도 (트랜잭션 적용)
+                storageBillingService.attemptPayment(payment, payment.getStorageItem());
             } catch (Exception e) {
                 log.error("재시도 실패 - storagePaymentId={}: {}",
                         payment.getStoragePaymentId(), e.getMessage());
             }
         }
-    }
-
-    /**
-     * 결제 시도
-     */
-    @Transactional
-    private void attemptPayment(StoragePayment payment, StorageItem item) {
-        try {
-            String tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
-                    item.getUser().getUserId(),
-                    payment.getAmount()
-            );
-
-            // 성공
-            payment.markSuccess(tossPaymentKey);
-            storagePaymentRepository.save(payment);
-            log.info("보관료 결제 성공: storageId={}, userId={}",
-                    item.getStorageId(), item.getUser().getUserId());
-
-        } catch (Exception e) {
-            // 실패
-            payment.markFailed();
-            storagePaymentRepository.save(payment);
-            log.warn("보관료 결제 실패: storageId={}, retryCount={}",
-                    item.getStorageId(), payment.getRetryCount());
-
-            // 3회 실패 → SUSPENDED 처리
-            if (!payment.canRetry()) {
-                suspendStorageItem(item);
-            }
-        }
-    }
-
-    /**
-     * 보관함 판매 중지 처리
-     * - 보관함 상태: SUSPENDED
-     * - 해당 보관함의 판매 입찰: CANCELED
-     */
-    @Transactional
-    private void suspendStorageItem(StorageItem item) {
-        item.updateStatus(StorageStatus.SUSPENDED);
-        storageItemRepository.save(item);
-
-        // 해당 보관함의 OPEN 상태 판매 입찰 취소
-        saleBidRepository.cancelByStorageId(item.getStorageId(), BidStatus.CANCELED, BidStatus.OPEN);
-
-        log.warn("보관함 판매 중지: storageId={}, userId={}",
-                item.getStorageId(), item.getUser().getUserId());
     }
 
     /**
