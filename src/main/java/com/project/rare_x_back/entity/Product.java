@@ -35,7 +35,7 @@ public class Product {
     private int retailPrice;
 
     @Column(name = "wish_count", nullable = false)
-    private int wishCount;
+    private int wishCount = 0;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;

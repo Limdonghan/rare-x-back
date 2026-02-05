@@ -45,12 +45,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     long countByBrand_BrandIdAndIsDeletedFalse(Long brandId);
 
     ///  관심 상품 등록 시 wish_count +1 (Atomic UPDATE)
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.wishCount = p.wishCount + 1 WHERE p.productId = :productId")
     void incrementWishCount(@Param("productId") Long productId);
 
     ///  관심 상품 해제 시 wish_count -1 (Atomic UPDATE, 음수 방지)
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.wishCount = p.wishCount - 1 WHERE p.productId = :productId AND p.wishCount > 0")
     void decrementWishCount(@Param("productId") Long productId);
 }

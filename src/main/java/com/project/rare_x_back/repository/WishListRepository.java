@@ -17,10 +17,6 @@ public interface WishListRepository extends JpaRepository<WishList, WishList.Wis
     Optional<WishList> findByUserUserIdAndProductProductId(Long userId, Long productId);
 
     // ===== WISH-001 관심 상품 목록 조회 =====
-    @EntityGraph(attributePaths = {
-            "product",
-            "product.brand",
-            "product.images"
-    })
-    Page<WishList> findByUserUserId(Long userId, Pageable pageable);
+    @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
+    Page<WishList> findByUserUserIdAndProductIsDeletedFalse(Long userId, Pageable pageable);
 }

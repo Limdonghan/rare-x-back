@@ -57,13 +57,16 @@ public class WishlistService {
                 .user(user)
                 .build();
         wishListRepository.save(wishList);
+        wishListRepository.flush();
 
         // 5. wish_count +1 (Atomic UPDATE)
         productRepository.incrementWishCount(productId);
 
-        // 6. 응답 반환
+        Product updatedProduct = productRepository.findById(productId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
         return WishResponseDto.builder()
-                .wishCount(product.getWishCount() + 1)
+                .wishCount(updatedProduct.getWishCount())
                 .build();
     }
 
@@ -76,14 +79,16 @@ public class WishlistService {
 
         // 2. wish_lists DELETE
         wishListRepository.delete(wishList);
+        wishListRepository.flush();
 
         // 3. wish_count -1 (Atomic UPDATE)
         productRepository.decrementWishCount(productId);
 
-        // 4. 응답 반환
-        Product product = wishList.getProduct();
+        Product updatedProduct = productRepository.findById(productId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
         return WishResponseDto.builder()
-                .wishCount(Math.max(product.getWishCount() - 1, 0))
+                .wishCount(updatedProduct.getWishCount())
                 .build();
     }
 
@@ -91,7 +96,7 @@ public class WishlistService {
     @Transactional(readOnly = true)
     public Page<WishlistResponseDto> getMyWishlist(Long userId, Pageable pageable) {
         // 1단계: 위시리스트 + 상품 정보 페이징 조회
-        Page<WishList> wishPage = wishListRepository.findByUserUserId(userId, pageable);
+        Page<WishList> wishPage = wishListRepository.findByUserUserIdAndProductIsDeletedFalse(userId, pageable);
 
         if (wishPage.isEmpty()) {
             return Page.empty(pageable);
@@ -116,11 +121,14 @@ public class WishlistService {
             String imageUrl = product.getImages().isEmpty()
                     ? null
                     : product.getImages().get(0).getImageUrl();
+            String brandName = product.getBrand() != null
+                    ? product.getBrand().getBrandName()
+                    : "";
 
             return WishlistResponseDto.builder()
                     .productId(product.getProductId())
                     .productName(product.getProductName())
-                    .brandName(product.getBrand().getBrandName())
+                    .brandName(brandName)
                     .productImageUrl(imageUrl)
                     .lowestPrice(lowestPriceMap.get(product.getProductId()))
                     .wishCount(product.getWishCount())
