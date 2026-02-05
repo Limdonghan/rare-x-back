@@ -41,8 +41,7 @@ public class OrderService {
     private final UserWalletService walletService;
     private final SettlementService settlementService;
     private final UserPenaltyRepository userPenaltyRepository;
-    private final UserWalletRepository userWalletRepository;
-    private final BillingKeyRepository billingKeyRepository;
+
 
     @Value("${app.service-start-date}")
     private String serviceStartDate;
