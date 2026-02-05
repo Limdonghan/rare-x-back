@@ -33,6 +33,7 @@ public class ProductService {
     private final SaleBidRepository saleBidRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final WishListRepository wishListRepository;
 
     /**
     * [상품 목록 조회]
@@ -80,7 +81,7 @@ public class ProductService {
     /**
     * [상품 목록 상세 조회]
     * */
-    public ProductDetailResponseDto getPublicDetailProduct(Long productId) {
+    public ProductDetailResponseDto getPublicDetailProduct(Long productId, Long userId) {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(() -> new CustomException(
                         ErrorCode.RESOURCE_NOT_FOUND,
@@ -124,6 +125,12 @@ public class ProductService {
                 .map(ProductImage::getImageUrl)
                 .toList();
 
+        // 찜 여부 확인 (비로그인이면 false)
+        boolean isLiked = false;
+        if (userId != null) {
+            isLiked = wishListRepository.existsByUserUserIdAndProductProductId(userId, productId);
+        }
+
         return ProductDetailResponseDto.builder()
                 .productId(productId)
                 .productName(product.getProductName())
@@ -135,6 +142,8 @@ public class ProductService {
                 .salePrice(salePrice)
                 .buyBidInfoList(buyBidList)
                 .saleBidInfoList(saleBidList)
+                .wishCount(product.getWishCount())
+                .isLiked(isLiked)
                 .build();
 
     }

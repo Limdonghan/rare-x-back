@@ -68,6 +68,10 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        // wish 경로는 인증 필수 (순서 permitAll보다 먼저)
+                        .requestMatchers("/api/product/*/wish").authenticated()
+                        // 나머지 상품 조회는 비로그인 허용
+                        .requestMatchers("/api/product/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/inspections/**").hasRole("ADMIN")
 

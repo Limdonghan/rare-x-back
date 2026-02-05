@@ -33,6 +33,11 @@ public enum ErrorCode {
     // 상품 관련
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다"),
 
+    // 관심 상품 관련
+    WISH_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 관심 상품에 등록되어 있습니다."),
+    WISH_NOT_FOUND(HttpStatus.NOT_FOUND, "관심 상품에 등록되어 있지 않습니다."),
+    PRODUCT_DELETED(HttpStatus.BAD_REQUEST, "삭제된 상품입니다."),
+
     // 서버 에러
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다"),
 
