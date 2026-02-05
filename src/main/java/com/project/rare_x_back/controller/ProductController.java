@@ -1,6 +1,7 @@
 package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
+import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.service.ProductService;
 import com.project.rare_x_back.service.SearchService;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,8 +39,12 @@ public class ProductController {
 
     //상품 상세 조회 (상품 전체 이미지 응답)
     @GetMapping("/{productId}")
-    public ResponseEntity<ApiResponse<ProductDetailResponseDto>> getPublicDetailProduct (@PathVariable Long productId) {
-        ProductDetailResponseDto response = productService.getPublicDetailProduct(productId);
+    public ResponseEntity<ApiResponse<ProductDetailResponseDto>> getPublicDetailProduct (
+            @PathVariable Long productId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        ProductDetailResponseDto response = productService.getPublicDetailProduct(productId, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
