@@ -60,7 +60,8 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/api/product/**",
                                 "/api/serving/login-trigger",
-                                "/api/serving/status"
+                                "/api/serving/result",
+                                "/api/serving/cancel"
                         ).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",

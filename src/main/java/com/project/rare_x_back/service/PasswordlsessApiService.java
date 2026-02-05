@@ -13,8 +13,8 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -34,8 +34,6 @@ public class PasswordlsessApiService {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
-    private final EmailService emailService;
-    private final PasswordEncoder passwordEncoder;
     private final RedisTemplate<String, String> redisTemplate;
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
@@ -43,48 +41,93 @@ public class PasswordlsessApiService {
     /**
      * 사용자 등록 여부 확인 API 호출
      */
-    public String checkUserStatus(String email) {
+    public Boolean checkUserStatus(String email) {
         userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         /// URL 생성
-        URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
-                .path("/status")                               /// + /status
-                .queryParam("userId", email)                   /// + ?userId=...
+        URI uri = UriComponentsBuilder.fromUriString(servingUrl)
+                .path("/status")
+                .queryParam("userId", email)
                 .build()
                 .toUri();
 
-        /// 실제 요청 보내기
-        return restClient.get()
+        /// 응답 요청
+        String body = restClient.get()
                 .uri(uri)
                 .retrieve()
-                .body(String.class);
+                .body(new ParameterizedTypeReference<String>() {
+                });
+
+        /// ackson ObjectMapper로 파싱하여 "exist" 값만 추출
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode rootNode = mapper.readTree(body);
+
+            return rootNode.path("data").path("exist").asBoolean();
+
+        } catch (JsonProcessingException e) {
+            log.error("Serving API 응답 파싱 실패", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR); // 적절한 예외 처리
+        }
 
     }
+
+    /**
+     * 로컬 사용자 패스워드리스 활성화 여부 확인
+     */
+    public Boolean checkLocalUserStatus(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return user.getPasswordlessEnabled();
+    }
+
     /**
      * 사용자 등록 API 호출
      */
     public String registerUser(String email){
-        userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
+
+        Boolean userStatus = checkUserStatus(email);
+
+        if (!userStatus && !user.getPasswordlessEnabled()) {
+        URI uri = UriComponentsBuilder.fromUriString(servingUrl)
                 .path("/register")
                 .queryParam("userId", email)
                 .build()
                 .toUri();
 
-        return restClient.post()
-                .uri(uri)
-                .retrieve()
-                .body(String.class);
+            return restClient.post()
+                    .uri(uri)
+                    .retrieve()
+                    .body(String.class);
+
+        }else {
+            throw new RuntimeException("사용자 등록 API 호출을 실패했습니다. 패스워드리스 등록되지 않은 사용자입니다.");
+        }
+
+    }
+    /**
+     * 패스워드리스 활성화
+     */
+    @Transactional
+    public void passwordlessEnabled(String email){
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        userRepository.updatePasswordlessStatus(user.getEmail(),true);
     }
 
     /**
      * 로그인 인증 요청
      */
-    public String triggerLogin(String email,String ip){
-        userRepository.findByEmail(email)
+    public String triggerLogin(String email,String ip) {
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
+
+        Boolean userStatus = checkUserStatus(email);
+        if (userStatus && user.getPasswordlessEnabled()) {
+        URI uri = UriComponentsBuilder.fromUriString(servingUrl)
                 .path("/login-trigger")
                 .queryParam("userId", email)
                 .queryParam("ip", ip)
@@ -95,6 +138,9 @@ public class PasswordlsessApiService {
                 .uri(uri)
                 .retrieve()
                 .body(String.class);
+        }else {
+            throw new RuntimeException("로그인 인증 요청이 실패했습니다.");
+        }
     }
 
     /**
@@ -119,10 +165,10 @@ public class PasswordlsessApiService {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode rootNode = mapper.readTree(result);
 
-        // 1단계: 최상위 응답에서 "data" 필드 추출
+        /// 1단계: 최상위 응답에서 "data" 필드 추출
         JsonNode dataFieldNode = rootNode.get("data");
 
-        // 2단계: "data" 필드가 문자열이면 다시 파싱
+        /// 2단계: "data" 필드가 문자열이면 다시 파싱
         JsonNode actualDataNode;
         if (dataFieldNode.isTextual()) {
             String dataString = dataFieldNode.asText();
@@ -198,6 +244,8 @@ public class PasswordlsessApiService {
                 .uri(uri)
                 .retrieve()
                 .body(String.class);
+
+        userRepository.updatePasswordlessStatus(user.getEmail(),false);
 
         return PasswordlessResponseDto.builder()
                 .result("OK")
