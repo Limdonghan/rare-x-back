@@ -71,6 +71,11 @@ public enum ErrorCode {
     PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST,"현재 판매중인 상품이 아닙니다."),
     PRODUCT_NOT_ON_BID(HttpStatus.BAD_REQUEST,"존재하지 않는 입찰입니다"),
 
+    // 결제취소(환불)에러
+    PAYMENT_NOT_FOUND(HttpStatus.BAD_REQUEST, "결제 정보를 찾을 수 없습니다."),
+    ALREADY_CANCELED(HttpStatus.BAD_REQUEST,"이미 취소된 결제입니다."),
+    INVALID_CANCEL_AMOUNT(HttpStatus.BAD_REQUEST,"유효하지 않은 취소 금액 입니다."),
+
     // Order 에러
     ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");
     private final String message;

@@ -104,4 +104,14 @@ public class UserOrderController {
         );
         return ResponseEntity.ok(ApiResponse.success(result));
     }
+
+    // 구매자 거래 취소
+    @PostMapping("buying/{orderId}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelOrderByBuyer (
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ){
+        orderService.cancelByBuyer(userDetails.getUserId(), orderId);
+        return ResponseEntity.ok(ApiResponse.success("구매 취소 완료 및 패널티 발생"));
+    }
 }

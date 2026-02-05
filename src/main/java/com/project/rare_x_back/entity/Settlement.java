@@ -62,4 +62,11 @@ public class Settlement {
         this.status = SettlementStatus.COMPLETE;
         this.completedAt = LocalDateTime.now();
     }
+
+    // 정산 실패
+    public void fail(String reason) {
+        this.status = SettlementStatus.FAILED;
+        this.failReason = reason;
+        this.completedAt = LocalDateTime.now();
+    }
 }

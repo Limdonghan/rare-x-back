@@ -1,24 +1,26 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.common.FeeCalculator;
+import com.project.rare_x_back.common.PenaltyCalculator;
 import com.project.rare_x_back.dto.response.BuyingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.BuyingOrderResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderDetailResponseDto;
 import com.project.rare_x_back.dto.response.SellingOrderResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
-import com.project.rare_x_back.enums.BidType;
-import com.project.rare_x_back.enums.CurrentStatus;
-import com.project.rare_x_back.enums.ReturnStatus;
+import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,14 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderProcessService orderProcessService;
     private final SettlementRepository settlementRepository;
+    private final UserRepository userRepository;
+    private final PaymentCancelService paymentCancelService;
+    private final UserWalletService walletService;
+    private final SettlementService settlementService;
+    private final UserPenaltyRepository userPenaltyRepository;
+
+    @Value("${app.service-start-date}")
+    private String serviceStartDate;
 
     @Transactional
     public Order createOrder(User buyer, User seller, Product product, BuyBid buyBid, SaleBid saleBid, int price, BidType type, Long addressId) {
@@ -472,6 +482,233 @@ public class OrderService {
                 .sellerShippedAt(order.getSellerShippedAt())
                 .inspectionStatus(inspectionStatus)
                 .inspectionFailReason(inspectionFailReason)
+                .statusHistories(statusHistories)
+                .build();
+    }
+
+    // 구매자 주문 취소 (패널티 -> 구매자 = 패널티 제외한 부분 환불)
+    @Transactional
+    public void cancelByBuyer(Long userId, Long orderId) {
+        // 주문 검증
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+        // 구매자인지 검증
+        if (!order.getBuyer().getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 주문 건만 취소할 수 있습니다.");
+        }
+        // 이미 취소된 주문인지 확인
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "이미 취소된 주문 입니다.");
+        }
+        // 판매자 발송 전 인지 검증
+        if (order.getSellerShippedAt() != null) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "판매자가 발송한 주문은 취소할 수 없습니다.");
+        }
+        //결제 내역 조회
+        Payment payment = paymentRepository.findByOrder_OrderId(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
+
+        // 구매자 패널티 계산 (거래 체결가의 5%)
+        long penalty = PenaltyCalculator.cancelPenalty(order.getPrice());
+
+        // 환불 금액
+        long cancelAmount = payment.getAmount() - penalty;
+
+        // 취소 금액 음수 차단
+        if (cancelAmount <= 0) {
+            throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT, "패널티가 결제 금액보다 클 수 없습니다.");
+        }
+
+        // 결제 취소 (환불금액 -> 결제 금액에서 - 패널티 차감 금액)
+        // 내부에서 markRequested -> API 호출 -> applySuccess 수행
+        //이 메서드가 끝나면 결제 취소 기록과 Payment 상태는 이미 DB에 반영
+        paymentCancelService.cancelOnce(
+                orderId,
+                cancelAmount,
+                "BUYER_CANCELED",
+                "BUYER"
+        );
+
+        // 주문, 주문 이력, 패널티 기록, 정산 상태, 판매자 보상 정보 확정 처리
+        finalizeBuyerCancellation(order, penalty);
+
+    }
+
+    // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
+    private void finalizeBuyerCancellation(Order order, long penalty) {
+        // 주문 상태 변경
+        order.updateStatus(CurrentStatus.CANCELLED);
+        order.updateExpAt();
+
+        // 이력 저장 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "구매자 취소"));
+
+        //패널티 기록
+        userPenaltyRepository.save(
+                UserPenalty.builder()
+                        .user(order.getBuyer())
+                        .order(order)
+                        .role(PenaltyRole.BUYER)
+                        .reason(PenaltyReason.BUYER_CANCEL)
+                        .amount(penalty)
+                        .status(PenaltyStatus.PAID)
+                        .processedAt(LocalDateTime.now())
+                        .build()
+        );
+
+        // 판매자 보상 (구매자에게 걷은 패널티의 50% -> 판매자 지갑에 적립)
+        long compensationAmount = penalty / 2; // 소수점 발생 시 버림 처리
+        if (compensationAmount > 0) {
+            walletService.compensate(
+                    order.getSeller().getUserId(),
+                    compensationAmount,
+                    "구매자 취소 패널티 보상",
+                    order.getOrderId()
+            );
+        }
+        // 정산 상태 변경 (실패 처리)
+        settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_BUYER");
+    }
+
+
+    // ====== 관리자 주문 목록 조회 (MANAGER-009) ======
+    @Transactional(readOnly = true)
+    public Page<AdminOrderResponseDto> getAdminOrders(
+            List<String> status, LocalDateTime startDate, LocalDateTime endDate,
+            Pageable pageable) {
+
+        // DB 직접 조회
+        List<CurrentStatus> statuses = null;
+        if (status != null && !status.isEmpty()) {
+            statuses = status.stream()
+                    .map(s -> {
+                        try {
+                           return CurrentStatus.valueOf(s);
+                        } catch (IllegalArgumentException e) {
+                            throw new CustomException(ErrorCode.BAD_REQUEST);
+                        }
+                    })
+                    .toList();
+        }
+
+        // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
+        if (startDate != null && endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        if (endDate != null && startDate == null) {
+            startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
+        }
+
+        Page<Order> orders;
+
+        if (statuses != null && startDate != null) {
+            orders = orderRepository.findByCurrentStatusInAndCreatedAtBetween(
+                    statuses, startDate, endDate, pageable);
+        } else if (statuses != null) {
+            orders = orderRepository.findByCurrentStatusIn(statuses, pageable);
+        } else if (startDate != null) {
+            orders = orderRepository.findByCreatedAtBetween(startDate, endDate, pageable);
+        } else {
+            orders = orderRepository.findAllForAdmin(pageable);
+        }
+
+        return orders.map(this::toAdminOrderResponseDto);
+    }
+
+    private AdminOrderResponseDto toAdminOrderResponseDto(Order order) {
+        return AdminOrderResponseDto.builder()
+                .orderId(order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .createdAt(order.getCreatedAt())
+                .buyerName(order.getBuyer().getName())
+                .sellerName(order.getSeller().getName())
+                .productName(order.getProduct().getProductName())
+                .price(order.getPrice())
+                .currentStatus(order.getCurrentStatus().name())
+                .build();
+    }
+
+    // ====== 관리자 주문 상세 조회 (MANAGER-009) ======
+    @Transactional(readOnly = true)
+    public AdminOrderDetailResponseDto getAdminOrderDetail(Long orderId) {
+        // 1. 주문 조회 (buyer, seller, product, images 한방 로딩)
+        Order order = orderRepository.findAdminOrderDetail(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        // 2. 상품 이미지
+        List<String> productImages = order.getProduct().getImages().stream()
+                .map(ProductImage::getImageUrl)
+                .toList();
+
+        // 3. 결제 정보 (가장 최근 결제 내역)
+        Payment payment = paymentRepository.findTopByOrder_OrderIdOrderByApprovedAtDesc(orderId)
+                .orElse(null);
+
+        // 4. 정산 정보 (판매자에게 지급된 금액 등)
+        Settlement settlement = settlementRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        // 5. 배송지 정보
+        OrderShippingSnapshot snapshot = snapshotRepository.findByOrder_OrderId(orderId)
+                .orElse(null);
+
+        // 6. 검수 정보 (가장 최근 검수 내역)
+        Inspection inspection = inspectionRepository.findTopByOrder_OrderIdOrderByCreatedAtDesc(orderId)
+                .orElse(null);
+
+        // 7. 상태 이력
+        List<AdminOrderDetailResponseDto.StatusHistory> statusHistories = historyRepository
+                .findByOrder_OrderIdOrderByCreatedAtAsc(orderId)    // 오래된 순으로 조회
+                .stream()
+                .map(history -> AdminOrderDetailResponseDto.StatusHistory.builder()
+                        .status(history.getCurrentStatus().name())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .toList();
+
+        // 최종적으로 DTO 객체를 만들어 반환
+        return AdminOrderDetailResponseDto.builder()
+                // 기본
+                .orderId(order.getOrderId())
+                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                // 구매자
+                .buyerName(order.getBuyer().getName())
+                .buyerEmail(order.getBuyer().getEmail())
+                // 판매자
+                .sellerName(order.getSeller().getName())
+                .sellerEmail(order.getSeller().getEmail())
+                // 상품
+                .productId(order.getProduct().getProductId())
+                .productName(order.getProduct().getProductName())
+                .productImages(productImages)
+                .brandName(order.getProduct().getBrand().getBrandName())
+                // 거래
+                .price(order.getPrice())
+                .bidType(order.getType() != null ? order.getType().name() : null)
+                .currentStatus(order.getCurrentStatus().name())
+                .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
+                // 발송
+                .shipDeadline(order.getShipDeadline())
+                .sellerShippedAt(order.getSellerShippedAt())
+                // 결제
+                .paymentMethod(payment != null ? payment.getMethod() : null)
+                .paymentAmount(payment != null ? payment.getAmount() : null)
+                .paymentStatus(payment != null ? payment.getStatus() : null)
+                // 정산
+                .settlementPayout(settlement != null ? settlement.getPayout() : null)
+                .settlementStatus(settlement != null ? settlement.getStatus().name() : null)
+                .settlementCompletedAt(settlement != null ? settlement.getCompletedAt() : null)
+                // 배송지
+                .recipientName(snapshot != null ? snapshot.getRecipientName() : null)
+                .postalCode(snapshot != null ? snapshot.getPostalCode() : null)
+                .address(snapshot != null ? snapshot.getAddress() : null)
+                .detailAddress(snapshot != null ? snapshot.getDetailAddress() : null)
+                // 검수
+                .inspectionStatus(inspection != null ? inspection.getStatus().name() : null)
+                .inspectionFailReason(inspection != null ? inspection.getFailReason() : null)
+                // 이력
                 .statusHistories(statusHistories)
                 .build();
     }
