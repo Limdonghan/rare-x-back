@@ -58,7 +58,9 @@ public class SecurityConfig {
                                 "/api/passwordless/**",
                                 "/*.html",
                                 "/favicon.ico",
-                                "/api/product/**"
+                                "/api/product/**",
+                                "/api/serving/login-trigger",
+                                "/api/serving/status"
                         ).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",

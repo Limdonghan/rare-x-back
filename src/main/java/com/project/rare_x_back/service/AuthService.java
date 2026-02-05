@@ -2,7 +2,6 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.LoginResponseDto;
-import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
 import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.entity.User;
@@ -35,7 +34,6 @@ public class AuthService {
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
     private final TokenBlacklistService tokenBlacklistService;
-    private final PasswordlessService passwordlessService;
     private final SearchService searchService;
     private final UserWalletRepository userWalletRepository;
 
@@ -165,9 +163,6 @@ public class AuthService {
         String key = REFRESH_TOKEN_PREFIX + user.getUserId();
         redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
 
-        // [추가] 패스워드리스용 토큰 발급
-        PasswordlessResponseDto passwordlessResponseDto = passwordlessService.verifyManagementAccess(request.getEmail(), request.getPassword());
-
         // 7. 응답 생성
         // 8. 응답 생성 (임시 비밀번호 여부포함 추가)
 
@@ -177,7 +172,6 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .name(user.getName())
-                .passwordlessToken(passwordlessResponseDto.getData())
                 .role(user.getRole().name())
                 .isPasswordChangeRequired(requiresChange) //임시비번 여부 반영
                 .build();
