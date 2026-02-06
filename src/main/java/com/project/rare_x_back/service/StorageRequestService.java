@@ -1,11 +1,9 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.StorageRequestCreateDto;
 import com.project.rare_x_back.dto.response.StorageRequestResponseDto;
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.Product;
-import com.project.rare_x_back.entity.StorageRequest;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.enums.StorageRequestStatus;
@@ -30,6 +28,8 @@ public class StorageRequestService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final BillingKeyRepository billingKeyRepository;
+    private final PaymentService paymentService;
+    private final StorageDepositRepository storageDepositRepository;
 
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
@@ -45,7 +45,7 @@ public class StorageRequestService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 빌링키 등록 여부 확인 (180일 이후 자동결제용)
+        // 2. 빌링키 등록 여부 확인
         if (!billingKeyRepository.existsByUser_UserId(user.getUserId())) {
             throw new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND,
                     "보관 판매 신청을 위해 카드 등록이 필요합니다.");
@@ -61,9 +61,24 @@ public class StorageRequestService {
                 .product(product)
                 .status(StorageRequestStatus.PENDING)
                 .build();
-
-        // 5. 저장
         StorageRequest saved = storageRequestRepository.save(storageRequest);
+
+        // 5. 보증금 결제
+        StorageDeposit deposit = StorageDeposit.builder()
+                .storageRequest(saved)
+                .user(user)
+                .build();
+        storageDepositRepository.save(deposit);
+
+        try {
+            String tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
+                    user.getUserId(), FeeCalculator.STORAGE_DEPOSIT);
+            deposit.markSuccess(tossPaymentKey);
+        } catch (Exception e) {
+            deposit.markFailed();
+            storageRequestRepository.delete(saved);  // 결제 실패 시 신청도 롤백
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 결제 실패: " + e.getMessage());
+        }
 
         // 6. 응답 반환
         return StorageRequestResponseDto.from(saved, inspectionCenterAddress, inspectionCenterZipcode);
