@@ -1,6 +1,7 @@
 package com.project.rare_x_back.dto.response;
 
 import com.project.rare_x_back.common.FeeCalculator;
+import com.project.rare_x_back.entity.ProductImage;
 import com.project.rare_x_back.entity.StorageItem;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,6 +17,7 @@ public class StorageItemResponseDto {
     private Long productId;
     private String productName;
     private String brandName;
+    private String productImageUrl;
     private LocalDateTime storedAt;
     private LocalDateTime expiredAt;
     private long storageDays;           // 보관 일수
@@ -26,11 +28,18 @@ public class StorageItemResponseDto {
         long days = ChronoUnit.DAYS.between(storageItem.getStoredAt(), LocalDateTime.now());
         long fee = calculateFee(days);
 
+        // 첫 번째 상품 이미지 URL
+        String imageUrl = storageItem.getProduct().getImages().stream()
+                .findFirst()
+                .map(ProductImage::getImageUrl)
+                .orElse(null);
+
         return StorageItemResponseDto.builder()
                 .storageId(storageItem.getStorageId())
                 .productId(storageItem.getProduct().getProductId())
                 .productName(storageItem.getProduct().getProductName())
                 .brandName(storageItem.getProduct().getBrand().getBrandName())
+                .productImageUrl(imageUrl)
                 .storedAt(storageItem.getStoredAt())
                 .expiredAt(storageItem.getExpiredAt())
                 .storageDays(days)

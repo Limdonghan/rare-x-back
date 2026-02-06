@@ -1,11 +1,9 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.StorageRequestCreateDto;
 import com.project.rare_x_back.dto.response.StorageRequestResponseDto;
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.Product;
-import com.project.rare_x_back.entity.StorageRequest;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import com.project.rare_x_back.enums.StorageRequestStatus;
@@ -30,6 +28,8 @@ public class StorageRequestService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final BillingKeyRepository billingKeyRepository;
+    private final PaymentService paymentService;
+    private final StorageDepositRepository storageDepositRepository;
 
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
@@ -45,7 +45,7 @@ public class StorageRequestService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 빌링키 등록 여부 확인 (180일 이후 자동결제용)
+        // 2. 빌링키 등록 여부 확인
         if (!billingKeyRepository.existsByUser_UserId(user.getUserId())) {
             throw new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND,
                     "보관 판매 신청을 위해 카드 등록이 필요합니다.");
@@ -61,12 +61,45 @@ public class StorageRequestService {
                 .product(product)
                 .status(StorageRequestStatus.PENDING)
                 .build();
-
-        // 5. 저장
         StorageRequest saved = storageRequestRepository.save(storageRequest);
+
+        // 5. 보증금 결제
+        StorageDeposit deposit = StorageDeposit.builder()
+                .storageRequest(saved)
+                .user(user)
+                .build();
+        storageDepositRepository.save(deposit);
+
+        try {
+            String tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
+                    user.getUserId(), FeeCalculator.STORAGE_DEPOSIT);
+            deposit.markSuccess(tossPaymentKey);
+        } catch (Exception e) {
+            deposit.markFailed();
+            storageRequestRepository.delete(saved);  // 결제 실패 시 신청도 롤백
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 결제 실패: " + e.getMessage());
+        }
 
         // 6. 응답 반환
         return StorageRequestResponseDto.from(saved, inspectionCenterAddress, inspectionCenterZipcode);
+    }
+
+    // 보관 신청 목록 조회 (전체 또는 상태별 필터링)
+    public List<StorageRequestResponseDto> getMyStorageRequests(String userEmail, StorageRequestStatus status) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        List<StorageRequest> requests;
+
+        if (status != null) {
+            requests = storageRequestRepository.findByUserIdAndStatus(user.getUserId(), status);
+        } else {
+            requests = storageRequestRepository.findByUserId(user.getUserId());
+        }
+
+        return requests.stream()
+                .map(sr -> StorageRequestResponseDto.from(sr, inspectionCenterAddress, inspectionCenterZipcode))
+                .collect(Collectors.toList());
     }
 
     // 발송 대기 목록 조회 (PENDING 상태)
@@ -92,7 +125,7 @@ public class StorageRequestService {
         StorageRequest storageRequest = storageRequestRepository.findByIdWithDetails(storageRequestId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청을 찾을 수 없습니다."));
 
-        // 2. 본인 확인 (백엔드 보안 체크 : URL의 123을 456으로 바꿔서 요청하면, 다른 사람의 보관 신청을 발송 처리 가능)
+        // 2. 본인 확인
         if (!storageRequest.getUser().getUserId().equals(user.getUserId())) {
             throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 보관 신청만 발송 처리할 수 있습니다.");
         }

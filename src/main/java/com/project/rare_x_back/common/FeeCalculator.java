@@ -10,6 +10,7 @@ public class FeeCalculator {
     // 보관료 관련 상수
     public static final int STORAGE_FREE_DAYS = 180;
     public static final int STORAGE_FEE_PER_MONTH = 3000;
+    public static final int STORAGE_DEPOSIT = 3000;  // 보관 신청 보증금
 
     public static int buyerFee(int price) {
         return (int) Math.ceil(price * BUYER_FEE_RATE);
