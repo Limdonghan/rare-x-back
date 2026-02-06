@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,12 +19,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.multipart.MultipartResolver;
+import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 
 import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
-@EnableWebSecurity
+@EnableWebSecurity      // (보안 스위치 1) "우리 사이트 출입 통제 시스템(Spring Security)을 가동하겠다!"는 뜻
+@EnableMethodSecurity   // (보안 스위치 2) "메서드마다 개별 잠금장치를 달 수 있게 하겠다!"는 뜻 (예: 특정 기능에 @PreAuthorize 붙이기 가능)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -51,9 +55,26 @@ public class SecurityConfig {
                                 "/api/auth/email/send",
                                 "/api/auth/email/verify",
                                 "/api/auth/refresh",
-                                        "/*.html",
-                                "/favicon.ico"
+                                "/api/passwordless/**",
+                                "/*.html",
+                                "/favicon.ico",
+                                "/api/product/**",
+                                "/api/serving/login-trigger",
+                                "/api/serving/result",
+                                "/api/serving/cancel",
+                                "/api/serving/status"
                         ).permitAll()
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+                        // wish 경로는 인증 필수 (순서 permitAll보다 먼저)
+                        .requestMatchers("/api/product/*/wish").authenticated()
+                        // 나머지 상품 조회는 비로그인 허용
+                        .requestMatchers("/api/product/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/inspections/**").hasRole("ADMIN")
 
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
@@ -119,5 +140,11 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    // 멀티파트 해석기 -> 전송된 파일 데이터를 MultipartFile 객체로 변환하여 컨트롤러에 넘겨줌
+    @Bean
+    public MultipartResolver multipartResolver() {
+        return new StandardServletMultipartResolver();
     }
 }

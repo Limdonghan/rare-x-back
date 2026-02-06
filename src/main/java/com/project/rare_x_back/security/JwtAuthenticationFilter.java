@@ -1,5 +1,8 @@
 package com.project.rare_x_back.security;
 
+import com.project.rare_x_back.common.CustomUserDetails;
+import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.Role;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
@@ -48,17 +51,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                     return;
                 }
 
-                // 3. 토큰에서 userId 추출
+                // 3. 토큰에서 userId 추출,  role 추출, email 추출 추가
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                String role = jwtTokenProvider.getRoleFromToken(token);
+                String email = jwtTokenProvider.getEmailFromToken(token);
 
-                // 4. Spring Security 인증 객체 생성 (기본 USER 권한)
-                List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_USER")
-                );
+               // 4. Spring Security 인증 객체 생성 (실제 role 사용)
+               List<SimpleGrantedAuthority> authorities = List.of(
+                        new SimpleGrantedAuthority("ROLE_" + role)
+               );
+
+               // 사용자 정보 기반으로 임시 엔티티 생성
+                User user = new User();
+                user.setUserId(userId);
+                user.setRole(Role.valueOf(role)); //String role을 Enum으로 변환
+                user.setEmail(email);
+
+                //Principal로 사용할 UserDetails 생성
+                CustomUserDetails userDetails = new CustomUserDetails(user);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                userId,      // principal (사용자 식별자)
+                                userDetails,      // principal (사용자 식별자)
                                 null,        // credentials (비밀번호, 불필요)
                                 authorities  // authorities (기본 USER 권한)
                         );
@@ -70,7 +84,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {         // O
                 // 5. SecurityContext에 인증 정보 저장
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("JWT 인증 성공: userId={}", userId);
+                log.debug("JWT 인증 성공: userId={}, role={}", userId, role);
             }
 
         } catch (CustomException e) {

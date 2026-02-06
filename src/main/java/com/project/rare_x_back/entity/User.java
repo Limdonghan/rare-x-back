@@ -47,9 +47,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @Column(name = "point", nullable = false)
-    private Integer point;
-
     @Column(name = "profile_url", length = 500)
     private String profileUrl;
 
@@ -66,4 +63,13 @@ public class User {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "passwordless_enabled", nullable = false)
+    @Builder.Default
+    private Boolean passwordlessEnabled = false;
+
+    public void updatePassword(String password) {
+        this.password = password;
+    }
+
 }

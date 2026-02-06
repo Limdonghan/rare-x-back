@@ -6,11 +6,13 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class JwtTokenProvider {
@@ -18,24 +20,30 @@ public class JwtTokenProvider {
     private final SecretKey secretKey;
     private final long accessTokenValidity;
     private final long refreshTokenValidity;
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-validity}") long accessTokenValidity,
-            @Value("${jwt.refresh-token-validity}") long refreshTokenValidity) {
+            @Value("${jwt.refresh-token-validity}") long refreshTokenValidity,
+            RedisTemplate<String, String> redisTemplate) {
 
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenValidity = accessTokenValidity;
         this.refreshTokenValidity = refreshTokenValidity;
+        this.redisTemplate = redisTemplate;
     }
 
     //  Access Token 생성
-    public String createAccessToken(Long userId) {
+    public String createAccessToken(Long userId, String role, String email) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + accessTokenValidity);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))    // 사용자 ID
+                .claim("role", role)
+                .claim("email", email)
                 .issuedAt(now)
                 .expiration(validity)   // 만료 시간 (1시간)
                 .signWith(secretKey)    // 시크릿 키 발급
@@ -43,16 +51,27 @@ public class JwtTokenProvider {
     }
 
     //  Refresh Token 생성
-    public String createRefreshToken(Long userId) {
+    public String createRefreshToken(Long userId, String role) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + refreshTokenValidity);
 
-        return Jwts.builder()
+        String refreshToken = Jwts.builder()
                 .subject(String.valueOf(userId))    // 사용자 ID만
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(validity)   // 만료 시간 (7일)
                 .signWith(secretKey)
                 .compact();
+
+        String key = REFRESH_TOKEN_PREFIX + userId;
+        /// [수정] 리프레쉬 토큰 Redis저장 로직 공통로직으로 변경
+        try{
+            redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
+        }catch (Exception e){
+            System.out.println(e.getMessage());
+        }
+
+        return refreshToken;
     }
 
     //  토큰에서 userId 추출
@@ -64,6 +83,41 @@ public class JwtTokenProvider {
                 .getPayload();
 
         return Long.parseLong(claims.getSubject());
+    }
+
+    // 토큰에서 role 추출
+    public String getRoleFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
+
+        String role = claims.get("role", String.class);
+
+        // Role 정보가 없으면 기본값 "USER" 반환 (방어 코드)
+        if (role == null || role.isEmpty()) {
+            return "USER";
+        }
+
+        return role;
+    }
+
+    // 토큰에서 email 추출
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();  // payload 안에 사용자id, 역할 등 들어 있음
+
+        String email = claims.get("email", String.class);
+
+        if (email == null) {
+            return null;
+        }
+
+        return email;
     }
 
     // 토큰 유효성 검증
