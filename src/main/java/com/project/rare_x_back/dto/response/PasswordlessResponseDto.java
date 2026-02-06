@@ -13,7 +13,6 @@ public class PasswordlessResponseDto {
     private String result;
     private Object data;
     private String sessionId;
-    private String oneTimeToken;
     private String pushConnectUrl;
     private String message;
     private String auth;

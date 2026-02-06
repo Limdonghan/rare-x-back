@@ -11,6 +11,5 @@ public class LoginResponseDto {
     private String accessToken;
     private String refreshToken;
     private String name;
-    private boolean isPasswordChangeRequired;
     private String role;
 }

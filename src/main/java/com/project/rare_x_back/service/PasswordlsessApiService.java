@@ -3,8 +3,10 @@ package com.project.rare_x_back.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.dto.response.PasswordlessResponseDto;
 import com.project.rare_x_back.dto.response.PasswordlessResultResponseDto;
+import com.project.rare_x_back.dto.response.PasswordlessStatusResponseDto;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
@@ -13,7 +15,6 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -52,23 +52,12 @@ public class PasswordlsessApiService {
                 .toUri();
 
         /// 응답 요청
-        String body = restClient.get()
+        ApiResponse<PasswordlessStatusResponseDto> body = restClient.get()
                 .uri(uri)
                 .retrieve()
-                .body(new ParameterizedTypeReference<String>() {
-                });
+                .body(PasswordlessStatusResponseDto.responseType);
 
-        /// ackson ObjectMapper로 파싱하여 "exist" 값만 추출
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(body);
-
-            return rootNode.path("data").path("exist").asBoolean();
-
-        } catch (JsonProcessingException e) {
-            log.error("Serving API 응답 파싱 실패", e);
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR); // 적절한 예외 처리
-        }
+            return body.getData().isExist();
 
     }
 
@@ -187,9 +176,6 @@ public class PasswordlsessApiService {
             String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getRole().name(), user.getEmail());
             String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getRole().name());
 
-            String key = REFRESH_TOKEN_PREFIX + user.getUserId();
-            redisTemplate.opsForValue().set(key, refreshToken, 7, TimeUnit.DAYS);
-
             return PasswordlessResponseDto.builder()
                     .result("OK")
                     .data(build)
@@ -201,7 +187,7 @@ public class PasswordlsessApiService {
         }
 
         return PasswordlessResponseDto.builder()
-                .result("ERROR")
+                .result("WAIT")
                 .data(build)
                 .accessToken(null)
                 .refreshToken(null)
