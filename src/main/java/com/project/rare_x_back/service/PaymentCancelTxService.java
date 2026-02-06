@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +35,11 @@ public class PaymentCancelTxService {
         Payment locked = paymentRepository.findByTossPaymentKeyForUpdate(payment.getTossPaymentKey())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        ///  [추가] 이미 취소 요청 중이고, 멱등키가 있다면 그대로 반환
+        if (locked.getCancelStatus()==CancelStatus.REQUESTED && locked.getIdempotencyKey() != null) {
+            return locked;
+        }
+
         if (!locked.getStatus().equals("DONE")) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "결제 완료 상태가 아니라 취소할 수 없습니다.");
         }
@@ -46,7 +52,10 @@ public class PaymentCancelTxService {
             throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
         }
 
-        locked.markCancelRequested();
+        /// [추가] 멱등키 생성 UUID
+        String idempotencyKey = "CANCEL_" + UUID.randomUUID().toString();
+
+        locked.markCancelRequested(idempotencyKey);
         return locked;
     }
 

@@ -36,11 +36,10 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderProcessService orderProcessService;
     private final SettlementRepository settlementRepository;
-    private final UserRepository userRepository;
-    private final PaymentCancelService paymentCancelService;
     private final UserWalletService walletService;
     private final SettlementService settlementService;
     private final UserPenaltyRepository userPenaltyRepository;
+    private final PaymentService paymentService;
 
 
     @Value("${app.service-start-date}")
@@ -520,7 +519,7 @@ public class OrderService {
         // 결제 취소 (환불금액 -> 결제 금액에서 - 패널티 차감 금액)
         // 내부에서 markRequested -> API 호출 -> applySuccess 수행
         //이 메서드가 끝나면 결제 취소 기록과 Payment 상태는 이미 DB에 반영
-        paymentCancelService.cancelOnce(
+        paymentService.cancelOnce(
                 orderId,
                 cancelAmount,
                 "BUYER_CANCELED",
@@ -598,7 +597,7 @@ public class OrderService {
         // 환불 금액 (전액 -> 판매자 취소이므로)
         long cancelAmount = payment.getAmount();
         // 구매자 환불 (전액)
-        paymentCancelService.cancelOnce(
+        paymentService.cancelOnce(
                 orderId,
                 cancelAmount,
                 "SELLER_CANCELED",
