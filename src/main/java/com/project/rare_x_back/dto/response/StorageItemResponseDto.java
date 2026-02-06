@@ -40,7 +40,7 @@ public class StorageItemResponseDto {
     }
 
     private static long calculateFee(long totalDays) {
-        if (totalDays <= totalDays - FeeCalculator.STORAGE_FREE_DAYS) {
+        if (totalDays <= FeeCalculator.STORAGE_FREE_DAYS) {
             return 0;
         }
 

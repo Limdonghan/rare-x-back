@@ -108,6 +108,7 @@ public class StorageFeeScheduler {
         for (StoragePayment payment : retryTargets) {
             try {
                 payment.resetForRetry();
+                storagePaymentRepository.save(payment);
                 // 결제 시도 (트랜잭션 적용)
                 storageBillingService.attemptPayment(payment, payment.getStorageItem());
             } catch (Exception e) {
