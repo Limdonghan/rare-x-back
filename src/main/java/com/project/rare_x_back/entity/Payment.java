@@ -31,7 +31,7 @@ public class Payment {
     private String tossPaymentKey;                  /// 토스 결제 키
 
     /// [추가] 토스에 보낸 멱등키 저장 (디버깅 및 추적용)
-    @Column(name = "idempotency_key")
+    @Column(name = "idempotency_key",unique = true)
     private String idempotencyKey;
 
     @Column (name = "amount")

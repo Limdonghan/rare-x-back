@@ -6,7 +6,6 @@ import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
-import com.project.rare_x_back.service.PaymentCancelTxService;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
-    private final PaymentCancelTxService txService;
     /**
      * [카드 등록 API]
      * 프론트엔드에서 tossPayments.requestBillingAuth() 성공 후 받은

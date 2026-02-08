@@ -321,7 +321,7 @@ public class PaymentService {
      * @param cancelAmount 환불 금액
      * @param reason 취소 사유 (로그용)
      */
-    public void cancelPayment(
+    private void cancelPayment(
             String paymentKey,
             String idempotencyKey,  /// [추가] 멱등키 변수
             long cancelAmount,
