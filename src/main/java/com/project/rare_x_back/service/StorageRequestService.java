@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,33 +56,40 @@ public class StorageRequestService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // 4. 보관 신청 생성
-        StorageRequest storageRequest = StorageRequest.builder()
-                .user(user)
-                .product(product)
-                .status(StorageRequestStatus.PENDING)
-                .build();
-        StorageRequest saved = storageRequestRepository.save(storageRequest);
+        // 4. 보증금 결제 먼저 시도 (실패하면 신청 생성 없이 바로 에러)
+        int quantity = request.getQuantity();   // 보관 수량
+        int totalDeposit = FeeCalculator.STORAGE_DEPOSIT * quantity;
 
-        // 5. 보증금 결제
-        StorageDeposit deposit = StorageDeposit.builder()
-                .storageRequest(saved)
-                .user(user)
-                .build();
-        storageDepositRepository.save(deposit);
-
+        String tossPaymentKey;
         try {
-            String tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
-                    user.getUserId(), FeeCalculator.STORAGE_DEPOSIT);
-            deposit.markSuccess(tossPaymentKey);
+            tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
+                    user.getUserId(), totalDeposit);
         } catch (Exception e) {
-            deposit.markFailed();
-            storageRequestRepository.delete(saved);  // 결제 실패 시 신청도 롤백
-            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 결제 실패: " + e.getMessage());
+            throw new CustomException(ErrorCode.PAYMENT_FAILED,
+                    "보증금 결제 실패: " + e.getMessage());
         }
 
-        // 6. 응답 반환
-        return StorageRequestResponseDto.from(saved, inspectionCenterAddress, inspectionCenterZipcode);
+        // 5. 결제 성공 후에만 보관 신청 생성
+        List<StorageRequest> savedRequests = new ArrayList<>();
+        for (int i = 0; i < quantity; i++) {
+            StorageRequest storageRequest = StorageRequest.builder()
+                    .user(user)
+                    .product(product)
+                    .status(StorageRequestStatus.PENDING)
+                    .build();
+            savedRequests.add(storageRequestRepository.save(storageRequest));
+        }
+
+        // 6. 보증금 기록
+        StorageDeposit deposit = StorageDeposit.builder()
+                .storageRequest(savedRequests.get(0))
+                .user(user)
+                .build();
+        deposit.markSuccess(tossPaymentKey);
+        storageDepositRepository.save(deposit);
+
+        // 7. 첫 번째 신청 기준 응답 반환
+        return StorageRequestResponseDto.from(savedRequests.get(0), inspectionCenterAddress, inspectionCenterZipcode);
     }
 
     // 보관 신청 목록 조회 (전체 또는 상태별 필터링)
