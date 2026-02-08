@@ -520,7 +520,15 @@ public class SearchService {
             typesenseClient.collections(collectionName).retrieve();
             return true;
         } catch (Exception e) {
-            return false;
+            // 1. "찾을 수 없음(Not Found)" 에러인지 확인
+            // (라이브러리에 따라 ObjectNotFound 예외를 catch하거나, 메시지에 "404"가 포함되었는지 확인)
+            if (e.getMessage().contains("404") || e.getClass().getSimpleName().equals("ObjectNotFound")) {
+                return false;
+            }
+
+            // 2. 그 외의 에러(네트워크, 인증 등)는 진짜 문제이므로 로그를 남기고 예외를 다시 던짐
+            log.error("Typesense 상태 확인 실패 (네트워크 또는 인증 오류 가능성): {}", e.getMessage());
+            throw new RuntimeException("Typesense check failed", e);
         }
     }
 
@@ -580,7 +588,13 @@ public class SearchService {
             log.info("Typesense 컬렉션 자동 생성 완료: {}", collectionName);
 
         } catch (Exception e) {
-            log.error("Typesense 컬렉션 생성 실패: {} - {}", collectionName, e.getMessage());
+            /// 에러 메시지나 코드를 확인하여 "이미 존재함" 에러인지 판단
+            if (e.getMessage().contains("already exists") || e.getMessage().contains("409")) {
+                log.info("Typesense 컬렉션이 이미 존재함 (생성 건너뜀): {}", collectionName);
+            } else {
+                // 그 외의 진짜 에러만 로그에 남김
+                log.error("Typesense 컬렉션 생성 실패: {} - {}", collectionName, e.getMessage());
+            }
         }
     }
 }
