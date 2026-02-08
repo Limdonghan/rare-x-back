@@ -17,9 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.typesense.api.Client;
-import org.typesense.model.SearchParameters;
-import org.typesense.model.SearchResult;
-import org.typesense.model.SearchResultHit;
+import org.typesense.model.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -499,6 +497,22 @@ public class SearchService {
     // ==================== 유틸 메서드 ====================
 
     /**
+     * 스프링부트 시작 시 컬렉션 자동 생성
+     */
+    @PostConstruct
+    public void init() {
+        String[] collections = {"products", "users", "orders", "inspections"};
+        for (String name : collections) {
+            if (!collectionExists(name)) {
+                log.warn("Typesense 컬렉션 없음: {} - 자동 생성 시도", name);
+                createCollection(name);
+            } else {
+                log.info("Typesense 컬렉션 확인: {}", name);
+            }
+        }
+    }
+
+    /**
      * 컬렉션 존재 여부 체크
      */
     public boolean collectionExists(String collectionName) {
@@ -506,22 +520,80 @@ public class SearchService {
             typesenseClient.collections(collectionName).retrieve();
             return true;
         } catch (Exception e) {
-            log.warn("컬렉션 없음: {}", collectionName);
-            return false;
+            // 1. "찾을 수 없음(Not Found)" 에러인지 확인
+            // (라이브러리에 따라 ObjectNotFound 예외를 catch하거나, 메시지에 "404"가 포함되었는지 확인)
+            if (e.getMessage().contains("404") || e.getClass().getSimpleName().equals("ObjectNotFound")) {
+                return false;
+            }
+
+            // 2. 그 외의 에러(네트워크, 인증 등)는 진짜 문제이므로 로그를 남기고 예외를 다시 던짐
+            log.error("Typesense 상태 확인 실패 (네트워크 또는 인증 오류 가능성): {}", e.getMessage());
+            throw new RuntimeException("Typesense check failed", e);
         }
     }
 
     /**
-     * 스프링부트 시작 시 전체 컬렉션 존재 여부 체크
+     * 컬렉션 자동 생성
      */
-    @PostConstruct  // 서버 시작할 때 메서드 자동 실행
-    public void init() {
-        String[] collections = {"products", "users", "orders", "inspections"};
-        for (String name : collections) {
-            if (!collectionExists(name)) {
-                log.error("Typesense 컬렉션 없음: {} - Dashboard에서 생성 필요", name);
+    private void createCollection(String collectionName) {
+        try {
+            List<Field> fields = switch (collectionName) {
+                case "products" -> List.of(
+                        new Field().name("product_id").type("int64"),
+                        new Field().name("product_name").type("string"),
+                        new Field().name("brand_name").type("string"),
+                        new Field().name("category_name").type("string"),
+                        new Field().name("product_description").type("string"),
+                        new Field().name("retail_price").type("int32"),
+                        new Field().name("is_deleted").type("bool"),
+                        new Field().name("created_at").type("int64")
+                );
+                case "users" -> List.of(
+                        new Field().name("user_id").type("int64"),
+                        new Field().name("email").type("string"),
+                        new Field().name("name").type("string"),
+                        new Field().name("role").type("string"),
+                        new Field().name("status").type("string"),
+                        new Field().name("is_deleted").type("bool"),
+                        new Field().name("created_at").type("int64")
+                );
+                case "orders" -> List.of(
+                        new Field().name("order_id").type("int64"),
+                        new Field().name("buyer_name").type("string"),
+                        new Field().name("seller_name").type("string"),
+                        new Field().name("product_name").type("string"),
+                        new Field().name("price").type("int32"),
+                        new Field().name("current_status").type("string"),
+                        new Field().name("bid_type").type("string"),
+                        new Field().name("created_at").type("int64")
+                );
+                case "inspections" -> List.of(
+                        new Field().name("inspection_id").type("int64"),
+                        new Field().name("product_name").type("string"),
+                        new Field().name("seller_name").type("string"),
+                        new Field().name("inspector_name").type("string"),
+                        new Field().name("type").type("string"),
+                        new Field().name("status").type("string"),
+                        new Field().name("created_at").type("int64")
+                );
+                default -> throw new IllegalArgumentException("Unknown collection: " + collectionName);
+            };
+
+            CollectionSchema schema = new CollectionSchema();
+            schema.name(collectionName);
+            schema.fields(fields);
+            schema.defaultSortingField("created_at");
+
+            typesenseClient.collections().create(schema);
+            log.info("Typesense 컬렉션 자동 생성 완료: {}", collectionName);
+
+        } catch (Exception e) {
+            /// 에러 메시지나 코드를 확인하여 "이미 존재함" 에러인지 판단
+            if (e.getMessage().contains("already exists") || e.getMessage().contains("409")) {
+                log.info("Typesense 컬렉션이 이미 존재함 (생성 건너뜀): {}", collectionName);
             } else {
-                log.info("Typesense 컬렉션 확인: {}", name);
+                // 그 외의 진짜 에러만 로그에 남김
+                log.error("Typesense 컬렉션 생성 실패: {} - {}", collectionName, e.getMessage());
             }
         }
     }
