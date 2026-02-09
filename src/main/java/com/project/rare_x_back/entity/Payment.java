@@ -30,6 +30,10 @@ public class Payment {
     @Column (name = "toss_payment_key", unique = true)
     private String tossPaymentKey;                  /// 토스 결제 키
 
+    /// [추가] 토스에 보낸 멱등키 저장 (디버깅 및 추적용)
+    @Column(name = "idempotency_key",unique = true)
+    private String idempotencyKey;
+
     @Column (name = "amount")
     private int amount;                             /// 결제 금액
 
@@ -65,9 +69,10 @@ public class Payment {
 
 
 
-    // 취소 요청이 들어왔음을 표시 (락 잡은 상태에서 호출)
-    public void markCancelRequested() {
+    // 취소 요청이 들어왔음을 표시 (락 잡은 상태에서 호출) + [추가] 멱등키 같이 저장
+    public void markCancelRequested(String idempotencyKey) {
         this.cancelStatus = CancelStatus.REQUESTED;
+        this.idempotencyKey = idempotencyKey;
     }
 
     // 취소 성공 시 호출

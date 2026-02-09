@@ -20,6 +20,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,6 +36,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final PaymentHistoryRepository paymentHistoryRepository;
     private final SettlementService settlementService;
+    private final PaymentCancelTxService txService;
 
     /**
      * 카드 등록 (빌링키 발급)
@@ -366,6 +368,119 @@ public class PaymentService {
                 .resDate(LocalDateTime.now())
                 .build();
         paymentHistoryRepository.save(history);
+    }
+
+    /**
+     * 결제 취소 요청 (전액 / 부분 공용)
+     * @param paymentKey  토스 결제 키
+     * @param idempotencyKey 멱등키
+     * @param cancelAmount 환불 금액
+     * @param reason 취소 사유 (로그용)
+     */
+    private void cancelPayment(
+            String paymentKey,
+            String idempotencyKey,  /// [추가] 멱등키 변수
+            long cancelAmount,
+            String reason
+    ) {
+
+        // 취소 요청 Body
+        Map<String, Object> body = new HashMap<>();
+        body.put("cancelReason", reason);
+
+        // 토스 정책 상 cancelAmount가 있으면 부분 취소,없으면 전액 취소
+        // 우리는 항상 금액 명시 -> 전액/부분 분기 헷갈림 방지
+        body.put("cancelAmount", cancelAmount);
+
+        try {
+            webClient.post()
+                    // POST /payments/{paymentKey}/cancel
+                    .uri("/payments/{paymentKey}/cancel", paymentKey)
+                    .header("Idempotency-Key", idempotencyKey)  /// [추가] 멱등키 헤더 추가
+                    .bodyValue(body)
+                    .retrieve()
+
+                    // 4xx → 우리가 잘못 요청
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .map(msg -> {
+                                        log.error(
+                                                "토스 결제 취소 4xx 오류 paymentKey={}, msg={}",
+                                                paymentKey, msg
+                                        );
+                                        return new CustomException(
+                                                ErrorCode.PAYMENT_FAILED,
+                                                "결제 취소 요청 오류"
+                                        );
+                                    })
+                    )
+
+                    // 5xx → 토스 서버 문제
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .map(msg -> {
+                                        log.error(
+                                                "토스 결제 취소 5xx 오류 paymentKey={}, msg={}",
+                                                paymentKey, msg
+                                        );
+                                        return new CustomException(
+                                                ErrorCode.TOSS_API_ERROR,
+                                                "토스 서버 오류"
+                                        );
+                                    })
+                    )
+
+                    // 응답 Body는 사용 안 함
+                    .bodyToMono(Void.class)
+                    .block();
+
+        } catch (CustomException e) {
+            // 이미 의미 있는 예외 → 그대로 던짐
+            throw e;
+        } catch (Exception e) {
+            // 네트워크 / 타임아웃 / 알 수 없는 오류
+            log.error(
+                    "토스 결제 취소 예외 paymentKey={}, cancelAmount={}",
+                    paymentKey, cancelAmount, e
+            );
+            throw new CustomException(
+                    ErrorCode.TOSS_API_ERROR,
+                    "결제 취소 중 예외 발생"
+            );
+        }
+    }
+
+    /**
+     * [결제 취소 요청 - 단건]
+     * DB 트랜잭션과 외부 API 호출을 분리하여 안전하게 결제 취소 진행
+     */
+    public void cancelOnce(Long orderId, long cancelAmount, String reason, String requestedBy) {
+
+        // 락 + 검증 + REQUESTED
+        Payment lockedPayment = txService.markRequested(orderId, cancelAmount);
+
+        // 토스 취소 호출
+        try {
+            cancelPayment(
+                    lockedPayment.getTossPaymentKey(),
+                    lockedPayment.getIdempotencyKey(), /// [추가] 멱등키 전달
+                    cancelAmount,
+                    reason
+
+            );
+        } catch (Exception e) {
+            // 실패 기록
+            txService.markFailed(lockedPayment.getTossPaymentKey());
+            throw e;
+        }
+
+        // 성공 확정 + 로그 저장
+        txService.applySuccess(
+                lockedPayment.getTossPaymentKey(),
+                cancelAmount,
+                reason,
+                requestedBy
+        );
     }
 }
 
