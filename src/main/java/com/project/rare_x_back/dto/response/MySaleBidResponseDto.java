@@ -12,17 +12,27 @@ import java.time.LocalDateTime;
 public class MySaleBidResponseDto {
     private Long bidId;
     private String productName;
+    private String brandName;
+    private String imageUrl;
     private long price;
     private BidStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
 
     public static MySaleBidResponseDto from(SaleBid bid) {
+        String imageUrl = bid.getProduct().getImages().isEmpty()
+                ? null
+                : bid.getProduct().getImages().get(0).getImageUrl();
+
         return MySaleBidResponseDto.builder()
                 .bidId(bid.getSellId())
                 .productName(bid.getProduct().getProductName())
+                .brandName(bid.getProduct().getBrand().getBrandName())
+                .imageUrl(imageUrl)
                 .price(bid.getPrice())
                 .status(bid.getStatus())
                 .createdAt(bid.getCreatedAt())
+                .expiresAt(bid.getExpiresAt())
                 .build();
     }
 }

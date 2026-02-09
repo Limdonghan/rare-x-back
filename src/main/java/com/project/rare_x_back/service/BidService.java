@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
@@ -7,18 +8,18 @@ import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
-import com.project.rare_x_back.common.FeeCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -353,6 +354,44 @@ public class BidService {
         return bids.stream()
                 .map(MySaleBidResponseDto::from)
                 .toList();
+    }
+
+    // 판매입찰 체결됨 탭 조회 (Order 기반)
+    @Transactional(readOnly = true)
+    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, CurrentStatus orderStatus) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        List<Order> orders;
+        if (orderStatus == null) {
+            orders = orderRepository.findBySeller_UserId(user.getUserId(), Pageable.unpaged()).getContent();
+        } else {
+            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    user.getUserId(), statuses, Pageable.unpaged()
+            ).getContent();
+        }
+
+        return orders.stream()
+                .map(MySaleBidMatchedResponseDto::from)
+                .toList();
+    }
+
+    // CurrentStatus 매핑
+    private List<CurrentStatus> mapToStatuses(CurrentStatus filterStatus) {
+        return switch (filterStatus) {
+            case PENDING -> List.of(CurrentStatus.PENDING);
+            case INSPECTING -> List.of(
+                    CurrentStatus.SHIPPED_TO_WAREHOUSE,
+                    CurrentStatus.PENDING_INSPECTION,
+                    CurrentStatus.INSPECTING
+            );
+            case SHIPPED -> List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED);
+            case DELIVERED -> List.of(CurrentStatus.DELIVERED);
+            case CONFIRMED_PURCHASE -> List.of(CurrentStatus.CONFIRMED_PURCHASE);
+            case CANCELLED -> List.of(CurrentStatus.RETURN, CurrentStatus.CANCELLED);
+            default -> List.of(filterStatus);
+        };
     }
 
     // 구매 입찰 가격 수정
