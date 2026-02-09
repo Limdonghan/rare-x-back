@@ -183,7 +183,8 @@ public class OrderService {
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.DELIVERED,
                     CurrentStatus.RETURN,
-                    CurrentStatus.CANCELLED
+                    CurrentStatus.CANCELLED,
+                    CurrentStatus.CONFIRMED_PURCHASE
             );
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
@@ -255,6 +256,7 @@ public class OrderService {
                 .orElse(null);
 
         int productPrice = order.getPrice();
+        int commissionFee = FeeCalculator.buyerFee(productPrice);
         int totalAmount = (payment != null) ? payment.getAmount() : FeeCalculator.buyerTotalAmount(productPrice);
 
         // 4. 결제 방식
@@ -293,6 +295,7 @@ public class OrderService {
                 .productName(order.getProduct().getProductName())
                 .productImages(productImages)
                 .productPrice(productPrice)
+                .commissionFee(commissionFee)
                 .shippingFee(FeeCalculator.DELIVERY_FEE)
                 .totalAmount(totalAmount)
                 .paymentMethod(paymentMethod)

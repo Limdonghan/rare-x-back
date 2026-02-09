@@ -22,6 +22,7 @@ public class BuyingOrderDetailResponseDto {
 
     // 결제 정보
     private int productPrice;
+    private int commissionFee;
     private int shippingFee;
     private int totalAmount;
     private String paymentMethod;
