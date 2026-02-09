@@ -58,6 +58,17 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     List<Object[]> findLowestPriceByProductIds(@Param("productIds") List<Long> productIds,
                                                @Param("status") BidStatus status);
 
+    // [추가] 보관 판매 상품 목록 조회 (상품별 그룹화, 최저가, 재고 수량)
+    // storageItem이 null이 아니고 status가 OPEN인 것들 대상
+    @Query("""
+            SELECT s.product, MIN(s.price), COUNT(s)
+            FROM SaleBid s
+            WHERE s.storageItem IS NOT NULL
+            AND s.status = :status
+            GROUP BY s.product
+           """)
+    List<Object[]> findStorageProducts(@Param("status") BidStatus status);
+
     @Modifying
     @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +
             "WHERE sb.storageItem.storageId = :storageId " +

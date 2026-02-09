@@ -26,7 +26,11 @@ public class ProductController {
     private final ProductService productService;
     private final SearchService searchService;
 
-    //상품 전체 조회(목록, 썸네일이미지만 응답)
+    /**
+     * [수정]
+     * 상품 전체 조회 (목록, 썸네일 이미지)
+     * 메인 화면 wishCount를 기준으로 인기있는 상품 목록 조회
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllPublicProd (
             @RequestParam(required = false) Long categoryId,
@@ -68,5 +72,11 @@ public class ProductController {
     @GetMapping("/brands")
     public ResponseEntity<ApiResponse<List<BrandListResponseDto>>> getAllBrands() {
         return ResponseEntity.ok(ApiResponse.success(productService.getAllBrands()));
+    }
+
+    // [추가] 보관 판매 상품 목록 조회
+    @GetMapping("/storage")
+    public ResponseEntity<ApiResponse<List<StorageProductResponseDto>>> getStorageProducts() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getStorageProducts()));
     }
 }

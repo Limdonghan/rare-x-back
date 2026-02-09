@@ -1,10 +1,7 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.BidInfo;
-import com.project.rare_x_back.dto.response.BrandListResponseDto;
-import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
-import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.BuyBid;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.ProductImage;
@@ -74,6 +71,7 @@ public class ProductService {
                     .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
                     .price(buyPrice)
                     .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
+                    .wishCount(product.getWishCount())
                     .build();
         });
     }
@@ -173,6 +171,34 @@ public class ProductService {
                         .productCount(productRepository.countByBrand_BrandIdAndIsDeletedFalse(brand.getBrandId()))
                         .createdAt(brand.getCreatedAt())
                         .build())
+                .toList();
+    }
+    /**
+     * [보관 판매 상품 목록 조회]
+     */
+    public List<StorageProductResponseDto> getStorageProducts() {
+        List<Object[]> results = saleBidRepository.findStorageProducts(BidStatus.OPEN);
+
+        return results.stream()
+                .map(row -> {
+                    Product product = (Product) row[0];
+                    int price = ((Number) row[1]).intValue();
+                    Long stockCount = ((Number) row[2]).longValue();
+
+                    String imageUrl = null;
+                    if (product.getImages() != null && !product.getImages().isEmpty()) {
+                        imageUrl = product.getImages().getFirst().getImageUrl();
+                    }
+
+                    return StorageProductResponseDto.builder()
+                            .productId(product.getProductId())
+                            .brandName(product.getBrand().getBrandName())
+                            .productName(product.getProductName())
+                            .price(price)
+                            .stock(stockCount)
+                            .imageUrl(imageUrl)
+                            .build();
+                })
                 .toList();
     }
 }
