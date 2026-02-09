@@ -52,6 +52,8 @@ public class BidService {
     /**
      * [판매 입찰 등록]
      * 1. 판매자가 상품을 등록 (완료)
+     * 1 -1. 상품 상세에서 판매 입찰 등록
+     * 1 -2. 보관 중 상품에서 상품 등록
      * 2. 구매자가 있으면 즉시체결 OR 자동결제 -> 매칭이되면
      *
      */
@@ -73,7 +75,11 @@ public class BidService {
                                 StorageStatus.STORED
                         ); // -> 있으면  storageItemOpt.isPresent(); = true
 
+        /// [추가] 만약 보관 중인 상품의 입찰일 경후 보관 상품 상태 변경
         boolean storageItemCheck = storageItemOpt.isPresent();  // -> true 일때  StorageItem = 위에서 찾은 재고
+        if (storageItemCheck){
+            storageItemOpt.get().updateStatus(StorageStatus.ON_SALE);
+        }
         StorageItem storageItem = storageItemOpt.orElse(null);  // 없으면 StorageItem = null
 
         SaleBid build = SaleBid.builder()

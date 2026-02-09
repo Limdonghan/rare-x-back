@@ -38,6 +38,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.isDeleted = false")
     List<Product> findAllForSync();
 
+    // N+1 문제 해결: 이미지 정보를 함께 조회 (Eager Fetching)
+    @EntityGraph(attributePaths = {"images"})
+    List<Product> findByProductIdIn(List<Long> productIds);
+
+
     /// 특정 카테고리에 속하며 삭제되지 않은 상품의 개수를 조회
     long countByCategory_CategoryIdAndIsDeletedFalse(Long categoryId);
 

@@ -1,5 +1,6 @@
 package com.project.rare_x_back.repository;
 
+import com.project.rare_x_back.dto.response.StorageProductResponseDto;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.SaleBid;
 import com.project.rare_x_back.enums.BidStatus;
@@ -57,6 +58,24 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             "GROUP BY s.product.productId")
     List<Object[]> findLowestPriceByProductIds(@Param("productIds") List<Long> productIds,
                                                @Param("status") BidStatus status);
+
+    /// [추가] 보관 판매 상품 목록 조회 (상품별 그룹화, 최저가, 재고 수량)
+    /// storageItem이 null이 아니고 status가 OPEN인 것들 대상
+    @Query("""
+            SELECT new com.project.rare_x_back.dto.response.StorageProductResponseDto(
+                s.product.productId,
+                s.product.brand.brandName,
+                s.product.productName,
+                MIN(s.price),
+                COUNT(s)
+            )
+            FROM SaleBid s
+            WHERE s.storageItem IS NOT NULL
+            AND s.status = :status
+            AND s.product.isDeleted = false
+            GROUP BY s.product.productId, s.product.brand.brandName, s.product.productName
+           """)
+    List<StorageProductResponseDto> findStorageProducts(@Param("status") BidStatus status);
 
     @Modifying
     @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +

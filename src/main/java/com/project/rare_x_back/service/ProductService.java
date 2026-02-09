@@ -1,10 +1,7 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.BidInfo;
-import com.project.rare_x_back.dto.response.BrandListResponseDto;
-import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
-import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.BuyBid;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.ProductImage;
@@ -18,9 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,6 +73,7 @@ public class ProductService {
                     .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
                     .price(buyPrice)
                     .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
+                    .wishCount(product.getWishCount())
                     .build();
         });
     }
@@ -174,5 +174,32 @@ public class ProductService {
                         .createdAt(brand.getCreatedAt())
                         .build())
                 .toList();
+    }
+    /**
+     * [보관 판매 상품 목록 조회]
+     */
+    @Transactional(readOnly = true)
+    public List<StorageProductResponseDto> getStorageProducts() {
+        List<StorageProductResponseDto> results = saleBidRepository.findStorageProducts(BidStatus.OPEN);
+
+        /// 상품 ID 목록 추출
+        List<Long> productIds = results.stream()
+                .map(StorageProductResponseDto::getProductId)
+                .toList();
+
+        /// 상품 정보 일괄 조회 (이미지 정보를 가져오기 위함)
+        /// findAllById 대신 EntityGraph가 적용된 메서드 사용으로 N+1 문제 해결
+        Map<Long, Product> productMap = productRepository.findByProductIdIn(productIds).stream()
+                .collect(Collectors.toMap(Product::getProductId, product -> product));
+
+        /// 이미지(썸네일) URL 세팅
+        results.forEach(dto -> {
+            Product product = productMap.get(dto.getProductId());
+            if (product != null && product.getImages() != null && !product.getImages().isEmpty()) {
+                dto.setImageUrl(product.getImages().getFirst().getImageUrl());
+            }
+        });
+
+        return results;
     }
 }
