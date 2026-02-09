@@ -5,10 +5,7 @@ import com.project.rare_x_back.entity.SaleBid;
 import com.project.rare_x_back.enums.BidStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -67,4 +64,14 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             @Param("cancelStatus") BidStatus cancelStatus,
             @Param("openStatus") BidStatus openStatus
     );
+
+    // ===== 마이페이지 판매입찰 조회 (N+1 방지) =====
+
+    @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId ORDER BY s.createdAt DESC")
+    List<SaleBid> findMySaleBidsAll(@Param("userId") Long userId);
+
+    @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status ORDER BY s.createdAt DESC")
+    List<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
 }
