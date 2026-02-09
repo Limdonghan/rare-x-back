@@ -24,7 +24,7 @@ public class OrderHistory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
-    private Order Order;                    /// 상품
+    private Order order;                    /// 주문
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
@@ -33,5 +33,21 @@ public class OrderHistory {
     @Column(name = "created_at")
     @CreatedDate
     private LocalDateTime createdAt;       /// 주문 생성일
+
+    @Column(name = "description")
+    private String description;
+
+    public static OrderHistory create(Order order, CurrentStatus status) {
+        OrderHistory history = new OrderHistory();
+        history.order = order;
+        history.currentStatus = status;
+        return history;
+    }
+
+    public static OrderHistory createCancelHistory(Order order, CurrentStatus status, String description) {
+        OrderHistory history = create(order, status);
+        history.description = description;
+        return history;
+    }
 
 }

@@ -1,9 +1,6 @@
 package com.project.rare_x_back.dto.response;
 
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.Product;
-import com.project.rare_x_back.entity.StorageRequest;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
 import lombok.Builder;
@@ -57,7 +54,6 @@ public class InspectionHistoryResponseDto {
                     .inspectorName(inspector.getName());
         }
 
-        // TODO: ORDER 타입 검수 시 Order 엔티티 연동 후 상품/판매자 정보 추가
         // 보관 검수인 경우
         StorageRequest storageRequest = inspection.getStorageRequest();
         if (storageRequest != null) {
@@ -80,6 +76,33 @@ public class InspectionHistoryResponseDto {
                 }
 
                 // 카테고리 정보
+                if (product.getCategory() != null) {
+                    builder.categoryId(product.getCategory().getCategoryId())
+                            .categoryName(product.getCategory().getCategoryName());
+                }
+            }
+        }
+
+        // 주문 검수(ORDER)인 경우
+        Order order = inspection.getOrder();
+        if (order != null) {
+            // 판매자 정보
+            User seller = order.getSeller();
+            if (seller != null) {
+                builder.sellerId(seller.getUserId())
+                        .sellerName(seller.getName());
+            }
+
+            // 상품 정보
+            Product product = order.getProduct();
+            if (product != null) {
+                builder.productId(product.getProductId())
+                        .productName(product.getProductName());
+
+                if (product.getBrand() != null) {
+                    builder.brandName(product.getBrand().getBrandName());
+                }
+
                 if (product.getCategory() != null) {
                     builder.categoryId(product.getCategory().getCategoryId())
                             .categoryName(product.getCategory().getCategoryName());

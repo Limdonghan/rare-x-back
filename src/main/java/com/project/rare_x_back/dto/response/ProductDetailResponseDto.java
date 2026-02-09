@@ -25,6 +25,6 @@ public class ProductDetailResponseDto {
     private List<BidInfo>  saleBidInfoList;
     private List<BidInfo> buyBidInfoList;
 
-
-
+    private int wishCount;  // 현재 상품 찜수
+    private boolean isLiked;    // 현재 상품 유저 찜 여부
 }

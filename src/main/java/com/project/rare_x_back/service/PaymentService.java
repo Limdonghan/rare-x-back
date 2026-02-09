@@ -1,17 +1,15 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
-import com.project.rare_x_back.entity.BillingKey;
-import com.project.rare_x_back.entity.Order;
-import com.project.rare_x_back.entity.Payment;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
+import com.project.rare_x_back.entity.*;
+import com.project.rare_x_back.enums.PaymentHistoryStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.BillingKeyRepository;
-import com.project.rare_x_back.repository.PaymentRepository;
-import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -20,8 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -32,7 +33,10 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BillingKeyRepository billingKeyRepository;
     private final UserRepository userRepository;
-
+    private final OrderRepository orderRepository;
+    private final PaymentHistoryRepository paymentHistoryRepository;
+    private final SettlementService settlementService;
+    private final PaymentCancelTxService txService;
 
     /**
      * 카드 등록 (빌링키 발급)
@@ -89,7 +93,7 @@ public class PaymentService {
                     .cardNumber(cardNumber)
                     .authenticatedAt(authenticatedAt)
                     .build();
-            
+
             return billingKeyRepository.save(build);
 
         } catch (Exception e) {
@@ -123,42 +127,53 @@ public class PaymentService {
             }
         }
 
-            /// 1. 유저 확인
-            User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        /// 1. 유저 확인
+        User user = userRepository.findById(autoPaymentRequestDto.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-            /// 2. DB에서 저장된 빌링키 꺼내오기
-            BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
+        Order order = orderRepository.findById(autoPaymentRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
-            try {
-                /// 3. 토스 API 호출
-                Map<String, Object> response = webClient.post()
-                        .uri("billing/" + billingKey.getBillingKey())
-                        .bodyValue(Map.of(
-                                "amount", autoPaymentRequestDto.getAmount(),
-                                "customerKey", billingKey.getCustomerKey(),
-                                "orderId", autoPaymentRequestDto.getOrderId(),
-                                "orderName", autoPaymentRequestDto.getOrderName()
-                        ))                                          /// Request Body 설정
-                        .retrieve()                                 /// 실제 HTTP 요청 실행
-                        .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
-                                clientResponse.bodyToMono(String.class)
-                                        .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
-                        .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
-                                clientResponse.bodyToMono(String.class)
-                                        .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
-                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-                        })                      /// 응답을 Map으로 반환
-                        .block();                                   /// 동기식으로 대기
+        /// 2. DB에서 저장된 빌링키 꺼내오기
+        BillingKey billingKey = billingKeyRepository.findByUser(user).orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
 
-                /// TODO: 실제 Order ID 연동
-//                return responseMappingWithSave(response, 1L);
-                return null;
-            } catch (Exception e) {
-                log.error(e.getMessage());
-                throw new RuntimeException(e.getMessage());
-            }
+        // 수수료 및 배송비 계산한 최종 가격
+        int buyerTotalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
 
+        try {
+            /// 3. 토스 API 호출
+            Map<String, Object> response = webClient.post()
+                    .uri("billing/" + billingKey.getBillingKey())
+                    .bodyValue(Map.of(
+                            "amount", buyerTotalAmount,
+                            "customerKey", billingKey.getCustomerKey(),
+                            "orderId", autoPaymentRequestDto.getTossOrderId(),
+                            "orderName", autoPaymentRequestDto.getOrderName()
+                    ))                                          /// Request Body 설정
+                    .retrieve()                                 /// 실제 HTTP 요청 실행
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })                      /// 응답을 Map으로 반환
+                    .block();                                   /// 동기식으로 대기
+            // 페이먼츠 저장
+            Payment payment = responseMappingWithSave(response, order);
+
+            // 페이먼츠 히스토리 생성
+            createPaymentHistory(order);
+            // 정산 레코드 생성 (PENDING)
+            settlementService.createSettlement(order);
+
+            return payment;
+
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            throw new RuntimeException(e.getMessage());
         }
+
+    }
 
 
 
@@ -178,6 +193,11 @@ public class PaymentService {
         /// 1. 유저 검증
         userRepository.findByEmail(userEmail).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        Order order = orderRepository.findById(paymentConfirmRequestDto.getOrderId()).orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+
+        // 수수료 및 배송비 계산한 최종 가격
+        int buyerTotalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
+
         try {
             /// 2. 토스 API 호출
             Map<String, Object> response = webClient.post()
@@ -185,7 +205,7 @@ public class PaymentService {
                     .bodyValue(Map.of(
                             "paymentKey", paymentConfirmRequestDto.getPaymentKey(),
                             "orderId", paymentConfirmRequestDto.getTossOrderId(),
-                            "amount", paymentConfirmRequestDto.getAmount()
+                            "amount", buyerTotalAmount
                     ))                                                                                          /// Request Body 설정
                     .retrieve()                                                                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
@@ -198,7 +218,14 @@ public class PaymentService {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
 
-            return responseMappingWithSave(response,paymentConfirmRequestDto.getOrderId());
+            Payment payment = responseMappingWithSave(response,order);
+
+            // 페이먼츠 히스토리 생성
+            createPaymentHistory(order);
+            // 정산 레코드 생성 (PENDING)
+            settlementService.createSettlement(order);
+
+            return payment;
 
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -206,11 +233,67 @@ public class PaymentService {
         }
     }
 
+    /**
+     * 보관료 빌링키 결제
+     * Order 없이 빌링키로 결제 후 tossPaymentKey 반환
+     *
+     * @param userId 사용자 ID
+     * @param amount 결제 금액
+     * @return tossPaymentKey (결제 취소/조회에 사용)
+     */
+    public String payStorageFeeWithBillingKey(Long userId, int amount) {
+
+        // 1. 유저 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 빌링키 조회
+        BillingKey billingKey = billingKeyRepository.findByUser(user)
+                .orElseThrow(() -> new CustomException(ErrorCode.BILLING_KEY_NOT_FOUND));
+
+        // 3. 토스용 주문 ID 생성
+        String tossOrderId = "STORAGE_" + generateUUID();
+        String orderName = "보관료 결제";
+
+        try {
+            // 4. 토스 API 호출
+            Map<String, Object> response = webClient.post()
+                    .uri("billing/" + billingKey.getBillingKey())
+                    .bodyValue(Map.of(
+                            "amount", amount,
+                            "customerKey", billingKey.getCustomerKey(),
+                            "orderId", tossOrderId,
+                            "orderName", orderName
+                    ))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s)))
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s)))
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            // 5. paymentKey 추출 및 반환
+            String tossPaymentKey = String.valueOf(response.get("paymentKey"));
+            log.info("보관료 결제 성공: userId={}, amount={}, paymentKey={}", userId, amount, tossPaymentKey);
+
+            return tossPaymentKey;
+
+        } catch (CustomException e) {
+            log.error("보관료 결제 실패: userId={}, amount={}, error={}", userId, amount, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("보관료 결제 중 예외 발생: userId={}, amount={}, error={}", userId, amount, e.getMessage());
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 처리 중 오류 발생");
+        }
+    }
 
     /**
      * 공통 메서드 처리
      * */
-    private Payment responseMappingWithSave (Map<String, Object> response, Order orderId){
+    private Payment responseMappingWithSave (Map<String, Object> response, Order order){
         Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
 
         /// Response 값 매핑
@@ -225,7 +308,7 @@ public class PaymentService {
 
         /// DB 저장
         Payment build = Payment.builder()
-                .orderId(orderId)
+                .order(order)
                 .tossOrderId(tossOrderId)
                 .tossPaymentKey(tossPaymentKey)
                 .amount(amount)
@@ -236,6 +319,168 @@ public class PaymentService {
                 .approvedAt(approvedAt)
                 .build();
         return paymentRepository.save(build);
+    }
+
+
+    public String generateUUID(){
+        return UUID.randomUUID().toString();
+    }
+
+
+    // 빌링키 존재 체크
+    public BillingKeyResponseDto validateBillingKey(Long userId) {
+
+        boolean exists = billingKeyRepository.existsByUser_UserId(userId);
+
+        BillingKey billingKey = billingKeyRepository.findByUserUserId(userId);
+
+        if (exists) {
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(billingKey.getCardCompany())
+                    .cardNumber(billingKey.getCardNumber())
+                    .hasBillingKey(true)
+                    .build();
+        } else {
+            return BillingKeyResponseDto.builder()
+                    .cardCompany(null)
+                    .cardNumber(null)
+                    .hasBillingKey(false)
+                    .build();
+        }
+
+    }
+
+
+    // 페이먼츠 히스토리 생성 메소드
+    private void createPaymentHistory(Order order) {
+        int buyerFee = FeeCalculator.buyerFee(order.getPrice());
+        int totalAmount = FeeCalculator.buyerTotalAmount(order.getPrice());
+
+        PaymentHistory history = PaymentHistory.builder()
+                .order(order)
+                .buyer(order.getBuyer())
+                .buyBid(order.getBuyBid())
+                .commissionFee(buyerFee)
+                .deliveryFee(3000)
+                .totalAmount(totalAmount)
+                .status(PaymentHistoryStatus.COMPLETE)
+                .reqDate(order.getCreatedAt())
+                .resDate(LocalDateTime.now())
+                .build();
+        paymentHistoryRepository.save(history);
+    }
+
+    /**
+     * 결제 취소 요청 (전액 / 부분 공용)
+     * @param paymentKey  토스 결제 키
+     * @param idempotencyKey 멱등키
+     * @param cancelAmount 환불 금액
+     * @param reason 취소 사유 (로그용)
+     */
+    private void cancelPayment(
+            String paymentKey,
+            String idempotencyKey,  /// [추가] 멱등키 변수
+            long cancelAmount,
+            String reason
+    ) {
+
+        // 취소 요청 Body
+        Map<String, Object> body = new HashMap<>();
+        body.put("cancelReason", reason);
+
+        // 토스 정책 상 cancelAmount가 있으면 부분 취소,없으면 전액 취소
+        // 우리는 항상 금액 명시 -> 전액/부분 분기 헷갈림 방지
+        body.put("cancelAmount", cancelAmount);
+
+        try {
+            webClient.post()
+                    // POST /payments/{paymentKey}/cancel
+                    .uri("/payments/{paymentKey}/cancel", paymentKey)
+                    .header("Idempotency-Key", idempotencyKey)  /// [추가] 멱등키 헤더 추가
+                    .bodyValue(body)
+                    .retrieve()
+
+                    // 4xx → 우리가 잘못 요청
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .map(msg -> {
+                                        log.error(
+                                                "토스 결제 취소 4xx 오류 paymentKey={}, msg={}",
+                                                paymentKey, msg
+                                        );
+                                        return new CustomException(
+                                                ErrorCode.PAYMENT_FAILED,
+                                                "결제 취소 요청 오류"
+                                        );
+                                    })
+                    )
+
+                    // 5xx → 토스 서버 문제
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .map(msg -> {
+                                        log.error(
+                                                "토스 결제 취소 5xx 오류 paymentKey={}, msg={}",
+                                                paymentKey, msg
+                                        );
+                                        return new CustomException(
+                                                ErrorCode.TOSS_API_ERROR,
+                                                "토스 서버 오류"
+                                        );
+                                    })
+                    )
+
+                    // 응답 Body는 사용 안 함
+                    .bodyToMono(Void.class)
+                    .block();
+
+        } catch (CustomException e) {
+            // 이미 의미 있는 예외 → 그대로 던짐
+            throw e;
+        } catch (Exception e) {
+            // 네트워크 / 타임아웃 / 알 수 없는 오류
+            log.error(
+                    "토스 결제 취소 예외 paymentKey={}, cancelAmount={}",
+                    paymentKey, cancelAmount, e
+            );
+            throw new CustomException(
+                    ErrorCode.TOSS_API_ERROR,
+                    "결제 취소 중 예외 발생"
+            );
+        }
+    }
+
+    /**
+     * [결제 취소 요청 - 단건]
+     * DB 트랜잭션과 외부 API 호출을 분리하여 안전하게 결제 취소 진행
+     */
+    public void cancelOnce(Long orderId, long cancelAmount, String reason, String requestedBy) {
+
+        // 락 + 검증 + REQUESTED
+        Payment lockedPayment = txService.markRequested(orderId, cancelAmount);
+
+        // 토스 취소 호출
+        try {
+            cancelPayment(
+                    lockedPayment.getTossPaymentKey(),
+                    lockedPayment.getIdempotencyKey(), /// [추가] 멱등키 전달
+                    cancelAmount,
+                    reason
+
+            );
+        } catch (Exception e) {
+            // 실패 기록
+            txService.markFailed(lockedPayment.getTossPaymentKey());
+            throw e;
+        }
+
+        // 성공 확정 + 로그 저장
+        txService.applySuccess(
+                lockedPayment.getTossPaymentKey(),
+                cancelAmount,
+                reason,
+                requestedBy
+        );
     }
 }
 

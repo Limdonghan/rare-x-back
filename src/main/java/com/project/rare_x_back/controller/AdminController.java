@@ -7,13 +7,14 @@ import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.S3ImageService;
+import com.project.rare_x_back.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -27,13 +28,14 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
-    private final S3ImageService s3ImageService;
+    private final OrderService orderService;
 
     //s3 이미지 업로드
-    @PostMapping("/products/{productId}/images")
+    @PostMapping(value = "/products/{productId}/images",
+                consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
-            @RequestParam("images")List<MultipartFile> images
+            @RequestPart("images")List<MultipartFile> images
             ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
@@ -41,15 +43,15 @@ public class AdminController {
 
     //상품 등록
     @PostMapping("/products")
-    public ResponseEntity<ApiResponse<Void>> createProduct(
+    public ResponseEntity<ApiResponse<Long>> createProduct(
             @Valid @RequestBody ProductCreateRequestDto productCreateRequestDto,
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
         // 서비스 호출 후 생성된 상품의 ID를 반환받음
-        adminService.createProduct(productCreateRequestDto);
+        Long savedProductId = adminService.createProduct(productCreateRequestDto);
         log.info("상품 {}이 관리자 ID {}에 의해 등록됨", productCreateRequestDto.getProductName(), adminDetails.getUsername());
         // 성공 응답(201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("상품 등록이 완료되었습니다."));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(savedProductId,"상품 등록이 완료되었습니다."));
     }
 
     //상품 전체 조회
@@ -70,8 +72,8 @@ public class AdminController {
     @PatchMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestPart("data")  ProductUpdateRequestDto productUpdateRequestDto,
-            @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
+            @Valid @RequestPart("data") ProductUpdateRequestDto productUpdateRequestDto,
+            @RequestParam(value = "deleteIds", required = false) List<String> deleteIds,
             @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages,
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
@@ -150,4 +152,17 @@ public class AdminController {
         adminService.deleteBrand(brandId);
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
     }
+
+    // 주문 배송 완료로 상태 변경
+    @PatchMapping("/orders/{orderId}/delivered")
+    public ResponseEntity <ApiResponse<Void>> deliveredOrder (
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+            ) {
+        orderService.deliveryComplete(orderId);
+        log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
+        return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+
 }

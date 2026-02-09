@@ -5,6 +5,7 @@ import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.StorageRequestCreateDto;
 import com.project.rare_x_back.dto.response.StorageItemResponseDto;
 import com.project.rare_x_back.dto.response.StorageRequestResponseDto;
+import com.project.rare_x_back.enums.StorageRequestStatus;
 import com.project.rare_x_back.service.StorageItemService;
 import com.project.rare_x_back.service.StorageRequestService;
 import jakarta.validation.Valid;
@@ -24,7 +25,6 @@ public class StorageRequestController {
     private final StorageRequestService storageRequestService;
     private final StorageItemService storageItemService;
 
-
     // 보관 판매 신청
     @PostMapping("/apply")
     public ResponseEntity<ApiResponse<StorageRequestResponseDto>> createStorageRequest(
@@ -35,6 +35,17 @@ public class StorageRequestController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "보관 신청이 완료되었습니다"));
+    }
+
+    // 보관 신청 목록 조회 (전체 또는 상태별 필터링)
+    @GetMapping("/requests")
+    public ResponseEntity<ApiResponse<List<StorageRequestResponseDto>>> getMyStorageRequests(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) StorageRequestStatus status) {
+
+        List<StorageRequestResponseDto> response = storageRequestService.getMyStorageRequests(userDetails.getUsername(), status);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // 보관 중 상품 목록 조회

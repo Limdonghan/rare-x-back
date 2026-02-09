@@ -1,5 +1,6 @@
 package com.project.rare_x_back.entity;
 
+import com.project.rare_x_back.enums.StorageStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -22,12 +23,9 @@ public class StorageItem {
     @Column(name = "storage_id")
     private Long storageId;
 
-    // TODO order 관계는 나중에 추가 (주문 기능 구현 시)
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "order_id")
-    // private Order order;
-    @Column(name = "order_id")
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -44,11 +42,21 @@ public class StorageItem {
     @Column(name = "expired_at")
     private LocalDateTime expiredAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private StorageStatus status;
+
     @Builder
-    public StorageItem(Long orderId, User user, Product product, LocalDateTime expiredAt) {
-        this.orderId = orderId;
+    public StorageItem(Order order, User user, Product product, LocalDateTime expiredAt, StorageStatus status) {
+        this.order = order;
         this.user = user;
         this.product = product;
         this.expiredAt = expiredAt;
+        this.status = status;
+    }
+
+    // StorageItem.java에 추가
+    public void updateStatus(StorageStatus status) {
+        this.status = status;
     }
 }

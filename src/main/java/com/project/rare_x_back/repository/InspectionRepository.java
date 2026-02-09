@@ -11,53 +11,85 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InspectionRepository extends JpaRepository<Inspection, Long> {
+    // 주문 ID로 검수 정보 조회 (단건 - ORDER-003용)
+    Optional<Inspection> findTopByOrder_OrderIdOrderByCreatedAtDesc(Long orderId);
+
+    // 주문 ID 목록으로 검수 정보 일괄 조회 (다건 - ORDER-002용)
+    @EntityGraph(attributePaths = {"order"})
+    List<Inspection> findByOrder_OrderIdIn(List<Long> orderIds);
 
     // ===== VER-001 검수 대기 목록 조회 (페이징) =====
 
     // 전체 조회 (타입 무관)
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i")
     Page<Inspection> findAllWithDetails(Pageable pageable);
 
     // 상태별 전체 조회 (타입 무관)
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i WHERE i.status = :status")
     Page<Inspection> findByStatus(@Param("status") InspectionStatus status, Pageable pageable);
 
     // 타입별 전체 조회
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i WHERE i.type = :type")
     Page<Inspection> findByType(@Param("type") InspectionType type, Pageable pageable);
 
     // 타입 + 상태별 조회
     @EntityGraph(attributePaths = {
+            "user",
             "storageRequest",
             "storageRequest.product",
             "storageRequest.product.brand",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i WHERE i.type = :type AND i.status = :status")
     Page<Inspection> findByTypeAndStatus(@Param("type") InspectionType type, @Param("status") InspectionStatus status, Pageable pageable);
 
     // 타입 + 상태별 건수 조회 (대시보드용)
     long countByTypeAndStatus(InspectionType type, InspectionStatus status);
+
 
     // ===== VER-004 검수 이력 조회용 (페이징) =====
 
@@ -68,7 +100,13 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.product.category",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.product.category",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i WHERE i.status IN :statuses")
     Page<Inspection> findHistoryByStatusIn(@Param("statuses") List<InspectionStatus> statuses, Pageable pageable);
@@ -80,8 +118,27 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.product.category",
-            "storageRequest.user"
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.product.brand",
+            "order.product.category",
+            "order.buyer",
+            "order.seller"
     })
     @Query("SELECT i FROM Inspection i WHERE i.status = :status")
     Page<Inspection> findHistoryByStatus(@Param("status") InspectionStatus status, Pageable pageable);
+
+    // ===== 동기화용 (N+1 방지) =====
+    @EntityGraph(attributePaths = {
+            "user",
+            "storageRequest",
+            "storageRequest.product",
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.seller"
+    })
+    @Query("SELECT i FROM Inspection i")
+    List<Inspection> findAllForSync();
 }

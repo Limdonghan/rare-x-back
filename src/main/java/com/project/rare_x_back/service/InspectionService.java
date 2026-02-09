@@ -6,9 +6,7 @@ import com.project.rare_x_back.dto.response.InspectionHistoryDetailResponseDto;
 import com.project.rare_x_back.dto.response.InspectionHistoryResponseDto;
 import com.project.rare_x_back.dto.response.InspectionResponseDto;
 import com.project.rare_x_back.entity.*;
-import com.project.rare_x_back.enums.InspectionStatus;
-import com.project.rare_x_back.enums.InspectionType;
-import com.project.rare_x_back.enums.StorageRequestStatus;
+import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.InspectionChecklistRepository;
@@ -21,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -32,11 +31,13 @@ public class InspectionService {
     private final InspectionChecklistRepository inspectionChecklistRepository;
     private final UserRepository userRepository;
     private final StorageItemRepository storageItemRepository;
+    private final OrderService orderService;
+    private final SearchService searchService;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
      *
-     * @param status 검수 상태 (null이면 전체)
+     * @param status   검수 상태 (null이면 전체)
      * @param pageable 페이징 정보
      * @return 검수 목록
      */
@@ -55,8 +56,8 @@ public class InspectionService {
     /**
      * 타입별 검수 목록 조회 (페이징)
      *
-     * @param type 검수 타입 (STORAGE, ORDER)
-     * @param status 검수 상태 (null이면 전체)
+     * @param type     검수 타입 (STORAGE, ORDER)
+     * @param status   검수 상태 (null이면 전체)
      * @param pageable 페이징 정보
      * @return 검수 목록
      */
@@ -121,6 +122,14 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.PENDING_INSPECTION);
         }
 
+        // order 상태 변경, order_history 이력 저장
+        if (inspection.getOrder() != null) {
+            orderService.updateOrderStatus(inspection.getOrder(),CurrentStatus.PENDING_INSPECTION);
+        }
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
+
         return InspectionResponseDto.from(inspection);
     }
 
@@ -154,11 +163,19 @@ public class InspectionService {
             inspection.getStorageRequest().updateStatus(StorageRequestStatus.INSPECTING);
         }
 
-        // 6. 체크리스트 생성
+        // order 상태 변경, order_history 이력 저장
+        if (inspection.getOrder() != null) {
+            orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.INSPECTING);
+        }
+
+        // 7. 체크리스트 생성
         InspectionChecklist checklist = InspectionChecklist.builder()
                 .inspection(inspection)
                 .build();
         inspectionChecklistRepository.save(checklist);
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
 
         return InspectionResponseDto.from(inspection);
     }
@@ -180,7 +197,7 @@ public class InspectionService {
     @Transactional
     public InspectionChecklistResponseDto updateChecklist(Long inspectionId, InspectionChecklistRequestDto request) {
         // 1. 먼저 검수 존재 확인
-        Inspection inspection = inspectionRepository.findById(inspectionId)
+        inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
         // 2. 체크리스트 조회
@@ -199,8 +216,9 @@ public class InspectionService {
     }
 
     /**
-     * 검수 합격 처리 (INSPECTING → PASSED)
+     * 검수 합격 처리 (INSPECTING → STORAGE 타입: PASSED, ORDER 타입: PASSED)
      * - STORAGE 타입: storage_requests 상태 동기화 + storage_items 생성
+     * - ORDER 타입: orders 상태 동기화
      */
     @Transactional
     public InspectionResponseDto passInspection(Long inspectionId) {
@@ -232,18 +250,34 @@ public class InspectionService {
             StorageItem storageItem = StorageItem.builder()
                     .user(storageRequest.getUser())
                     .product(storageRequest.getProduct())
+                    .status(StorageStatus.STORED)
+                    .expiredAt(LocalDateTime.now().plusDays(180))
                     .build();
             storageItemRepository.save(storageItem);
         }
 
-        // TODO ORDER 타입은 나중에 구현
+        if (inspection.getType() == InspectionType.ORDER) {
+            Order order = inspection.getOrder();
+
+            // NPE 검사
+            if (order == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            }
+
+            // order 상태 변경, order_history 이력 저장 (검수 합격)
+            orderService.updateOrderStatus(order, CurrentStatus.PASSED);
+        }
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
 
         return InspectionResponseDto.from(inspection);
     }
 
     /**
-     * 검수 불합격 처리 (INSPECTING → FAILED)
+     * 검수 불합격 처리 (INSPECTING → FAILED, RETURN)
      * - STORAGE 타입: storage_requests 상태 동기화
+     * - ORDER 타입: orders 상태 동기화
      */
     @Transactional
     public InspectionResponseDto failInspection(Long inspectionId, String failReason) {
@@ -269,10 +303,23 @@ public class InspectionService {
             }
 
             // storage_requests 상태 동기화
-            storageRequest.updateStatus(StorageRequestStatus.FAILED);
+            storageRequest.updateStatus(StorageRequestStatus.RETURN);
         }
 
-        // TODO ORDER 타입은 나중에 구현
+        if (inspection.getType() == InspectionType.ORDER) {
+            Order order = inspection.getOrder();
+
+            // NPE 검사
+            if (order == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            }
+
+            // order 상태 변경, order_history 이력 저장 (검수 불합격 → 반송)
+            orderService.updateOrderStatus(order, CurrentStatus.RETURN);
+        }
+
+        // Typesense 인덱싱
+        searchService.indexInspection(inspection);
 
         return InspectionResponseDto.from(inspection);
     }
@@ -316,4 +363,21 @@ public class InspectionService {
 
         return InspectionHistoryDetailResponseDto.from(inspection, checklist);
     }
+
+    // 검수 패스 후 구매자에게 발송함 PASSED -> SHIPPED
+    @Transactional
+    public void deliveryToBuyer (Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 상태가 검수 통과인지 확인
+        if (inspection.getStatus() != InspectionStatus.PASSED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과된 상품만 배송할 수 있습니다.");
+        }
+
+        // 3. order 상태 변경, order_history 이력 저장
+        orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
+    }
+
 }

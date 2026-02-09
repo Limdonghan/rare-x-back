@@ -1,6 +1,8 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.request.BidInfo;
+import com.project.rare_x_back.dto.response.BrandListResponseDto;
+import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductDetailResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
 import com.project.rare_x_back.entity.BuyBid;
@@ -10,9 +12,7 @@ import com.project.rare_x_back.entity.SaleBid;
 import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.BuyBidRepository;
-import com.project.rare_x_back.repository.ProductRepository;
-import com.project.rare_x_back.repository.SaleBidRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +31,9 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final BuyBidRepository buyBidRepository;
     private final SaleBidRepository saleBidRepository;
+    private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
+    private final WishListRepository wishListRepository;
 
     /**
     * [상품 목록 조회]
@@ -52,11 +55,10 @@ public class ProductService {
         // DTO 변환 및 이미지 처리
         return productPage.map(product -> {
             // [추가] 구매 가격 리스트 조회
-            List<BuyBid> buyBidPriceList = buyBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
             List<SaleBid> saleBidPriceList = saleBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
 
             // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
-            int buyPrice = buyBidPriceList.isEmpty() ? 0 : buyBidPriceList.getFirst().getPrice();
+            int buyPrice = saleBidPriceList.isEmpty() ? 0 : saleBidPriceList.getFirst().getPrice();
 
 
             // 이미지 리스트에서 첫 번째 이미지(썸네일) URL 추출
@@ -79,7 +81,7 @@ public class ProductService {
     /**
     * [상품 목록 상세 조회]
     * */
-    public ProductDetailResponseDto getPublicDetailProduct(Long productId) {
+    public ProductDetailResponseDto getPublicDetailProduct(Long productId, Long userId) {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(() -> new CustomException(
                         ErrorCode.RESOURCE_NOT_FOUND,
@@ -87,32 +89,32 @@ public class ProductService {
                 ));
 
         // [추가] 'OPEN' 상태인 모든 입찰 내역 조회
-        List<BuyBid> allBuyBids = buyBidRepository.findAllByProductAndStatus(product, BidStatus.OPEN);
-        List<SaleBid> allSaleBids = saleBidRepository.findAllByProductAndStatus(product, BidStatus.OPEN);
+        List<BuyBid> allBuyBids = buyBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
+        List<SaleBid> allSaleBids = saleBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
 
         // Java Stream으로 그룹핑 & 카운트 & 정렬
-        // 구매 입찰: 가격별로 묶기 -> 오름차순(싼 가격 우선)
+        // 구매 입찰 리스트: 가격별로 묶기 -> 내림차순
         List<BidInfo> buyBidList = allBuyBids.stream()
                 .collect(Collectors.groupingBy(BuyBid::getPrice, Collectors.counting()))
-                .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice))
-                .toList();
-
-        // 판매 입찰: 가격별로 묶기 -> 내림차순(비싼 가격 우선)
-        List<BidInfo> saleBidList = allSaleBids.stream()
-                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
                 .entrySet().stream()
                 .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
                 .sorted(Comparator.comparingInt(BidInfo::getPrice).reversed())
                 .toList();
 
+        // 판매 입찰 리스트: 가격별로 묶기 -> 오름차순
+        List<BidInfo> saleBidList = allSaleBids.stream()
+                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
+                .entrySet().stream()
+                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
+                .sorted(Comparator.comparingInt(BidInfo::getPrice))
+                .toList();
+
 
         // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
-        int buyPrice = buyBidList.isEmpty() ? 0 : buyBidList.getFirst().getPrice();
+        int buyPrice = saleBidList.isEmpty() ? 0 : saleBidList.getFirst().getPrice();
 
         // [추가] 상품 즉시 판매 최저가, 입찰이 없으며 0원
-        int salePrice = saleBidList.isEmpty() ? 0 : saleBidList.getFirst().getPrice();
+        int salePrice = buyBidList.isEmpty() ? 0 : buyBidList.getFirst().getPrice();
 
 
         // 이미지 객체 리스트를 URL만 있는 문자열 리스트로 변환
@@ -122,6 +124,12 @@ public class ProductService {
                 :product.getImages().stream()
                 .map(ProductImage::getImageUrl)
                 .toList();
+
+        // 찜 여부 확인 (비로그인이면 false)
+        boolean isLiked = false;
+        if (userId != null) {
+            isLiked = wishListRepository.existsByUserUserIdAndProductProductId(userId, productId);
+        }
 
         return ProductDetailResponseDto.builder()
                 .productId(productId)
@@ -134,8 +142,37 @@ public class ProductService {
                 .salePrice(salePrice)
                 .buyBidInfoList(buyBidList)
                 .saleBidInfoList(saleBidList)
+                .wishCount(product.getWishCount())
+                .isLiked(isLiked)
                 .build();
 
     }
 
+    /**
+     * [공용 카테고리 목록 조회]
+     */
+    public List<CategoryListResponseDto> getAllCategories() {
+        return categoryRepository.findAll().stream()
+                .map(category -> CategoryListResponseDto.builder()
+                        .categoryId(category.getCategoryId())
+                        .categoryName(category.getCategoryName())
+                        .productCount(productRepository.countByCategory_CategoryIdAndIsDeletedFalse(category.getCategoryId()))
+                        .createdAt(category.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * [공용 브랜드 목록 조회]
+     */
+    public List<BrandListResponseDto> getAllBrands() {
+        return brandRepository.findBrandsByIsDeletedFalse(Pageable.unpaged()).stream()
+                .map(brand -> BrandListResponseDto.builder()
+                        .brandId(brand.getBrandId())
+                        .brandName(brand.getBrandName())
+                        .productCount(productRepository.countByBrand_BrandIdAndIsDeletedFalse(brand.getBrandId()))
+                        .createdAt(brand.getCreatedAt())
+                        .build())
+                .toList();
+    }
 }
