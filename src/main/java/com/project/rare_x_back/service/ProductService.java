@@ -15,9 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -176,29 +178,28 @@ public class ProductService {
     /**
      * [보관 판매 상품 목록 조회]
      */
+    @Transactional(readOnly = true)
     public List<StorageProductResponseDto> getStorageProducts() {
-        List<Object[]> results = saleBidRepository.findStorageProducts(BidStatus.OPEN);
+        List<StorageProductResponseDto> results = saleBidRepository.findStorageProducts(BidStatus.OPEN);
 
-        return results.stream()
-                .map(row -> {
-                    Product product = (Product) row[0];
-                    int price = ((Number) row[1]).intValue();
-                    Long stockCount = ((Number) row[2]).longValue();
-
-                    String imageUrl = null;
-                    if (product.getImages() != null && !product.getImages().isEmpty()) {
-                        imageUrl = product.getImages().getFirst().getImageUrl();
-                    }
-
-                    return StorageProductResponseDto.builder()
-                            .productId(product.getProductId())
-                            .brandName(product.getBrand().getBrandName())
-                            .productName(product.getProductName())
-                            .price(price)
-                            .stock(stockCount)
-                            .imageUrl(imageUrl)
-                            .build();
-                })
+        /// 상품 ID 목록 추출
+        List<Long> productIds = results.stream()
+                .map(StorageProductResponseDto::getProductId)
                 .toList();
+
+        /// 상품 정보 일괄 조회 (이미지 정보를 가져오기 위함)
+        /// findAllById 대신 EntityGraph가 적용된 메서드 사용으로 N+1 문제 해결
+        Map<Long, Product> productMap = productRepository.findByProductIdIn(productIds).stream()
+                .collect(Collectors.toMap(Product::getProductId, product -> product));
+
+        /// 이미지(썸네일) URL 세팅
+        results.forEach(dto -> {
+            Product product = productMap.get(dto.getProductId());
+            if (product != null && product.getImages() != null && !product.getImages().isEmpty()) {
+                dto.setImageUrl(product.getImages().getFirst().getImageUrl());
+            }
+        });
+
+        return results;
     }
 }
