@@ -40,6 +40,7 @@ public class OrderService {
     private final SettlementService settlementService;
     private final UserPenaltyRepository userPenaltyRepository;
     private final PaymentService paymentService;
+    private final PaymentHistoryRepository paymentHistoryRepository;
 
 
     @Value("${app.service-start-date}")
@@ -256,8 +257,15 @@ public class OrderService {
                 .orElse(null);
 
         int productPrice = order.getPrice();
-        int commissionFee = FeeCalculator.buyerFee(productPrice);
         int totalAmount = (payment != null) ? payment.getAmount() : FeeCalculator.buyerTotalAmount(productPrice);
+
+        // 수수료: 실제 결제 기록 우선, 없으면 계산 fallback
+        PaymentHistory paymentHistory = paymentHistoryRepository
+                .findByOrder_OrderId(orderId)
+                .orElse(null);
+        int commissionFee = (paymentHistory != null)
+                ? paymentHistory.getCommissionFee()
+                : FeeCalculator.buyerFee(productPrice);
 
         // 4. 결제 방식
         String paymentMethod = (payment != null) ? payment.getMethod() : null;
