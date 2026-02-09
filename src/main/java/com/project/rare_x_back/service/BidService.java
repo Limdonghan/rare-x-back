@@ -75,7 +75,11 @@ public class BidService {
                                 StorageStatus.STORED
                         ); // -> 있으면  storageItemOpt.isPresent(); = true
 
+        /// [추가] 만약 보관 중인 상품의 입찰일 경후 보관 상품 상태 변경
         boolean storageItemCheck = storageItemOpt.isPresent();  // -> true 일때  StorageItem = 위에서 찾은 재고
+        if (storageItemCheck){
+            storageItemOpt.get().updateStatus(StorageStatus.ON_SALE);
+        }
         StorageItem storageItem = storageItemOpt.orElse(null);  // 없으면 StorageItem = null
 
         SaleBid build = SaleBid.builder()
