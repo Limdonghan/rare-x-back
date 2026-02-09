@@ -11,6 +11,7 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -57,7 +59,7 @@ public class StorageRequestService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
         // 4. 보증금 결제 먼저 시도 (실패하면 신청 생성 없이 바로 에러)
-        int quantity = request.getQuantity();   // 보관 수량
+        int quantity = request.getQuantity();
         int totalDeposit = FeeCalculator.STORAGE_DEPOSIT * quantity;
 
         String tossPaymentKey;
@@ -65,11 +67,11 @@ public class StorageRequestService {
             tossPaymentKey = paymentService.payStorageFeeWithBillingKey(
                     user.getUserId(), totalDeposit);
         } catch (Exception e) {
-            throw new CustomException(ErrorCode.PAYMENT_FAILED,
-                    "보증금 결제 실패: " + e.getMessage());
+            log.error("보관 보증금 결제 실패: userId={}, amount={}", user.getUserId(), totalDeposit, e);
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 결제에 실패했습니다. 카드 정보를 확인해주세요.");
         }
 
-        // 5. 결제 성공 후에만 보관 신청 생성
+        // 5. 결제 성공 후 신청 생성 + 건별 보증금 기록
         List<StorageRequest> savedRequests = new ArrayList<>();
         for (int i = 0; i < quantity; i++) {
             StorageRequest storageRequest = StorageRequest.builder()
@@ -78,17 +80,16 @@ public class StorageRequestService {
                     .status(StorageRequestStatus.PENDING)
                     .build();
             savedRequests.add(storageRequestRepository.save(storageRequest));
+
+            StorageDeposit deposit = StorageDeposit.builder()
+                    .storageRequest(storageRequest)
+                    .user(user)
+                    .build();
+            deposit.markSuccess(tossPaymentKey);
+            storageDepositRepository.save(deposit);
         }
 
-        // 6. 보증금 기록
-        StorageDeposit deposit = StorageDeposit.builder()
-                .storageRequest(savedRequests.get(0))
-                .user(user)
-                .build();
-        deposit.markSuccess(tossPaymentKey);
-        storageDepositRepository.save(deposit);
-
-        // 7. 첫 번째 신청 기준 응답 반환
+        // 6. 첫 번째 신청 기준 응답 반환
         return StorageRequestResponseDto.from(savedRequests.get(0), inspectionCenterAddress, inspectionCenterZipcode);
     }
 
