@@ -20,6 +20,7 @@ import org.typesense.model.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -507,42 +508,106 @@ public class SearchService {
     }
 
     // ==================== 유틸 메서드 ====================
-
-    /**
-     * 스프링부트 시작 시 컬렉션 자동 생성
-     */
     @PostConstruct
     public void init() {
-        String[] collections = {"products", "users", "orders", "inspections"};
-        for (String name : collections) {
-            if (!collectionExists(name)) {
-                log.warn("Typesense 컬렉션 없음: {} - 자동 생성 시도", name);
-                createCollection(name);
-            } else {
-                log.info("Typesense 컬렉션 확인: {}", name);
+        // 백그라운드에서 재시도하며 초기화
+        CompletableFuture.runAsync(() -> {
+            int maxRetries = 10;
+            int retryDelay = 2000;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    log.info(" Typesense 연결 시도 {}/{}", attempt, maxRetries);
+
+                    // 연결 테스트
+                    //typesenseClient.health();
+                    log.info(" Typesense 연결 성공!");
+
+                    // 컬렉션 초기화
+                    String[] collections = {"products", "users", "orders", "inspections"};
+                    for (String name : collections) {
+                        if (!collectionExists(name)) {
+                            log.warn("컬렉션 없음: {} - 자동 생성", name);
+                            createCollection(name);
+                        } else {
+                            log.info("컬렉션 확인: {}", name);
+                        }
+                    }
+
+                    log.info("Typesense 초기화 완료!");
+                    return;
+
+                } catch (Exception e) {
+                    log.warn("시도 {}/{} 실패: {}", attempt, maxRetries, e.getMessage());
+
+                    if (attempt == maxRetries) {
+                        log.error(" Typesense 최종 실패 - 검색 기능 제한됨");
+                        return;
+                    }
+
+                    try {
+                        Thread.sleep(retryDelay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
             }
-        }
+        });
+
+        log.info(" Spring 시작 완료 (Typesense는 백그라운드 초기화 중)");
     }
 
-    /**
-     * 컬렉션 존재 여부 체크
-     */
     public boolean collectionExists(String collectionName) {
         try {
             typesenseClient.collections(collectionName).retrieve();
             return true;
         } catch (Exception e) {
-            // 1. "찾을 수 없음(Not Found)" 에러인지 확인
-            // (라이브러리에 따라 ObjectNotFound 예외를 catch하거나, 메시지에 "404"가 포함되었는지 확인)
-            if (e.getMessage().contains("404") || e.getClass().getSimpleName().equals("ObjectNotFound")) {
+            if (e.getMessage().contains("404") ||
+                    e.getClass().getSimpleName().equals("ObjectNotFound")) {
                 return false;
             }
 
-            // 2. 그 외의 에러(네트워크, 인증 등)는 진짜 문제이므로 로그를 남기고 예외를 다시 던짐
-            log.error("Typesense 상태 확인 실패 (네트워크 또는 인증 오류 가능성): {}", e.getMessage());
-            throw new RuntimeException("Typesense check failed", e);
+            // 연결 오류는 경고만
+            log.warn(" Typesense 체크 실패: {}", e.getMessage());
+            return false;  // 예외 던지지 않음!
         }
     }
+    /**
+     * 스프링부트 시작 시 컬렉션 자동 생성
+     */
+//    @PostConstruct
+//    public void init() {
+//        String[] collections = {"products", "users", "orders", "inspections"};
+//        for (String name : collections) {
+//            if (!collectionExists(name)) {
+//                log.warn("Typesense 컬렉션 없음: {} - 자동 생성 시도", name);
+//                createCollection(name);
+//            } else {
+//                log.info("Typesense 컬렉션 확인: {}", name);
+//            }
+//        }
+//    }
+//
+//    /**
+//     * 컬렉션 존재 여부 체크
+//     */
+//    public boolean collectionExists(String collectionName) {
+//        try {
+//            typesenseClient.collections(collectionName).retrieve();
+//            return true;
+//        } catch (Exception e) {
+//            // 1. "찾을 수 없음(Not Found)" 에러인지 확인
+//            // (라이브러리에 따라 ObjectNotFound 예외를 catch하거나, 메시지에 "404"가 포함되었는지 확인)
+//            if (e.getMessage().contains("404") || e.getClass().getSimpleName().equals("ObjectNotFound")) {
+//                return false;
+//            }
+//
+//            // 2. 그 외의 에러(네트워크, 인증 등)는 진짜 문제이므로 로그를 남기고 예외를 다시 던짐
+//            log.error("Typesense 상태 확인 실패 (네트워크 또는 인증 오류 가능성): {}", e.getMessage());
+//            throw new RuntimeException("Typesense check failed", e);
+//        }
+//    }
 
     /**
      * 컬렉션 자동 생성
