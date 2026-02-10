@@ -1,10 +1,7 @@
 package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.dto.response.*;
-import com.project.rare_x_back.entity.Inspection;
-import com.project.rare_x_back.entity.Order;
-import com.project.rare_x_back.entity.Product;
-import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
@@ -15,22 +12,22 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.typesense.api.Client;
 import org.typesense.model.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SearchService {
 
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final String POPULAR_KEYWORD_KEY = "search:popular"; // Redis key
     private final Client typesenseClient;
     @Value("${app.service-start-date}")
     private String serviceStartDate;
@@ -41,6 +38,9 @@ public class SearchService {
      * 상품 검색 (회원용 + 관리자용 공통)
      */
     public SearchResultDto<ProductSearchResponseDto> searchProducts(String keyword, Pageable pageable) {
+        if (keyword != null && !keyword.isBlank()) {
+            increaseSearchCount(keyword.trim());
+        }
         try {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
@@ -198,9 +198,19 @@ public class SearchService {
             document.put("category_name", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
             document.put("product_description", product.getProductDescription());
             document.put("retail_price", product.getRetailPrice());
+            document.put("wish_count", product.getWishCount());     /// [추가] 관신 갯수 추가
             document.put("is_deleted", product.isDeleted());
             document.put("created_at", product.getCreatedAt() != null
                     ? product.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
+
+            /// [추가] 상품 이미지 인덱싱
+            List<String> imageUrls = new ArrayList<>();
+            if (product.getImages() != null && !product.getImages().isEmpty()){
+                imageUrls = product.getImages().stream()
+                        .map(ProductImage::getImageUrl)
+                        .toList();
+            }
+            document.put("image_urls", imageUrls);
 
             typesenseClient.collections("products")
                     .documents()
@@ -383,6 +393,8 @@ public class SearchService {
                             .brandName((String) doc.getOrDefault("brand_name", ""))
                             .categoryName((String) doc.getOrDefault("category_name", ""))
                             .productDescription((String) doc.getOrDefault("product_description", ""))
+                            .wishCount((Integer) doc.getOrDefault("wish_count", 0))
+                            .imageUrls((List<String>) doc.get("image_urls") != null ? (List<String>) doc.get("image_urls") : null)
                             .retailPrice(doc.get("retail_price") != null ? ((Number) doc.get("retail_price")).intValue() : 0)
                             .build());
                 } catch (Exception e) {
@@ -546,6 +558,8 @@ public class SearchService {
                         new Field().name("product_description").type("string"),
                         new Field().name("retail_price").type("int32"),
                         new Field().name("is_deleted").type("bool"),
+                        new Field().name("imageUrl").type("string[]"),
+                        new Field().name("wishCount").type("int64"),
                         new Field().name("created_at").type("int64")
                 );
                 case "users" -> List.of(
@@ -595,6 +609,37 @@ public class SearchService {
                 // 그 외의 진짜 에러만 로그에 남김
                 log.error("Typesense 컬렉션 생성 실패: {} - {}", collectionName, e.getMessage());
             }
+        }
+    }
+    /**
+     * 검색어 횟수 증가 (Redis ZSET)
+     */
+    private void increaseSearchCount(String keyword){
+        try {
+            Double aDouble = redisTemplate.opsForZSet().incrementScore(POPULAR_KEYWORD_KEY, keyword, 1.0);
+            log.info("인기 검색어 카운트 성공: {}",aDouble);
+        }catch (Exception e){
+            log.error("인기 검색어 카운트 실패: {}",e.getMessage());
+        }
+    }
+
+    /**
+     * 인기 검색어 Top 10 조회
+     */
+    public List<String> getPopularKeywords(){
+        try {
+            /// Score(검색 횟수)가 높은 순으로 상위 10개 조회 (Reverse Range)
+            Set<String> topKeywords = redisTemplate.opsForZSet().reverseRange(POPULAR_KEYWORD_KEY, 0, 9);
+            log.info("인기 검색어 조회 : {}",topKeywords);
+            if (topKeywords == null || topKeywords.isEmpty()) {
+                return List.of();
+            }
+            return new ArrayList<>(topKeywords);
+
+
+        }catch (Exception e){
+            log.error("인기 검색어 조회 실패 : {}",e.getMessage());
+            return List.of();
         }
     }
 }
