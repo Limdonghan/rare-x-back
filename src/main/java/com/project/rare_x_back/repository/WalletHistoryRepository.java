@@ -11,7 +11,6 @@ public interface WalletHistoryRepository extends JpaRepository<WalletHistory, Lo
 
     @Query("""
             select h from WalletHistory h
-            join fetch h.wallet w
             where h.wallet.walletId= :walletId
             and h.type = :type
             order by h.createdAt desc

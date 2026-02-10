@@ -38,6 +38,7 @@ public class UserSettlementHistoryDto {
     public static class CompensationItemDto {
         private String description; // 사유 - 거래 취소 패널티 보상
         private String compensationAmount;
+        private LocalDateTime compensatedAt;
     }
 
 }

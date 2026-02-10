@@ -96,6 +96,7 @@ public class UserWalletService {
                 .map(h -> UserSettlementHistoryDto.CompensationItemDto.builder()
                         .description("거래 취소 보상")
                         .compensationAmount(String.format("+%,d원", h.getAmount()))
+                        .compensatedAt(h.getCreatedAt()) // 보상 지급 시점
                         .build())
                 .toList();
 
