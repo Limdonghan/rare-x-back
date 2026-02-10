@@ -233,6 +233,10 @@ public class BidService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 대기 상태에서만 발송 처리가 가능합니다.");
         }
 
+        if (LocalDateTime.now().isAfter(order.getShipDeadline())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 마감 기한이 지났습니다.");
+        }
+
         // 5-1 판매자 -> 검수센터 발송 완료 시간 기록
         order.updateToShipped();
         // 5-2 Order 상태 변경 + 주문 이력 저장
