@@ -78,4 +78,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @EntityGraph(attributePaths = {"buyer", "seller", "product", "product.images", "product.brand"})
     @Query("SELECT o FROM Order o WHERE o.orderId = :orderId")
     Optional<Order> findAdminOrderDetail(@Param("orderId") Long orderId);
+
+    // ====== 관리자 회원 상세 - 거래건수 (MANAGER-004) ======
+
+    long countByBuyer_UserId(Long userId);
+
+    long countBySeller_UserId(Long userId);
 }
