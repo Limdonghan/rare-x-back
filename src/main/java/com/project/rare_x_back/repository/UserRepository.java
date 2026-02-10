@@ -1,13 +1,17 @@
 package com.project.rare_x_back.repository;
 
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.ProviderType;
+import com.project.rare_x_back.enums.Status;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -38,4 +42,28 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "WHERE u.email = :email")
     void updatePasswordlessStatus(@Param("email") String email,
                                   @Param("enabled") Boolean enabled);
+
+    // ====== 관리자 회원 관리 (MANAGER-004) ======
+
+    // 전체 조회 (탈퇴 회원 포함)
+    @Query("SELECT u FROM User u")
+    Page<User> findAllForAdmin(Pageable pageable);
+
+    // 상태 필터
+    Page<User> findByStatusIn(List<Status> statuses, Pageable pageable);
+
+    // 가입유형 필터
+    Page<User> findByProviderType(ProviderType providerType, Pageable pageable);
+
+    // 상태 + 가입유형 필터
+    Page<User> findByStatusInAndProviderType(
+            List<Status> statuses, ProviderType providerType, Pageable pageable);
+
+    // 키워드 검색
+    @Query("SELECT u FROM User u WHERE u.name LIKE %:keyword% OR u.email LIKE %:keyword%")
+    Page<User> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    // 통계
+    @Query("SELECT u.status, COUNT(u) FROM User u GROUP BY u.status")
+    List<Object[]> countByStatus();
 }

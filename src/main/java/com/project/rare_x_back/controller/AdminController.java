@@ -3,16 +3,17 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
-import com.project.rare_x_back.dto.response.BrandListResponseDto;
-import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.AdminUserService;
 import com.project.rare_x_back.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final OrderService orderService;
+    private final AdminUserService adminUserService;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
@@ -164,5 +166,37 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
     }
 
+    // ====== 관리자 회원 관리 (MANAGER-004) ======
 
+    // 회원 목록 조회 + 통계
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<AdminUserListResponseDto>> getAdminUsers(
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) String providerType,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        AdminUserListResponseDto result = adminUserService.getAdminUsers(status, providerType, pageable);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 회원 상세 조회
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponseDto>> getAdminUserDetail(
+            @PathVariable Long userId) {
+
+        AdminUserDetailResponseDto result = adminUserService.getAdminUserDetail(userId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 회원 상태 변경
+    @PatchMapping("/users/{userId}/status")
+    public ResponseEntity<ApiResponse<Void>> updateUserStatus(
+            @PathVariable Long userId,
+            @Valid @RequestBody AdminUserStatusRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        adminUserService.updateUserStatus(userId, request);
+        log.info("관리자({})가 회원 {} 상태를 {} 으로 변경", adminDetails.getUsername(), userId, request.getStatus());
+        return ResponseEntity.ok(ApiResponse.success("회원 상태가 변경되었습니다."));
+    }
 }
