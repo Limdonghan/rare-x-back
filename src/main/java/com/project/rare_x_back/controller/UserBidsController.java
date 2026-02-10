@@ -4,8 +4,10 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.UpdateBidPriceRequestDto;
 import com.project.rare_x_back.dto.response.MyBuyBidResponseDto;
+import com.project.rare_x_back.dto.response.MySaleBidMatchedResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidResponseDto;
 import com.project.rare_x_back.enums.BidStatus;
+import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.service.BidService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -38,6 +40,16 @@ public class UserBidsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) BidStatus status) {
         List<MySaleBidResponseDto> response = bidService.getMySaleBids(userDetails.getEmail(), status);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 판매 입찰 목록 조회 - 체결됨
+    @GetMapping("/salebid/matched")
+    public ResponseEntity<ApiResponse<List<MySaleBidMatchedResponseDto>>> getMySaleBidMatched(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) CurrentStatus orderStatus) {
+        List<MySaleBidMatchedResponseDto> response = bidService.getMySaleBidMatched(
+                userDetails.getEmail(), orderStatus);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

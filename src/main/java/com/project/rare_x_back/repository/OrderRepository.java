@@ -48,11 +48,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByBuyer_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses, Pageable pageable);
 
     // 판매 내역 전체 조회
-    @EntityGraph(attributePaths = {"product", "product.images"})
+    @EntityGraph(attributePaths = {"product", "product.images", "product.brand"})
     Page<Order> findBySeller_UserId(Long userId, Pageable pageable);
 
     // 판매 내역 상태 필터 조회
-    @EntityGraph(attributePaths = {"product", "product.images"})
+    @EntityGraph(attributePaths = {"product", "product.images", "product.brand"})
     Page<Order> findBySeller_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses, Pageable pageable);
 
     // ====== 관리자 주문 조회 (MANAGER-009) ======
