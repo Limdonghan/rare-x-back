@@ -75,6 +75,7 @@ public class UserWalletService {
         UserWallet wallet = userWalletRepository.findByUser(user)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
 
+
         // 최신순으로 조회
         List<Settlement> settlements = settlementRepository.findAllWithOrderAndProduct(userId, SettlementStatus.COMPLETE);
 
@@ -89,10 +90,21 @@ public class UserWalletService {
                         .build())
                 .toList();
 
+        List<WalletHistory> walletHistories = walletHistoryRepository.findAllByWalletId(wallet.getWalletId(), WalletHistoryType.COMPENSATION);
+
+        List<UserSettlementHistoryDto.CompensationItemDto> compensationItemDtos = walletHistories.stream()
+                .map(h -> UserSettlementHistoryDto.CompensationItemDto.builder()
+                        .description("거래 취소 보상")
+                        .compensationAmount(String.format("+%,d원", h.getAmount()))
+                        .compensatedAt(h.getCreatedAt()) // 보상 지급 시점
+                        .build())
+                .toList();
+
         return UserSettlementHistoryDto.builder()
                 .userName(user.getName())
                 .currentBalance(String.format("%,d원", wallet.getBalance()))
                 .settlements(settlementDtos)
+                .compensationItems(compensationItemDtos)
                 .build();
 
     }
