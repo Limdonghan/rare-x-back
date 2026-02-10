@@ -1,4 +1,4 @@
-package com.project.rare_x_back.scheduler;
+package com.project.rare_x_back.Scheduler;
 
 import com.project.rare_x_back.service.OrderService;
 import lombok.RequiredArgsConstructor;
