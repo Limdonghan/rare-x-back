@@ -62,6 +62,7 @@ public class SecurityConfig {
                                 "/api/serving/login-trigger",
                                 "/api/serving/result",
                                 "/api/serving/cancel",
+                                "/actuator/health",
                                 "/api/serving/status"
                         ).permitAll()
                         .requestMatchers(
