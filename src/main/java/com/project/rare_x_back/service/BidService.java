@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -324,12 +324,9 @@ public class BidService {
         List<BuyBid> bids;
 
         if (status == null) {
-            bids = buyBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId());
         } else {
-            bids = buyBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
+            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), status);
         }
 
         // DTO 변환
@@ -347,12 +344,9 @@ public class BidService {
         // 입찰 조회 (status 있으면 필터, 없으면 전체)
         List<SaleBid> bids;
         if (status == null) {
-            bids = saleBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+            bids = saleBidRepository.findMySaleBidsAll(user.getUserId());
         } else {
-            bids = saleBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
+            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), status);
         }
 
         return bids.stream()
@@ -368,12 +362,13 @@ public class BidService {
 
         List<Order> orders;
         if (orderStatus == null) {
-            orders = orderRepository.findBySeller_UserId(user.getUserId(), Pageable.unpaged()).getContent();
+            orders = orderRepository.findBySeller_UserId(user.getUserId(),
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "CreatedAt"))).getContent();
         } else {
             List<CurrentStatus> statuses = mapToStatuses(orderStatus);
             orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    user.getUserId(), statuses, Pageable.unpaged()
-            ).getContent();
+                    user.getUserId(), statuses,
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
         }
 
         return orders.stream()
