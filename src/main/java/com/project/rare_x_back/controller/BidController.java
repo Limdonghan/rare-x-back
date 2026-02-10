@@ -21,6 +21,13 @@ public class BidController {
 
     private final BidService bidService;
 
+    /// 수수료 설정 조회
+    @GetMapping("/fees")
+    public ResponseEntity<ApiResponse<FeeResponseDto>> getFees() {
+        FeeResponseDto feeResponseDto = bidService.getFees();
+        return ResponseEntity.ok(ApiResponse.success(feeResponseDto, "수수료 정보 조회가 완료되었습니다."));
+    }
+
     /// 판매 입찰 등록
     @PostMapping("/sale")
     public ResponseEntity<ApiResponse<RegisterSaleBidResponseDto>> registerSaleBid(@Valid @RequestBody RegisterSaleBidRequestDto registerSaleBidRequestDto,
@@ -68,17 +75,4 @@ public class BidController {
                 .ok().body(ApiResponse.success(sellNowResponseDto,"즉시 판매가 완료되었습니다"));
     }
 
-    /**
-     * [Order 발송 처리]
-     * 판매자가 검수센터로 상품 발송 완료 처리
-     */
-    @PostMapping("/orders/{orderId}/ship")
-    public ResponseEntity<ApiResponse<OrderShipResponseDto>> shipOrderToWarehouse(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long orderId) {
-
-        OrderShipResponseDto response = bidService.shipOrderToWarehouse(userDetails.getUsername(), orderId);
-
-        return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다."));
-    }
 }

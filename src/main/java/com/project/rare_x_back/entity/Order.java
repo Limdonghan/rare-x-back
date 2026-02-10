@@ -2,9 +2,11 @@ package com.project.rare_x_back.entity;
 
 import com.project.rare_x_back.enums.BidType;
 import com.project.rare_x_back.enums.CurrentStatus;
+import com.project.rare_x_back.enums.ReturnStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -59,11 +61,12 @@ public class Order {
     @CreatedDate
     private LocalDateTime createdAt;       /// 주문 생성일
 
+    @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @Column(name = "expired_at")
-    private LocalDateTime expiresAt;       /// 거래 만료일
+    private LocalDateTime expiresAt;       /// 거래 만료일 = 구매 확정된 날
 
     @Column(name = "seller_shipped_at")
     private LocalDateTime sellerShippedAt;
@@ -71,15 +74,23 @@ public class Order {
     @Column(name="ship_deadline")
     private LocalDateTime shipDeadline;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "return_status")
+    private ReturnStatus returnStatus;
+
 
     // 상태 업데이트
     public void updateStatus(CurrentStatus newStatus) {
         this.currentStatus = newStatus;
     }
 
+    // 판매자 -> 검수센터 발송완료 시간 기록
+    public void updateToShipped() {
+        this.sellerShippedAt = LocalDateTime.now(); // 현재 시간 기록
+    }
 
-
-
-
-
+    // 거래만료일 -> 구매 확정 시점
+    public void updateExpAt() {
+        this.expiresAt = LocalDateTime.now();
+    }
 }

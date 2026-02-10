@@ -21,4 +21,5 @@ public class ProductResponseDto {
     private int price;
     private List<String> imageUrls;
     private int retailPrice;
+    private int wishCount;          /// [추가] 관심 수
 }

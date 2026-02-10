@@ -4,6 +4,7 @@ import com.project.rare_x_back.enums.SettlementStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EnableJpaAuditing
 public class Settlement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +33,7 @@ public class Settlement {
     private SaleBid sellBid;
 
     @Column(name = "total_price", nullable = false)
-    private int totalPrice;        // 주문 총액
+    private int totalPrice;        // 주문 총액 (거래 체결 가격)
 
     @Column(name = "commission_fee", nullable = false)
     private int commissionFee;     // 3% 수수료
@@ -43,8 +45,8 @@ public class Settlement {
     private int payout;            // 판매자 지급액
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private SettlementStatus status;   // PENDING, COMPLETED, FAILED
+    @Column(name = "status", nullable = false)
+    private SettlementStatus status;   // PENDING, COMPLETE, FAILED
 
     @Column(name = "fail_reason")
     private String failReason;
@@ -56,4 +58,15 @@ public class Settlement {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    public void complete() {
+        this.status = SettlementStatus.COMPLETE;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    // 정산 실패
+    public void fail(String reason) {
+        this.status = SettlementStatus.FAILED;
+        this.failReason = reason;
+        this.completedAt = LocalDateTime.now();
+    }
 }

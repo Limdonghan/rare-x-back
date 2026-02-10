@@ -6,10 +6,8 @@ import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.BrandListResponseDto;
 import com.project.rare_x_back.dto.response.CategoryListResponseDto;
 import com.project.rare_x_back.dto.response.ProductResponseDto;
-import com.project.rare_x_back.repository.ProductRepository;
 import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.S3ImageService;
-import com.project.rare_x_back.service.SearchService;
+import com.project.rare_x_back.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +28,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
-    private final S3ImageService s3ImageService;
-    private final SearchService searchService;
-    private final ProductRepository productRepository;
+    private final OrderService orderService;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
@@ -76,8 +72,8 @@ public class AdminController {
     @PatchMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestPart("data")  ProductUpdateRequestDto productUpdateRequestDto,
-            @RequestParam(value = "deleteIds", required = false) List<Long> deleteIds,
+            @Valid @RequestPart("data") ProductUpdateRequestDto productUpdateRequestDto,
+            @RequestParam(value = "deleteIds", required = false) List<String> deleteIds,
             @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages,
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
@@ -156,4 +152,17 @@ public class AdminController {
         adminService.deleteBrand(brandId);
         return ResponseEntity.ok(ApiResponse.success("브랜드 삭제가 완료되었습니다."));
     }
+
+    // 주문 배송 완료로 상태 변경
+    @PatchMapping("/orders/{orderId}/delivered")
+    public ResponseEntity <ApiResponse<Void>> deliveredOrder (
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+            ) {
+        orderService.deliveryComplete(orderId);
+        log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
+        return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+
 }
