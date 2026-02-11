@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @AllArgsConstructor
 @RestController
@@ -164,6 +166,22 @@ public class AdminController {
         orderService.deliveryComplete(orderId);
         log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+    // 카테고리 일괄 삭제
+    @DeleteMapping("/categories/bulk")
+    public ResponseEntity<ApiResponse<Void>> bulkDeleteCategories(
+            @RequestBody Map<String, List<Long>> request) {
+        adminService.bulkDeleteCategories(request.get("ids"));
+        return ResponseEntity.ok(ApiResponse.success("카테고리 일괄 삭제가 완료되었습니다."));
+    }
+
+    // 브랜드 일괄 삭제
+    @DeleteMapping("/brands/bulk")
+    public ResponseEntity<ApiResponse<Void>> bulkDeleteBrands(
+            @RequestBody Map<String, List<Long>> request) {
+        adminService.bulkDeleteBrands(request.get("ids"));
+        return ResponseEntity.ok(ApiResponse.success("브랜드 일괄 삭제가 완료되었습니다."));
     }
 
     // ====== 관리자 회원 관리 (MANAGER-004) ======

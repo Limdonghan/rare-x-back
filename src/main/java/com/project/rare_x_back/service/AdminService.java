@@ -350,4 +350,43 @@ public class AdminService {
         brandRepository.deleteById(brand.getBrandId());
     }
 
+    // 카테고리 일괄 삭제
+    public void bulkDeleteCategories(List<Long> categoryIds) {
+        List<Category> categories = categoryRepository.findAllById(categoryIds);
+        if (categories.size() != categoryIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 카테고리가 포함되어 있습니다.");
+        }
+
+        List<Long> linkedIds = productRepository.findCategoryIdsWithProducts(categoryIds);
+        if (!linkedIds.isEmpty()) {
+            String names = categories.stream()
+                    .filter(c -> linkedIds.contains(c.getCategoryId()))
+                    .map(Category::getCategoryName)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 카테고리가 포함되어 있습니다: " + names);
+        }
+
+        categoryRepository.deleteAllInBatch(categories);
+    }
+
+    // 브랜드 일괄 삭제
+    public void bulkDeleteBrands(List<Long> brandIds) {
+        List<Brand> brands = brandRepository.findAllById(brandIds);
+        if (brands.size() != brandIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 브랜드가 포함되어 있습니다.");
+        }
+
+        List<Long> linkedIds = productRepository.findBrandIdsWithProducts(brandIds);
+        if (!linkedIds.isEmpty()) {
+            String names = brands.stream()
+                    .filter(b -> linkedIds.contains(b.getBrandId()))
+                    .map(Brand::getBrandName)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 브랜드가 포함되어 있습니다: " + names);
+        }
+
+        brandRepository.deleteAllInBatch(brands);
+    }
 }
