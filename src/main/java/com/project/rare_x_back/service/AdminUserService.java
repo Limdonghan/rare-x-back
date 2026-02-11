@@ -156,6 +156,49 @@ public class AdminUserService {
         log.info("회원 상태 변경: userId={}, {} -> {}", userId, oldStatus, newStatus);
     }
 
+    // ====== 회원 일괄 상태 변경 ======
+    @Transactional
+    public void bulkUpdateUserStatus(AdminUserStatusRequestDto request) {
+
+        // 1. userIds 검증
+        if (request.getUserIds() == null || request.getUserIds().isEmpty()) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "변경할 회원을 선택해주세요.");
+        }
+
+        // 2. 상태값 검증
+        Status newStatus;
+        try {
+            newStatus = Status.valueOf(request.getStatus());
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "유효하지 않은 상태값입니다: " + request.getStatus());
+        }
+
+        // 3. 유저 목록 조회
+        List<User> users = userRepository.findAllById(request.getUserIds());
+
+        if (users.size() != request.getUserIds().size()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND, "존재하지 않는 회원이 포함되어 있습니다.");
+        }
+
+        // 4. QUITED 회원 포함 여부 검증
+        boolean hasQuitedUser = users.stream()
+                .anyMatch(user -> user.getStatus() == Status.QUITED);
+        if (hasQuitedUser) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "탈퇴한 회원이 포함되어 변경할 수 없습니다.");
+        }
+
+        // 5. 상태 변경 + TypeSense 인덱스 업데이트
+        for (User user : users) {
+            Status oldStatus = user.getStatus();
+            if (oldStatus != newStatus) {
+                user.setStatus(newStatus);
+                userRepository.save(user);
+                searchService.indexUser(user);
+                log.info("회원 상태 일괄변경: userId={}, {} -> {}", user.getUserId(), oldStatus, newStatus);
+            }
+        }
+    }
+
     // ====== Private 메서드 ======
 
     private AdminUserListResponseDto.UserItem toUserItem(User user) {

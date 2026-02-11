@@ -199,4 +199,16 @@ public class AdminController {
         log.info("관리자({})가 회원 {} 상태를 {} 으로 변경", adminDetails.getUsername(), userId, request.getStatus());
         return ResponseEntity.ok(ApiResponse.success("회원 상태가 변경되었습니다."));
     }
+
+    // 회원 일괄 상태 변경
+    @PatchMapping("/users/bulk/status")
+    public ResponseEntity<ApiResponse<Void>> bulkUpdateUserStatus(
+            @Valid @RequestBody AdminUserStatusRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        adminUserService.bulkUpdateUserStatus(request);
+        log.info("관리자({})가 회원 {}명 상태를 {} 으로 일괄 변경",
+                adminDetails.getUsername(), request.getUserIds().size(), request.getStatus());
+        return ResponseEntity.ok(ApiResponse.success("회원 상태가 일괄 변경되었습니다."));
+    }
 }
