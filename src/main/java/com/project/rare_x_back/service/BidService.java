@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.common.FeeCalculator;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.entity.*;
@@ -7,18 +8,18 @@ import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
-import com.project.rare_x_back.common.FeeCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -232,6 +233,10 @@ public class BidService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 대기 상태에서만 발송 처리가 가능합니다.");
         }
 
+        if (LocalDateTime.now().isAfter(order.getShipDeadline())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 마감 기한이 지났습니다.");
+        }
+
         // 5-1 판매자 -> 검수센터 발송 완료 시간 기록
         order.updateToShipped();
         // 5-2 Order 상태 변경 + 주문 이력 저장
@@ -319,12 +324,9 @@ public class BidService {
         List<BuyBid> bids;
 
         if (status == null) {
-            bids = buyBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId());
         } else {
-            bids = buyBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
+            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), status);
         }
 
         // DTO 변환
@@ -342,17 +344,53 @@ public class BidService {
         // 입찰 조회 (status 있으면 필터, 없으면 전체)
         List<SaleBid> bids;
         if (status == null) {
-            bids = saleBidRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+            bids = saleBidRepository.findMySaleBidsAll(user.getUserId());
         } else {
-            bids = saleBidRepository.findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(),
-                    status
-            );
+            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), status);
         }
 
         return bids.stream()
                 .map(MySaleBidResponseDto::from)
                 .toList();
+    }
+
+    // 판매입찰 체결됨 탭 조회 (Order 기반)
+    @Transactional(readOnly = true)
+    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, CurrentStatus orderStatus) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        List<Order> orders;
+        if (orderStatus == null) {
+            orders = orderRepository.findBySeller_UserId(user.getUserId(),
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "CreatedAt"))).getContent();
+        } else {
+            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+                    user.getUserId(), statuses,
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        }
+
+        return orders.stream()
+                .map(MySaleBidMatchedResponseDto::from)
+                .toList();
+    }
+
+    // CurrentStatus 매핑
+    private List<CurrentStatus> mapToStatuses(CurrentStatus filterStatus) {
+        return switch (filterStatus) {
+            case PENDING -> List.of(CurrentStatus.PENDING);
+            case INSPECTING -> List.of(
+                    CurrentStatus.SHIPPED_TO_WAREHOUSE,
+                    CurrentStatus.PENDING_INSPECTION,
+                    CurrentStatus.INSPECTING
+            );
+            case SHIPPED -> List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED);
+            case DELIVERED -> List.of(CurrentStatus.DELIVERED);
+            case CONFIRMED_PURCHASE -> List.of(CurrentStatus.CONFIRMED_PURCHASE);
+            case CANCELLED -> List.of(CurrentStatus.RETURN, CurrentStatus.CANCELLED);
+            default -> List.of(filterStatus);
+        };
     }
 
     // 구매 입찰 가격 수정
