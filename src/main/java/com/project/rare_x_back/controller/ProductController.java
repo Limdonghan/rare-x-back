@@ -62,6 +62,13 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    /// [추가] 인기 검색어 목록 조회
+    @GetMapping("/search/popular")
+    public ResponseEntity<ApiResponse<List<String>>> getPopularKeywords() {
+        List<String> popularKeywords = searchService.getPopularKeywords();
+        return ResponseEntity.ok(ApiResponse.success(popularKeywords));
+    }
+
     // 전용 카테고리 목록 조회
     @GetMapping("/categories")
     public ResponseEntity<ApiResponse<List<CategoryListResponseDto>>> getAllCategories() {
