@@ -131,7 +131,7 @@ public class OrderService {
 
     }
 
-    // A자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
+    // 자동 스케줄링 메서드 (배송 완료 후 5일 이내 구매확정x -> 자동 구매확정)
     public void autoConfirmPurchase() {
         //5일전 시점 계산
         LocalDateTime threshold = LocalDateTime.now().minusDays(5);
@@ -623,7 +623,7 @@ public class OrderService {
     //자동 스케줄링 메서드 (발송 마감기한내에 판매자가 상품 미발송)
     public void autoCancelSeller() {
         // 발송 마감 기한 주문 조회
-        List<Order> orders = orderRepository.findDeadLineAfterOrders(LocalDateTime.now());
+        List<Order> orders = orderRepository.findOrdersDeadLineBefore(LocalDateTime.now());
 
         for (Order order : orders) {
             try {
