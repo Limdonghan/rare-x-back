@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Slf4j
 @Service
@@ -29,6 +30,7 @@ public class SearchService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private static final String POPULAR_KEYWORD_KEY = "search:popular"; // Redis key
+    private final Executor taskExecutor; // Executor 주입
     private final Client typesenseClient;
     @Value("${app.service-start-date}")
     private String serviceStartDate;
@@ -199,7 +201,7 @@ public class SearchService {
             document.put("category_name", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
             document.put("product_description", product.getProductDescription());
             document.put("retail_price", product.getRetailPrice());
-            document.put("wish_count", product.getWishCount());     /// [추가] 관신 갯수 추가
+            document.put("wish_count", product.getWishCount());     /// [추가] 관심 개수 추가
             document.put("is_deleted", product.isDeleted());
             document.put("created_at", product.getCreatedAt() != null
                     ? product.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
@@ -508,9 +510,12 @@ public class SearchService {
     }
 
     // ==================== 유틸 메서드 ====================
+
+
+
     @PostConstruct
     public void init() {
-        // 백그라운드에서 재시도하며 초기화
+        // 백그라운드에서 재시도하며 초기화 (커스텀 Executor 사용)
         CompletableFuture.runAsync(() -> {
             int maxRetries = 10;
             int retryDelay = 2000;
@@ -520,7 +525,7 @@ public class SearchService {
                     log.info(" Typesense 연결 시도 {}/{}", attempt, maxRetries);
 
                     // 연결 테스트
-                    //typesenseClient.health();
+                    typesenseClient.health.retrieve();
                     log.info(" Typesense 연결 성공!");
 
                     // 컬렉션 초기화
@@ -553,7 +558,7 @@ public class SearchService {
                     }
                 }
             }
-        });
+        }, taskExecutor); // taskExecutor 전달
 
         log.info(" Spring 시작 완료 (Typesense는 백그라운드 초기화 중)");
     }
@@ -573,41 +578,6 @@ public class SearchService {
             return false;  // 예외 던지지 않음!
         }
     }
-    /**
-     * 스프링부트 시작 시 컬렉션 자동 생성
-     */
-//    @PostConstruct
-//    public void init() {
-//        String[] collections = {"products", "users", "orders", "inspections"};
-//        for (String name : collections) {
-//            if (!collectionExists(name)) {
-//                log.warn("Typesense 컬렉션 없음: {} - 자동 생성 시도", name);
-//                createCollection(name);
-//            } else {
-//                log.info("Typesense 컬렉션 확인: {}", name);
-//            }
-//        }
-//    }
-//
-//    /**
-//     * 컬렉션 존재 여부 체크
-//     */
-//    public boolean collectionExists(String collectionName) {
-//        try {
-//            typesenseClient.collections(collectionName).retrieve();
-//            return true;
-//        } catch (Exception e) {
-//            // 1. "찾을 수 없음(Not Found)" 에러인지 확인
-//            // (라이브러리에 따라 ObjectNotFound 예외를 catch하거나, 메시지에 "404"가 포함되었는지 확인)
-//            if (e.getMessage().contains("404") || e.getClass().getSimpleName().equals("ObjectNotFound")) {
-//                return false;
-//            }
-//
-//            // 2. 그 외의 에러(네트워크, 인증 등)는 진짜 문제이므로 로그를 남기고 예외를 다시 던짐
-//            log.error("Typesense 상태 확인 실패 (네트워크 또는 인증 오류 가능성): {}", e.getMessage());
-//            throw new RuntimeException("Typesense check failed", e);
-//        }
-//    }
 
     /**
      * 컬렉션 자동 생성
@@ -623,8 +593,8 @@ public class SearchService {
                         new Field().name("product_description").type("string"),
                         new Field().name("retail_price").type("int32"),
                         new Field().name("is_deleted").type("bool"),
-                        new Field().name("imageUrl").type("string[]"),
-                        new Field().name("wishCount").type("int64"),
+                        new Field().name("image_urls").type("string[]"),
+                        new Field().name("wish_count").type("int64"),
                         new Field().name("created_at").type("int64")
                 );
                 case "users" -> List.of(
@@ -679,11 +649,11 @@ public class SearchService {
     /**
      * 검색어 횟수 증가 (Redis ZSET)
      */
-    private void increaseSearchCount(String keyword){
+    private void increaseSearchCount(String keyword) {
         try {
-            Double aDouble = redisTemplate.opsForZSet().incrementScore(POPULAR_KEYWORD_KEY, keyword, 1.0);
-            log.info("인기 검색어 카운트 성공: {}",aDouble);
-        }catch (Exception e){
+            Double updatedScore = redisTemplate.opsForZSet().incrementScore(POPULAR_KEYWORD_KEY, keyword, 1.0);
+            log.info("인기 검색어 카운트 성공: {}", updatedScore);
+        } catch (Exception e) {
             log.error("인기 검색어 카운트 실패: {}",e.getMessage());
         }
     }
@@ -691,7 +661,7 @@ public class SearchService {
     /**
      * 인기 검색어 Top 10 조회
      */
-    public List<String> getPopularKeywords(){
+    public List<String> getPopularKeywords() {
         try {
             /// Score(검색 횟수)가 높은 순으로 상위 10개 조회 (Reverse Range)
             Set<String> topKeywords = redisTemplate.opsForZSet().reverseRange(POPULAR_KEYWORD_KEY, 0, 9);
@@ -702,7 +672,7 @@ public class SearchService {
             return new ArrayList<>(topKeywords);
 
 
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("인기 검색어 조회 실패 : {}",e.getMessage());
             return List.of();
         }
