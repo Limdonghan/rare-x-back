@@ -620,6 +620,26 @@ public class OrderService {
 
     }
 
+    //자동 스케줄링 메서드 (발송 마감기한내에 판매자가 상품 미발송)
+    public void autoCancelSeller() {
+        // 발송 마감 기한 주문 조회
+        List<Order> orders = orderRepository.findOrdersDeadLineBefore(LocalDateTime.now());
+
+        for (Order order : orders) {
+            try {
+                // 상태 사전 체크 (락 없이)
+                if (order.getCurrentStatus() == CurrentStatus.CANCELLED || order.getSellerShippedAt() != null) {
+                    continue;
+                }
+                orderProcessService.cancelDueToShipDeadline(order.getOrderId());
+                log.info("판매자 미발송으로 자동 주문 취소 처리 : OrderId = {}", order.getOrderId());
+            } catch (Exception e) {
+                log.error("주문 {} 취소 처리 중 오류 발생 : {} ", order.getOrderId(), e.getMessage(), e);
+            }
+        }
+    }
+
+
     // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
     private void finalizeSellerCancellation(Order order) {
         // 주문 상태 변경

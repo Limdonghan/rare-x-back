@@ -25,6 +25,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         """)
     List<Order> findDeliveredOrders(@Param("time") LocalDateTime time);
 
+    // 발송 마감기한 지난 주문
+    @Query("select o from Order o where o.currentStatus = 'PENDING' and o.sellerShippedAt IS NULL and o.expiresAt IS NULL and o.shipDeadline < :time")
+    List<Order> findOrdersDeadLineBefore(@Param("time") LocalDateTime time);
+
     // 동시성 제어를 위한 비관적 락
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM Order o WHERE o.orderId = :orderId")
