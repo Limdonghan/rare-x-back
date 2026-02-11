@@ -141,4 +141,18 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     })
     @Query("SELECT i FROM Inspection i")
     List<Inspection> findAllForSync();
+
+    // ===== 일괄 처리용 (N+1 방지) =====
+    @EntityGraph(attributePaths = {
+            "user",
+            "storageRequest",
+            "storageRequest.product",
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.buyer",
+            "order.seller"
+    })
+    @Query("SELECT i FROM Inspection i WHERE i.inspectionId IN :ids")
+    List<Inspection> findAllByIdWithDetails(@Param("ids") List<Long> ids);
 }
