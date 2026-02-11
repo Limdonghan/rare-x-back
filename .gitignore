@@ -51,3 +51,6 @@ application-*.properties
 
 ## static ##
 /src/main/resources/static/**
+
+# Load test controller
+src/main/java/com/project/rare_x_back/controller/TestController.java
