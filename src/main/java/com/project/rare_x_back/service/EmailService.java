@@ -1,14 +1,11 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.enums.EmailType;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -24,15 +21,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
     private final RedisTemplate<String, String> redisTemplate;
+    private final EmailProducer emailProducer; // 추가
 
-    @Value("${spring.mail.username}")  // ← 추가!
-    private String fromEmail;
-
-    private static final String EMAIL_PREFIX = "email:";
     private static final String VERIFIED_PREFIX = "verified:";// 추가!
     public static final String TEMP_PASSWORD_PREFIX = "temp_password:";
+    public static final String EMAIL_PREFIX = "email:";
 
     private static final long CODE_EXPIRATION_MINUTES = 5;
     //임시 비밀번호 사용자 플래그 30분(로그인 후 에도 비번 변경까지 유지)
@@ -50,40 +44,23 @@ public class EmailService {
         String key = EMAIL_PREFIX + email;
         redisTemplate.opsForValue().set(key, code, CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
 
-        // 3. 이메일 발송
+        // 3. 이메일 발송 요청 (Kafka) - Title/Body 생성은 Consumer로 위임
         try {
-            SimpleMailMessage message = getSimpleMailMessage(email, code);
-
-            mailSender.send(message);
+            emailProducer.sendEmail(email, EmailType.VERIFICATION);
 
             log.info("===========================================");
-            log.info("이메일 발신 성공");
-            log.info("발신자: {}", fromEmail);
+            log.info("이메일 발신 요청 (Kafka) - VERIFICATION");
             log.info("수신자: {}", email);
             log.info("인증번호: {}", code);
             log.info("===========================================");
 
         } catch (Exception e) {
-            log.error("이메일 발송 실패: {}", e.getMessage());
+            log.error("이메일 발송 요청 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
-    @NonNull
-    private SimpleMailMessage getSimpleMailMessage(String email, String code) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);  // ← 추가! (발신자 설정)
-        message.setTo(email);
-        message.setSubject("[RARE-X] 이메일 인증번호");
-        message.setText(
-                "안녕하세요. RARE-X입니다.\n\n" +
-                        "회원가입을 위한 인증번호는 다음과 같습니다.\n\n" +
-                        "인증번호: " + code + "\n\n" +
-                        "인증번호는 " + CODE_EXPIRATION_MINUTES + "분간 유효합니다.\n" +
-                        "본인이 요청하지 않았다면 이 메일을 무시하세요."
-        );
-        return message;
-    }
+
 
     //  이메일 인증번호 검증
     public boolean verifyCode(String email, String code) {
@@ -152,20 +129,7 @@ public class EmailService {
                 .collect(Collectors.joining());
     }
 
-    // 메일 생성
-    @NonNull
-    private SimpleMailMessage createTempPasswordMailMessage(String email, String tempPassword) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(email);
-        message.setSubject("[RARE-X] 패스워드리스 서비스 해지 임시 비밀번호 발송");
-        message.setText(
-                "안녕하세요. RARE-X 입니다.\n\n" +
-                        "패스워드리스 서비스 해지 후 로그인을 위한 인증 번호는 다음과 같습니다.\n\n" +
-                        "임시 비밀번호: " + tempPassword + "\n\n"
-        );
-        return message;
-    }
+
 
     // 임시비밀번호 Redis 저장, 이메일 발송
     public String sendTempPassword(String email) {
@@ -180,7 +144,7 @@ public class EmailService {
         log.info("임시 비밀번호 : {}", tempPassword);
 
         try {
-            sendMailTempPassword(email, tempPassword);
+            emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD);
 
             log.info("==============");
             log.info("이메일 발송 성공");
@@ -193,11 +157,7 @@ public class EmailService {
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
-    @Async("taskExecutor")
-    public void sendMailTempPassword(String email, String tempPassword) {
-        mailSender.send(createTempPasswordMailMessage(email, tempPassword));
 
-    }
 
     //임시 비밀번호 검증 및 삭제
     public void verifyAndConsumeTempPassword(String email, String inputPassword) {
