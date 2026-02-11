@@ -1,5 +1,6 @@
 package com.project.rare_x_back.dto.request;
 
+import com.project.rare_x_back.enums.EmailType;
 import lombok.*;
 
 @Setter
@@ -9,6 +10,5 @@ import lombok.*;
 @Builder
 public class EmailMessageRequestDto {
     private String to;          /// 수신자
-    private String title;       /// 메일 제목
-    private String body;        /// 메일 내용
+    private EmailType type;     /// 이메일 타입 (VERIFICATION, TEMP_PASSWORD)
 }

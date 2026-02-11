@@ -47,7 +47,7 @@ services:
     image: confluentinc/cp-kafka:latest
     container_name: rare-x-kafka
     ports:
-      - "9092:9092"  # Kafka 브로커가 외부로 노출되는 포트
+      - "9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
@@ -61,19 +61,21 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_RETENTION_MS: 600000 # 메시지 보관 주기 10분
       CLUSTER_ID: '${KAFKA_CLUSTER_ID}'
-      KAFKA_HEAP_OPTS: -Xmx400M -Xms200M # Kafka 힙 메모리 제한 (중요)
+      KAFKA_HEAP_OPTS: -Xmx400M -Xms200M # Kafka 힙 메모리 제한
     networks:
       - redis-network
     volumes:
       - kafka_data:/data
+    restart: always
     mem_limit: 700m # 컨테이너 메모리 제한
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: rare-x-kafka-ui
     ports:
-      - "8090:8090"
+      - "8090:8080"
     depends_on:
       - kafka
     environment:
