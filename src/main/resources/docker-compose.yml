@@ -10,6 +10,7 @@ services:
     restart: always
     networks:
       - redis-network
+    mem_limit: 512m # 메모리 제한
 
   # Redis-GUI
   redis-insight:
@@ -23,6 +24,7 @@ services:
       - redis
     volumes:
       - redis_insight_volume_data:/data
+    mem_limit: 256m # 메모리 제한
 
   # Typesense
   typesense:
@@ -38,6 +40,46 @@ services:
     restart: always
     networks:
       - redis-network
+    mem_limit: 512m # 메모리 제한
+
+  # Kafka (KRaft Mode)
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: rare-x-kafka
+    ports:
+      - "9092:9092"  # Kafka 브로커가 외부로 노출되는 포트
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: '${KAFKA_CLUSTER_ID}'
+      KAFKA_HEAP_OPTS: -Xmx400M -Xms200M # Kafka 힙 메모리 제한 (중요)
+    networks:
+      - redis-network
+    volumes:
+      - kafka_data:/data
+    mem_limit: 700m # 컨테이너 메모리 제한
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: rare-x-kafka-ui
+    ports:
+      - "8090:8090"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-kraft
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    mem_limit: 256m # 메모리 제한
 
 networks:
   redis-network:
@@ -46,4 +88,4 @@ networks:
 volumes:
   redis_insight_volume_data:
   typesense_data:
-
+  kafka_data:

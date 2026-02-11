@@ -2,13 +2,10 @@ package com.project.rare_x_back.service;
 
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -24,8 +21,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
     private final RedisTemplate<String, String> redisTemplate;
+    private final EmailProducer emailProducer; // 추가
 
     @Value("${spring.mail.username}")  // ← 추가!
     private String fromEmail;
@@ -50,40 +47,30 @@ public class EmailService {
         String key = EMAIL_PREFIX + email;
         redisTemplate.opsForValue().set(key, code, CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
 
-        // 3. 이메일 발송
+        // 3. 이메일 발송 (Kafka Producer 호출)
         try {
-            SimpleMailMessage message = getSimpleMailMessage(email, code);
+            String title = "[RARE-X] 이메일 인증번호";
+            String body = "안녕하세요. RARE-X입니다.\n\n" +
+                    "회원가입을 위한 인증번호는 다음과 같습니다.\n\n" +
+                    "인증번호: " + code + "\n\n" +
+                    "인증번호는 " + CODE_EXPIRATION_MINUTES + "분간 유효합니다.\n" +
+                    "본인이 요청하지 않았다면 이 메일을 무시하세요.";
 
-            mailSender.send(message);
+            emailProducer.sendEmail(email, title, body);
 
             log.info("===========================================");
-            log.info("이메일 발신 성공");
-            log.info("발신자: {}", fromEmail);
+            log.info("이메일 발신 요청 (Kafka)");
             log.info("수신자: {}", email);
             log.info("인증번호: {}", code);
             log.info("===========================================");
 
         } catch (Exception e) {
-            log.error("이메일 발송 실패: {}", e.getMessage());
+            log.error("이메일 발송 요청 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
-    @NonNull
-    private SimpleMailMessage getSimpleMailMessage(String email, String code) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);  // ← 추가! (발신자 설정)
-        message.setTo(email);
-        message.setSubject("[RARE-X] 이메일 인증번호");
-        message.setText(
-                "안녕하세요. RARE-X입니다.\n\n" +
-                        "회원가입을 위한 인증번호는 다음과 같습니다.\n\n" +
-                        "인증번호: " + code + "\n\n" +
-                        "인증번호는 " + CODE_EXPIRATION_MINUTES + "분간 유효합니다.\n" +
-                        "본인이 요청하지 않았다면 이 메일을 무시하세요."
-        );
-        return message;
-    }
+
 
     //  이메일 인증번호 검증
     public boolean verifyCode(String email, String code) {
@@ -152,20 +139,7 @@ public class EmailService {
                 .collect(Collectors.joining());
     }
 
-    // 메일 생성
-    @NonNull
-    private SimpleMailMessage createTempPasswordMailMessage(String email, String tempPassword) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(email);
-        message.setSubject("[RARE-X] 패스워드리스 서비스 해지 임시 비밀번호 발송");
-        message.setText(
-                "안녕하세요. RARE-X 입니다.\n\n" +
-                        "패스워드리스 서비스 해지 후 로그인을 위한 인증 번호는 다음과 같습니다.\n\n" +
-                        "임시 비밀번호: " + tempPassword + "\n\n"
-        );
-        return message;
-    }
+
 
     // 임시비밀번호 Redis 저장, 이메일 발송
     public String sendTempPassword(String email) {
@@ -195,8 +169,12 @@ public class EmailService {
     }
     @Async("taskExecutor")
     public void sendMailTempPassword(String email, String tempPassword) {
-        mailSender.send(createTempPasswordMailMessage(email, tempPassword));
+        String title = "[RARE-X] 패스워드리스 서비스 해지 임시 비밀번호 발송";
+        String body = "안녕하세요. RARE-X 입니다.\n\n" +
+                "패스워드리스 서비스 해지 후 로그인을 위한 인증 번호는 다음과 같습니다.\n\n" +
+                "임시 비밀번호: " + tempPassword + "\n\n";
 
+        emailProducer.sendEmail(email, title, body);
     }
 
     //임시 비밀번호 검증 및 삭제
