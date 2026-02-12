@@ -58,4 +58,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.wishCount = p.wishCount - 1 WHERE p.productId = :productId AND p.wishCount > 0")
     void decrementWishCount(@Param("productId") Long productId);
+
+    // 카테고리 ID 목록 중 상품이 연결된 카테고리 ID 조회
+    @Query("SELECT p.category.categoryId FROM Product p " +
+            "WHERE p.category.categoryId IN :categoryIds AND p.isDeleted = false " +
+            "GROUP BY p.category.categoryId")
+    List<Long> findCategoryIdsWithProducts(@Param("categoryIds") List<Long> categoryIds);
+
+    // 브랜드 ID 목록 중 상품이 연결된 브랜드 ID 조회
+    @Query("SELECT p.brand.brandId FROM Product p " +
+            "WHERE p.brand.brandId IN :brandIds AND p.isDeleted = false " +
+            "GROUP BY p.brand.brandId")
+    List<Long> findBrandIdsWithProducts(@Param("brandIds") List<Long> brandIds);
 }

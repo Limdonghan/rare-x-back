@@ -46,7 +46,7 @@ public class EmailService {
 
         // 3. 이메일 발송 요청 (Kafka) - Title/Body 생성은 Consumer로 위임
         try {
-            emailProducer.sendEmail(email, EmailType.VERIFICATION);
+            emailProducer.sendEmail(email, EmailType.VERIFICATION, code);
 
             log.info("===========================================");
             log.info("이메일 발신 요청 (Kafka) - VERIFICATION");
@@ -55,6 +55,12 @@ public class EmailService {
             log.info("===========================================");
 
         } catch (Exception e) {
+            try{
+                /// Kafka 전송 실패 시, 이미 저장된 인증번호를 삭제하여 일관성 유지
+                redisTemplate.delete(key);
+            } catch (Exception ex){
+                log.warn("Kafka 실패 후 Redis 인증번호 삭제 중 오류 발생: {}", ex.getMessage());
+            }
             log.error("이메일 발송 요청 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
@@ -144,7 +150,7 @@ public class EmailService {
         log.info("임시 비밀번호 : {}", tempPassword);
 
         try {
-            emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD);
+            emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD, tempPassword);
 
             log.info("==============");
             log.info("이메일 발송 성공");

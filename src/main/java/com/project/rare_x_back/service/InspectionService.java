@@ -380,4 +380,106 @@ public class InspectionService {
         orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
     }
 
+    // ============================================
+    // 일괄 처리 메서드
+    // ============================================
+
+    /**
+     * 일괄 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
+     */
+    @Transactional
+    public void bulkConfirmArrival(List<Long> inspectionIds) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.SHIPPED_TO_WAREHOUSE);
+
+        // 2. 개별 도착확인 처리 (상태 변경 + 연관 엔티티 동기화 + Typesense)
+        for (Long id : inspectionIds) {
+            confirmArrival(id);
+        }
+    }
+
+    /**
+     * 일괄 검수 시작 (PENDING_INSPECTION → INSPECTING)
+     * - 담당자 배정 + 체크리스트 생성
+     */
+    @Transactional
+    public void bulkStartInspection(List<Long> inspectionIds, Long adminId) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.PENDING_INSPECTION);
+
+        // 2. 개별 검수시작 처리 (담당자 배정 + 체크리스트 생성 + 상태 변경)
+        for (Long id : inspectionIds) {
+            startInspection(id, adminId);
+        }
+    }
+
+    /**
+     * 일괄 합격 처리 (INSPECTING → PASSED)
+     * - 체크리스트 동일값 일괄 적용 후 합격 처리
+     * - STORAGE: storage_items 생성 / ORDER: orders 상태 동기화
+     */
+    @Transactional
+    public void bulkPassInspection(List<Long> inspectionIds, InspectionChecklistRequestDto checklistDto) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.INSPECTING);
+
+        // 2. 체크리스트 저장 + 합격 처리
+        for (Long id : inspectionIds) {
+            if (checklistDto != null) {
+                updateChecklist(id, checklistDto);
+            }
+            passInspection(id);
+        }
+    }
+
+    /**
+     * 일괄 불합격 처리 (INSPECTING → FAILED)
+     * - 체크리스트 동일값 일괄 적용 + 동일 사유로 불합격 처리
+     * - STORAGE: 반송 처리 / ORDER: 반송 처리
+     */
+    @Transactional
+    public void bulkFailInspection(List<Long> inspectionIds, InspectionChecklistRequestDto checklistDto, String failReason) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.INSPECTING);
+
+        // 2. 불합격 사유 필수 검증
+        if (failReason == null || failReason.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "불합격 사유는 필수입니다.");
+        }
+
+        // 3. 체크리스트 저장 + 불합격 처리
+        for (Long id : inspectionIds) {
+            if (checklistDto != null) {
+                updateChecklist(id, checklistDto);
+            }
+            failInspection(id, failReason);
+        }
+    }
+
+    // ============================================
+    // 공통 검증 메서드
+    // ============================================
+
+    /**
+     * 일괄 처리 공통 검증
+     * - inspectionIds에 해당하는 검수 건이 모두 존재하는지 확인
+     * - 모든 검수 건의 상태가 expectedStatus와 일치하는지 확인
+     */
+    private void validateInspectionIds(List<Long> inspectionIds, InspectionStatus expectedStatus) {
+        List<Inspection> inspections = inspectionRepository.findAllByIdWithDetails(inspectionIds);
+
+        // ID 개수 불일치 → 존재하지 않는 검수 건 포함
+        if (inspections.size() != inspectionIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 검수 건이 포함되어 있습니다.");
+        }
+
+        // 상태 불일치 → 해당 검수 번호 표시
+        for (Inspection inspection : inspections) {
+            if (inspection.getStatus() != expectedStatus) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "선택한 검수 건의 상태가 일치하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+        }
+    }
 }
