@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -26,7 +27,7 @@ public class PaymentCancelTxService {
     private final PaymentCancelRepository paymentCancelRepository;
 
      // 취소 요청 락 + 검증 + REQUESTED
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Payment markRequested(Long orderId, long cancelAmount) {
         Payment payment = paymentRepository.findByOrder_OrderId(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
@@ -61,7 +62,7 @@ public class PaymentCancelTxService {
 
 
      // 취소 성공 확정 락 + 상태 확정 + 취소 로그 저장
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applySuccess(String paymentKey, long cancelAmount, String reason, String requestedBy) {
         //  락 걸고 조회
         Payment locked = paymentRepository.findByTossPaymentKeyForUpdate(paymentKey)
@@ -101,7 +102,7 @@ public class PaymentCancelTxService {
 
 
      // 취소 실패 기록: 락 + CANCEL_FAILED
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(String paymentKey) {
         Payment locked = paymentRepository.findByTossPaymentKeyForUpdate(paymentKey)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));

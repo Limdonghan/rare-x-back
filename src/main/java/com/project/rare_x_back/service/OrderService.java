@@ -576,6 +576,8 @@ public class OrderService {
         }
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_BUYER");
+
+        searchService.indexOrder(order);
     }
 
 
@@ -651,6 +653,8 @@ public class OrderService {
 
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_SELLER");
+
+        searchService.indexOrder(order);
     }
 
 
@@ -661,10 +665,12 @@ public class OrderService {
         order.updateExpAt();
 
         // 이력 저장 CANCELED, description 기록
-        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "검수 결과 불합격"));
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.RETURN, "검수 결과 불합격"));
 
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_FAIL_INSPECTION");
+
+        searchService.indexOrder(order);
     }
 
     //==============================================================================

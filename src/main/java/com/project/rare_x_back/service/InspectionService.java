@@ -11,6 +11,7 @@ import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -32,6 +33,7 @@ public class InspectionService {
     private final SearchService searchService;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
+    private final OrderRepository orderRepository;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -305,32 +307,32 @@ public class InspectionService {
             storageRequest.updateStatus(StorageRequestStatus.RETURN);
         }
 
+        // 입찰 주문 건 검수실패 처리
         if (inspection.getType() == InspectionType.ORDER) {
-            Order order = inspection.getOrder();
-
-            // NPE 검사
-            if (order == null) {
-                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
-            }
+            Order order = orderRepository.findByIdWithLock(inspection.getOrder().getOrderId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
 
             // 구매자 결제 내역 조회
             Payment payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "구매자의 결제 내역을 찾을 수 없습니다."));
 
-            // 환불 금액 (전액 -> 판매자 취소이므로)
+            // 이력 저장 및 상태 변경 + 인덱싱
+            orderService.finalizeFailInspectionCancellation(order);
+
+            // 환불 금액 (전액 -> 검수 실패 이므로 구매자 귀책 X)
             long cancelAmount = payment.getAmount();
-            // 구매자 환불 (전액)
-            paymentService.cancelOnce(
+
+            try {
+                paymentService.cancelOnce(
                     order.getOrderId(),
                     cancelAmount,
                     "INSPECTION_FAIL_CANCELED",
                     "INSPECTION_FAIL"
-            );
-
-            orderService.finalizeFailInspectionCancellation(order);
-
-            // order 상태 변경, order_history 이력 저장 (검수 불합격 → 반송)
-            // orderService.updateOrderStatus(order, CurrentStatus.RETURN);
+                );
+            } catch (Exception e) {
+                log.error("결제 취소 중 에러 발생, 전체 로직 롤백.");
+                throw e;
+            }
         }
 
         // Typesense 인덱싱
