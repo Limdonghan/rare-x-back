@@ -63,13 +63,13 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_LOG_RETENTION_MS: 600000 # 메시지 보관 주기 10분
       CLUSTER_ID: '${KAFKA_CLUSTER_ID}'
-      KAFKA_HEAP_OPTS: -Xmx400M -Xms200M # Kafka 힙 메모리 제한
+      KAFKA_HEAP_OPTS: -Xmx256M -Xms256M
     networks:
       - redis-network
     volumes:
       - kafka_data:/data
     restart: always
-    mem_limit: 700m # 컨테이너 메모리 제한
+    mem_limit: 512m
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
