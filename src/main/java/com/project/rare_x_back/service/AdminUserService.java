@@ -141,6 +141,11 @@ public class AdminUserService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "탈퇴한 회원은 상태를 변경할 수 없습니다.");
         }
 
+        // QUITED로 변경 불가 (QUITED = 자진탈퇴)
+        if (newStatus == Status.QUITED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "회원을 탈퇴 상태로 변경할 수 없습니다.");
+        }
+
         // 현재 상태와 동일하면 변경 불가
         if (user.getStatus() == newStatus) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "현재 상태와 동일한 상태로 변경할 수 없습니다.");
@@ -171,6 +176,10 @@ public class AdminUserService {
             newStatus = Status.valueOf(request.getStatus());
         } catch (IllegalArgumentException e) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "유효하지 않은 상태값입니다: " + request.getStatus());
+        }
+
+        if (newStatus == Status.QUITED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "회원을 탈퇴 상태로 변경할 수 없습니다.");
         }
 
         // 3. 유저 목록 조회
