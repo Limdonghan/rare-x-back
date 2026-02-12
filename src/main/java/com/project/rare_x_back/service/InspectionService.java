@@ -9,10 +9,7 @@ import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.InspectionChecklistRepository;
-import com.project.rare_x_back.repository.InspectionRepository;
-import com.project.rare_x_back.repository.StorageItemRepository;
-import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +30,8 @@ public class InspectionService {
     private final StorageItemRepository storageItemRepository;
     private final OrderService orderService;
     private final SearchService searchService;
+    private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -314,8 +313,24 @@ public class InspectionService {
                 throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
             }
 
+            // 구매자 결제 내역 조회
+            Payment payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "구매자의 결제 내역을 찾을 수 없습니다."));
+
+            // 환불 금액 (전액 -> 판매자 취소이므로)
+            long cancelAmount = payment.getAmount();
+            // 구매자 환불 (전액)
+            paymentService.cancelOnce(
+                    order.getOrderId(),
+                    cancelAmount,
+                    "INSPECTION_FAIL_CANCELED",
+                    "INSPECTION_FAIL"
+            );
+
+            orderService.finalizeFailInspectionCancellation(order);
+
             // order 상태 변경, order_history 이력 저장 (검수 불합격 → 반송)
-            orderService.updateOrderStatus(order, CurrentStatus.RETURN);
+            // orderService.updateOrderStatus(order, CurrentStatus.RETURN);
         }
 
         // Typesense 인덱싱

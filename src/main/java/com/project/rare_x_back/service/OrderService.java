@@ -653,6 +653,20 @@ public class OrderService {
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_SELLER");
     }
 
+
+    // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
+    public void finalizeFailInspectionCancellation(Order order) {
+        // 주문 상태 변경
+        order.updateStatus(CurrentStatus.RETURN);
+        order.updateExpAt();
+
+        // 이력 저장 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.CANCELLED, "검수 결과 불합격"));
+
+        // 정산 상태 변경 (실패 처리)
+        settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_FAIL_INSPECTION");
+    }
+
     //==============================================================================
 
 
