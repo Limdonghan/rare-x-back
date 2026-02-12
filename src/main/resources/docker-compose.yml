@@ -1,0 +1,93 @@
+#version: '3.8'
+
+services:
+  # Redis
+  redis:
+    image: redis:latest
+    container_name: rare-x-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - redis-network
+    mem_limit: 512m # 메모리 제한
+
+  # Redis-GUI
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: simple-redis-insight
+    ports:
+      - "5540:5540"
+    networks:
+      - redis-network
+    depends_on:
+      - redis
+    volumes:
+      - redis_insight_volume_data:/data
+    mem_limit: 256m # 메모리 제한
+
+  # Typesense
+  typesense:
+    image: typesense/typesense:29.0
+    container_name: rare-x-typesense
+    ports:
+      - "8108:8108"
+    environment:
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+      - TYPESENSE_DATA_DIR=/data
+    volumes:
+      - typesense_data:/data
+    restart: always
+    networks:
+      - redis-network
+    mem_limit: 512m # 메모리 제한
+
+  # Kafka (KRaft Mode)
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: rare-x-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_RETENTION_MS: 600000 # 메시지 보관 주기 10분
+      CLUSTER_ID: '${KAFKA_CLUSTER_ID}'
+      KAFKA_HEAP_OPTS: -Xmx256M -Xms256M
+    networks:
+      - redis-network
+    volumes:
+      - kafka_data:/data
+    restart: always
+    mem_limit: 512m
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: rare-x-kafka-ui
+    ports:
+      - "8090:8080"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-kraft
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    mem_limit: 256m # 메모리 제한
+
+networks:
+  redis-network:
+    driver: bridge
+
+volumes:
+  redis_insight_volume_data:
+  typesense_data:
+  kafka_data:

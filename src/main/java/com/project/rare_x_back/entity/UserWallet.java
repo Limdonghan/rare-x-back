@@ -1,0 +1,70 @@
+package com.project.rare_x_back.entity;
+
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
+@Table(name = "user_wallets", uniqueConstraints = {@UniqueConstraint(columnNames = "user_id")})
+public class UserWallet {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "wallet_id")
+    private Long walletId;
+
+    @OneToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(name = "balance", nullable = false)
+    private Long balance = 0L;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    // 회원가입 시 지갑 생성 메서드
+    public static UserWallet createEmptyWallet(User user) {
+        return UserWallet.builder()
+                .user(user)
+                .balance(0L)
+                .build();
+    }
+
+    public static UserWallet create(User user) {
+        UserWallet wallet = new UserWallet();
+        wallet.user = user;
+        wallet.balance = 0L;
+        return wallet;
+    }
+
+    public void increase(long settleAmount) {
+        if (settleAmount <= 0L) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "정산 적립 금액은 0보다 커야 합니다.");
+        }
+        this.balance += settleAmount;
+    }
+
+    public void decrease(long penalty) {
+        if (balance < penalty) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "차감 금액은 현재 잔액보다 클 수 없습니다.");
+        }
+        this.balance -= penalty;
+    }
+
+}
