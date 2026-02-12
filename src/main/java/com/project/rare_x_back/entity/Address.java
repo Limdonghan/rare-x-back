@@ -58,7 +58,7 @@ public class Address {
         this.postalCode = postalCode;
         this.address = address;
         this.detailAddress = detailAddress;
-        this.nickname = nickname;
+        this.nickname = nickname = (nickname != null && !nickname.isBlank()) ? nickname : null;
         this.isDefault = isDefault;
     }
 
