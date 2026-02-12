@@ -10,4 +10,5 @@ public class UserAddressUpdateRequestDto {
     @NotBlank(message = "받는이를 입력해주세요.")
     private String recipientName;
     private String detailAddress;
+    private String nickname;
 }
