@@ -37,6 +37,9 @@ public class Address {
     @Column(name = "detail_address")
     private String detailAddress;
 
+    @Column(name = "nickname", length = 50)
+    private String nickname;
+
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
 
@@ -49,25 +52,32 @@ public class Address {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Address(User user, String recipientName, String postalCode, String address, String detailAddress, boolean isDefault) {
+    public Address(User user, String recipientName, String postalCode, String address, String detailAddress, String nickname, boolean isDefault) {
         this.user = user;
         this.recipientName = recipientName;
         this.postalCode = postalCode;
         this.address = address;
         this.detailAddress = detailAddress;
+        this.nickname = nickname;
         this.isDefault = isDefault;
     }
 
     // 주소 정보 상태 변경
     public void updateAddress(
             String recipientName,
-            String detailAddress
+            String detailAddress,
+            String nickname
     ) {
         if (recipientName != null && !recipientName.isBlank()) {
             this.recipientName = recipientName;
         }
         if (detailAddress != null && !detailAddress.isBlank()) {
             this.detailAddress = detailAddress;
+        }
+
+        // nickname은 빈 문자열로 초기화(별칭 삭제)할 수 있으므로 null 체크만
+        if (nickname != null) {     // null이면 아예 스킵 (기존 유지)
+            this.nickname = nickname.isBlank() ? null : nickname;
         }
     }
 

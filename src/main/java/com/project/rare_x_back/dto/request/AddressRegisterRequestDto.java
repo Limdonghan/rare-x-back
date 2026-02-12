@@ -21,4 +21,5 @@ public class AddressRegisterRequestDto {
 
     private boolean defaultAddress;
 
+    private  String nickname;
 }

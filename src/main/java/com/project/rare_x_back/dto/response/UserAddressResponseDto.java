@@ -17,6 +17,7 @@ public class UserAddressResponseDto {
     private String postalCode;
     private String address;
     private String detailAddress;
+    private String nickname;
     private boolean defaultAddress;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
