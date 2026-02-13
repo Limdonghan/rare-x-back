@@ -81,6 +81,9 @@ public enum ErrorCode {
     ALREADY_CANCELED(HttpStatus.BAD_REQUEST,"이미 취소된 결제입니다."),
     INVALID_CANCEL_AMOUNT(HttpStatus.BAD_REQUEST,"유효하지 않은 취소 금액 입니다."),
 
+    // 임시 비번 및 비번 변경
+    TEMP_PASSWORD_ALREADY_SENT(HttpStatus.TOO_MANY_REQUESTS,"임시 비밀번호가 이미 발송되었습니다. 1시간 후 재시도해주세요"),
+
     // Order 에러
     ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");
     private final String message;
