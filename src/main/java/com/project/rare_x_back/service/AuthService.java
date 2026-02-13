@@ -121,9 +121,6 @@ public class AuthService {
             throw new CustomException(ErrorCode.PASSWORDLESS_USER_CANNOT_LOGIN);
         }
 
-        // 일반 비번(또는 DB에 저장된 임시비번) 일치 확인
-        // passwordEncoder.matches(request.getPassword(), user.getPassword());
-
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_PASSWORD, "사용자 로그인 정보가 일치하지 않습니다.");
         }
