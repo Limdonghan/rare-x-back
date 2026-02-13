@@ -224,7 +224,7 @@ public class AuthService {
         if (!isTempPasswordUser) {
             // 일반 사용자는 현재 비밀번호 필수
             if (request.getCurrentPassword() == null || request.getCurrentPassword().isEmpty()) {
-                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED, "현재 비밀번호가 일치하지 않습니다.");
+                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED);
             }
 
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
@@ -240,17 +240,17 @@ public class AuthService {
             }
         }
 
-        // 3. 새 비밀번호 일치 확인
+        // 4. 새 비밀번호 일치 확인
         if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
             throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        // 4. 새 비밀번호가 현재(임시) 비밀번호와 같은지 확인
+        // 5. 새 비밀번호가 현재(임시) 비밀번호와 같은지 확인
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
 
-        // 5. 비밀번호 업데이트
+        // 6. 비밀번호 업데이트
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
         user.updatePassword(encodedNewPassword);
 

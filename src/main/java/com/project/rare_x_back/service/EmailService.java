@@ -107,10 +107,6 @@ public class EmailService {
     }
 
 
-    // ===========================================
-    // ----PASSWORD LESS----
-    // ===========================================
-
     // 임시 비밀번호 생성
     private String generateTempPassword() {
         String lowerCase = "abcdefghijklmnopqrstuvwxyz";
@@ -150,14 +146,19 @@ public class EmailService {
 
         // 중복 발급 방지
         String limitKey = TEMP_PASSWORD_LIMIT_PREFIX + email;
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
+
+        Boolean isFirstRequest = redisTemplate.opsForValue()
+                .setIfAbsent(limitKey, "sent", 1, TimeUnit.HOURS);
+        // setIfAbsent는 레디스 서버에서 조회 후 없으면 저장을 하나의 명령어로 실행
+
+        if (Boolean.FALSE.equals(isFirstRequest)) {
             throw new CustomException(ErrorCode.TEMP_PASSWORD_ALREADY_SENT);
         }
 
         // 임시 비번 생성
         String tempPassword = generateTempPassword();
 
-        //DB에 임시 비번 저장
+        // DB에 임시 비번 저장
         String encodedPassword = passwordEncoder.encode(tempPassword);
         user.updatePassword(encodedPassword);
 
@@ -165,15 +166,16 @@ public class EmailService {
         String flagKey = TEMP_PASSWORD_FLAG_PREFIX + email;
         redisTemplate.opsForValue().set(flagKey, "true", 7, TimeUnit.DAYS);
 
-        // 6. 중복 발급 방지 플래그 설정 (1시간)
-        redisTemplate.opsForValue().set(limitKey, "sent", 1, TimeUnit.HOURS);
 
-        // 7. 이메일 발송
+        // 이메일 발송
         try {
             emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD, tempPassword);
             log.info("임시 비밀번호 발급 완료: email={}", email);
         } catch (Exception e) {
             log.error("이메일 발송 실패: email={}, error={}", email, e.getMessage());
+            // 이메일 발송 실패 시 레디스에서 데이터 삭제
+            redisTemplate.delete(flagKey);
+            redisTemplate.delete(limitKey);
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
