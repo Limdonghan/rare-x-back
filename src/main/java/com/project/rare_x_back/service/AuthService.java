@@ -122,7 +122,14 @@ public class AuthService {
         }
 
         // 일반 비번(또는 DB에 저장된 임시비번) 일치 확인
-        passwordEncoder.matches(request.getPassword(), user.getPassword());
+        // passwordEncoder.matches(request.getPassword(), user.getPassword());
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD, "사용자 로그인 정보가 일치하지 않습니다.");
+        }
+
+        // 임시 비번 사용자 확인
+        boolean isTempPasswordUser = emailService.isTempPasswordUser(user.getEmail());
 
         // 5. 계정 활성화 확인
         if (user.getStatus() != Status.ACTIVE) {
@@ -140,6 +147,7 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .name(user.getName())
                 .role(user.getRole().name())
+                .requirePasswordChange(isTempPasswordUser) // 비번 변경 필요 여부
                 .build();
     }
 
@@ -203,49 +211,60 @@ public class AuthService {
                 .build();
     }
 
-    //임시 비밀번호 유저일 경우 비밀번호 변경
+
+    // 임시 비번 변경 (현재 비번 확인 불필요)
     @Transactional
-    public void changePassword(Long userId, ChangePasswordRequestDto request) {
+    public void changePassword(Long userId, PasswordChangeRequestDto request) {
 
         // 1. 사용자 조회
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByUserIdAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 임시 비밀번호 사용자 확인
         boolean isTempPasswordUser = emailService.isTempPasswordUser(user.getEmail());
 
-        // 3. 현재 비밀번호 확인 (임시 비밀번호 사용자는 생략 가능)
+        // 3. 현재 비밀번호 확인 (임시 비밀번호 사용자는 선택적)
         if (!isTempPasswordUser) {
+            // 일반 사용자는 현재 비밀번호 필수
             if (request.getCurrentPassword() == null || request.getCurrentPassword().isEmpty()) {
-                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED);
+                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED, "현재 비밀번호가 일치하지 않습니다.");
             }
 
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
                 throw new CustomException(ErrorCode.INVALID_PASSWORD);
             }
+        } else {
+            // 임시 비밀번호 사용자는 현재 비밀번호 확인 선택적
+            // 입력했다면 검증, 안 했다면 스킵
+            if (request.getCurrentPassword() != null && !request.getCurrentPassword().isEmpty()) {
+                if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                    throw new CustomException(ErrorCode.INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.");
+                }
+            }
         }
 
-        // 4. 새 비밀번호 확인
+        // 3. 새 비밀번호 일치 확인
         if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
             throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        // 5. 새 비밀번호가 현재 비밀번호와 같은지 확인
+        // 4. 새 비밀번호가 현재(임시) 비밀번호와 같은지 확인
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
 
-        // 6. 비밀번호 업데이트
+        // 5. 비밀번호 업데이트
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
         user.updatePassword(encodedNewPassword);
 
-        // 7. 임시 비밀번호 플래그 삭제 (Redis)
+        // 7. 임시 비밀번호 플래그 삭제 (있다면)
         if (isTempPasswordUser) {
             emailService.clearTempPasswordFlag(user.getEmail());
+            log.info("임시 비밀번호 플래그 삭제: userId={}", userId);
         }
 
-        log.info("비밀번호 변경 완료: userId={}, wasTempPassword={}",
-                userId, isTempPasswordUser);
+        log.info("비밀번호 변경 완료: userId={}", userId);
+
     }
 
 }

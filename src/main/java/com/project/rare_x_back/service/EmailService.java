@@ -1,13 +1,17 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.EmailType;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
+import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.Collections;
@@ -31,6 +35,9 @@ public class EmailService {
     private static final long CODE_EXPIRATION_MINUTES = 5;
     //임시 비밀번호 사용자 플래그 30분(로그인 후 에도 비번 변경까지 유지)
     public static final String TEMP_PASSWORD_FLAG_PREFIX = "temp_password_flag:";
+    private static final String TEMP_PASSWORD_LIMIT_PREFIX = "temp_password_limit:";
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
 
     //  이메일 인증번호 발송
@@ -136,7 +143,7 @@ public class EmailService {
     }
 
 
-
+/*
     // 임시비밀번호 Redis 저장, 이메일 발송
     public String sendTempPassword(String email) {
         //임시 비번 생성
@@ -188,6 +195,8 @@ public class EmailService {
 
     }
 
+ */
+/*
     // 임시 비밀번호 사용자인지 확인
     public boolean isTempPasswordUser(String email) {
         String flagKey = getTempPasswordFlagKey(email);
@@ -210,5 +219,61 @@ public class EmailService {
     public static String getTempPasswordFlagKey(String email) {
         return TEMP_PASSWORD_FLAG_PREFIX + email;
     }
+
+ */
+
+
+
+    @Transactional
+    public void sendTempPassword(String email) {
+        //  유저 확인
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
+        // 중복 발급 방지
+        String limitKey = TEMP_PASSWORD_LIMIT_PREFIX + email;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
+            throw new CustomException(ErrorCode.TEMP_PASSWORD_ALREADY_SENT);
+        }
+
+        // 임시 비번 생성
+        String tempPassword = generateTempPassword();
+
+        //DB에 임시 비번 저장
+        String encodedPassword = passwordEncoder.encode(tempPassword);
+        user.updatePassword(encodedPassword);
+
+        // 레디스에 임시비번 사용자 플래그 설정 7일
+        String flagKey = TEMP_PASSWORD_FLAG_PREFIX + email;
+        redisTemplate.opsForValue().set(flagKey, "true", 7, TimeUnit.DAYS);
+
+        // 6. 중복 발급 방지 플래그 설정 (1시간)
+        redisTemplate.opsForValue().set(limitKey, "sent", 1, TimeUnit.HOURS);
+
+        // 7. 이메일 발송
+        try {
+            emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD, tempPassword);
+            log.info("임시 비밀번호 발급 완료: email={}", email);
+        } catch (Exception e) {
+            log.error("이메일 발송 실패: email={}, error={}", email, e.getMessage());
+            throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
+        }
+    }
+
+    // 임시 비밀번호 사용자인지 확인
+    public boolean isTempPasswordUser(String email) {
+        String flagKey = TEMP_PASSWORD_FLAG_PREFIX + email;
+        String flag = redisTemplate.opsForValue().get(flagKey);
+        return "true".equals(flag);
+    }
+
+    // 임시 비밀번호 플래그 삭제 (비밀번호 변경 완료 시)
+    public void clearTempPasswordFlag(String email) {
+        String flagKey = TEMP_PASSWORD_FLAG_PREFIX + email;
+        redisTemplate.delete(flagKey);
+        log.info("임시 비밀번호 플래그 삭제: email={}", email);
+    }
+
+
 
 }
