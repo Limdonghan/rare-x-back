@@ -142,88 +142,6 @@ public class EmailService {
                 .collect(Collectors.joining());
     }
 
-
-/*
-    // 임시비밀번호 Redis 저장, 이메일 발송
-    public String sendTempPassword(String email) {
-        //임시 비번 생성
-        String tempPassword = generateTempPassword();
-
-        //레디스 저장(30분간)
-        String key =TEMP_PASSWORD_PREFIX + email;
-        redisTemplate.opsForValue().set(key, tempPassword, 30, TimeUnit.MINUTES);
-
-        log.info("임시 비밀번호 Redis 저장: email={}, key= {}, 유효시간 = 30분", email, key);
-        log.info("임시 비밀번호 : {}", tempPassword);
-
-        try {
-            emailProducer.sendEmail(email, EmailType.TEMP_PASSWORD, tempPassword);
-
-            log.info("==============");
-            log.info("이메일 발송 성공");
-            log.info("==============");
-
-            return tempPassword;
-
-        } catch (Exception e) {
-            log.error("이메일 발송 실패 : {} ", e.getMessage());
-            throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
-        }
-    }
-
-
-    //임시 비밀번호 검증 및 삭제
-    public void verifyAndConsumeTempPassword(String email, String inputPassword) {
-        String key = getTempPasswordKey(email);
-        String storedTempPassword = redisTemplate.opsForValue().get(key);
-
-        if (storedTempPassword == null) {
-            log.warn("임시 비밀번호 없음 또는 만료: email={}", email);
-            return;
-        }
-
-        if (storedTempPassword.equals(inputPassword)) {
-            // 임시 비밀번호 맞음 → Redis에서 삭제하고 플래그 설정
-            redisTemplate.delete(key);
-
-            // 비밀번호 변경 강제 플래그 설정 (30분)
-            String flagKey = getTempPasswordFlagKey(email);
-            redisTemplate.opsForValue().set(flagKey, "true", 30, TimeUnit.MINUTES);
-
-            log.info("임시 비밀번호 검증 성공 및 플래그 설정: email={}", email);
-        }
-
-    }
-
- */
-/*
-    // 임시 비밀번호 사용자인지 확인
-    public boolean isTempPasswordUser(String email) {
-        String flagKey = getTempPasswordFlagKey(email);
-        String flag = redisTemplate.opsForValue().get(flagKey);
-        return "true".equals(flag);
-    }
-
-    //임시 비밀번호 플래그 삭제
-    public void clearTempPasswordFlag(String email) {
-        String flagKey = getTempPasswordFlagKey(email);
-        redisTemplate.delete(flagKey);
-        log.info("임시 비밀번호 플래그 삭제: email={}", email);
-    }
-
-
-    public static String getTempPasswordKey(String email) {
-        return TEMP_PASSWORD_PREFIX + email;
-    }
-
-    public static String getTempPasswordFlagKey(String email) {
-        return TEMP_PASSWORD_FLAG_PREFIX + email;
-    }
-
- */
-
-
-
     @Transactional
     public void sendTempPassword(String email) {
         //  유저 확인
@@ -273,7 +191,5 @@ public class EmailService {
         redisTemplate.delete(flagKey);
         log.info("임시 비밀번호 플래그 삭제: email={}", email);
     }
-
-
 
 }
