@@ -22,7 +22,7 @@ public class AutoPaymentRequestDto {
     @NotBlank
     private String orderName;   /// 주문명
 
-    @NotBlank
+//    @NotBlank
     private String paymentKey;
 
     @NotBlank

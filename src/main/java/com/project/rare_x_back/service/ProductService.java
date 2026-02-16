@@ -144,6 +144,16 @@ public class ProductService {
                 .saleBidInfoList(saleBidList)
                 .wishCount(product.getWishCount())
                 .isLiked(isLiked)
+                .highestBuyBidId(allBuyBids.stream()
+                        .sorted(Comparator.comparingInt(BuyBid::getPrice).reversed()
+                                .thenComparing(BuyBid::getCreatedAt))
+                        .map(BuyBid::getBuyId)
+                        .findFirst().orElse(null))
+                .lowestSaleBidId(allSaleBids.stream()
+                        .sorted(Comparator.comparingInt(SaleBid::getPrice)
+                                .thenComparing(SaleBid::getCreatedAt))
+                        .map(SaleBid::getSellId)
+                        .findFirst().orElse(null))
                 .build();
 
     }

@@ -270,25 +270,26 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId()).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
+        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
 
         String orderNumber = UUID.randomUUID().toString();
 
         /// [상태 변경] 구매입찰 -> 체결됨
         buyBid.statusUpdate(BidStatus.MATCHED);
 
-        Order build = Order.builder()
-                .buyer(buyBid.getUser())
-                .seller(seller)
-                .product(product)
-                .buyBid(buyBid)
-                .sellBid(null)
-                .type(BidType.SELL)
-                .price(sellNowRequestDto.getPrice())
-                .currentStatus(CurrentStatus.PENDING)
-                .shipDeadline(LocalDateTime.now().plusDays(2))
-                .build();
-        Order saveOrder = orderRepository.save(build);
+        Order order = orderService.createOrder(
+                buyBid.getUser(),
+                seller,
+                product,
+                buyBid,
+                null,
+                sellNowRequestDto.getPrice(),
+                BidType.SELL,
+                buyBid.getAddressId()
+        );
+
+        Order saveOrder = orderRepository.save(order);
 
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
@@ -301,6 +302,7 @@ public class BidService {
         try {
             paymentService.payWithBillingKey(autoPaymentRequestDto);
         } catch (Exception e) {
+            log.error("즉시 판매 결제 실패: 주문번호 {}, 에러: {}", orderNumber, e.getMessage(), e);
             throw new CustomException(ErrorCode.PAYMENT_FAILED);
         }
         return SellNowResponseDto.builder()

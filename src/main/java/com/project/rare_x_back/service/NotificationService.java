@@ -7,12 +7,14 @@ import com.project.rare_x_back.repository.NotificationRepository;
 import com.project.rare_x_back.repository.SseRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -41,7 +43,7 @@ public class NotificationService {
         emitter.onError((e) -> sseRepository.deleteById(emitterId));
 
         /// 4. 503 Service Unavailable 오류 방지를 위한 더미 이벤트 전송
-        sendToClient(emitter, emitterId, "EventStream Created. [userId=" + userId + "]");
+        sendToClient(emitter, emitterId, emitterId, "EventStream Created. [userId=" + userId + "]");
 
         return emitter;
     }
@@ -69,25 +71,26 @@ public class NotificationService {
         /// 2. 유저의 모든 SseEmitter를 가져와서 알림 전송 (다중 기기 접속 고려)
         Map<String, SseEmitter> emitters = sseRepository.findAllEmitterStartWithByUserId(String.valueOf(userId));
         emitters.forEach(
-                (key, emitter) -> {
+                (emitterId, emitter) -> {
                     /// 데이터 캐시 저장 (유실 방지 - Last-Event-ID 사용 시 필요)
-                    sseRepository.saveEventCache(key, notification);
+                    sseRepository.saveEventCache(emitterId, notification);
                     /// 데이터 전송
-                    sendToClient(emitter, eventId, notification);
+                    sendToClient(emitter, emitterId, eventId, notification); // emitterId 추가 전달
                 }
         );
     }
     
     /// 알림 전송 공통 로직
-    private void sendToClient(SseEmitter emitter, String id, Object data) {
+    private void sendToClient(SseEmitter emitter, String emitterId, String eventId, Object data) {
         try {
             emitter.send(SseEmitter.event()
-                    .id(id)
+                    .id(eventId)
                     .name("notification")
                     .data(data));
         } catch (IOException e) {
-            sseRepository.deleteById(id);
-            throw new RuntimeException("연결 오류!", e);
+            sseRepository.deleteById(emitterId); // 올바른 emitterId로 삭제
+            log.error("SSE 연결 오류 [emitterId={}]: {}", emitterId, e.getMessage());
+            // 예외를 던지지 않음 (다른 로직에 영향 주지 않기 위해)
         }
     }
 

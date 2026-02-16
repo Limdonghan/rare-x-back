@@ -27,4 +27,7 @@ public class ProductDetailResponseDto {
 
     private int wishCount;  // 현재 상품 찜수
     private boolean isLiked;    // 현재 상품 유저 찜 여부
+
+    private Long highestBuyBidId; // 즉시 판매 시 사용할 최고가 매수 입찰 ID
+    private Long lowestSaleBidId; // 즉시 구매 시 사용할 최저가 판매 입찰 ID
 }

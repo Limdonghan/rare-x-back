@@ -69,7 +69,7 @@ public class BidController {
      */
     @PostMapping("/sell")
     public ResponseEntity<ApiResponse<SellNowResponseDto>> sellNow(@Valid @RequestBody SellNowRequestDto sellNowRequestDto,
-                                                                       @AuthenticationPrincipal CustomUserDetails userDetails) {
+                                                                   @AuthenticationPrincipal CustomUserDetails userDetails) {
         SellNowResponseDto sellNowResponseDto = bidService.sellNow(sellNowRequestDto, userDetails.getUsername());
         return ResponseEntity
                 .ok().body(ApiResponse.success(sellNowResponseDto,"즉시 판매가 완료되었습니다"));
