@@ -34,6 +34,7 @@ public class InspectionService {
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
+    private final NotificationService notificationService;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -267,6 +268,14 @@ public class InspectionService {
 
             // order 상태 변경, order_history 이력 저장 (검수 합격)
             orderService.updateOrderStatus(order, CurrentStatus.PASSED);
+
+            /// [추가] 판매자에게 검수 합격 알림 전송
+            notificationService.send(
+                    order.getSeller().getUserId(),
+                    "판매하신 상품(" + order.getProduct().getProductName() + ")이 검수에 합격했습니다.",
+                    "/mypage/order", /// 판매 내역 페이지
+                    NotificationType.INSPECTION_RESULT
+            );
         }
 
         // Typesense 인덱싱
@@ -305,6 +314,14 @@ public class InspectionService {
 
             // storage_requests 상태 동기화
             storageRequest.updateStatus(StorageRequestStatus.RETURN);
+
+            /// [추가] 유저에게 검수 불합격 알림 전송
+            notificationService.send(
+                    storageRequest.getUser().getUserId(),
+                    "보관 신청하신 상품이 검수 불합격되었습니다. (사유: " + failReason + ")",
+                    "/mypage/storagerequest", /// 보관 신청 내역 (또는 불합격 상세)
+                    NotificationType.INSPECTION_RESULT
+            );
         }
 
         // 입찰 주문 건 검수실패 처리
@@ -318,6 +335,22 @@ public class InspectionService {
 
             // 이력 저장 및 상태 변경 + 인덱싱
             orderService.finalizeFailInspectionCancellation(order);
+
+            /// [추가] 구매자에게 검수 불합격 및 결제 취소 알림 전송
+            notificationService.send(
+                    order.getBuyer().getUserId(), /// 구매자 ID
+                    "주문하신 상품이 검수 불합격되어 결제가 취소되었습니다.",
+                    "/mypage/order", /// 구매 내역
+                    NotificationType.ORDER_STATUS
+            );
+
+            /// [추가] 판매자에게도 알림
+            notificationService.send(
+                    order.getSeller().getUserId(), /// 판매자 ID
+                    "판매하신 상품이 검수 불합격 처리되었습니다. (사유: " + failReason + ")",
+                    "/mypage/contract", /// 판매 내역
+                    NotificationType.INSPECTION_RESULT
+            );
 
             // 환불 금액 (전액 -> 검수 실패 이므로 구매자 귀책 X)
             long cancelAmount = payment.getAmount();

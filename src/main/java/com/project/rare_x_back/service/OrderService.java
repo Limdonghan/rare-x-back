@@ -41,6 +41,7 @@ public class OrderService {
     private final UserPenaltyRepository userPenaltyRepository;
     private final PaymentService paymentService;
     private final PaymentHistoryRepository paymentHistoryRepository;
+    private final NotificationService notificationService;
 
 
     @Value("${app.service-start-date}")
@@ -79,6 +80,22 @@ public class OrderService {
 
         // 주문 이력 저장
         saveHistory(savedOrder, initialStatus);
+
+        /// [추가] 구매자에게 알림 전송
+        notificationService.send(
+                buyer.getUserId(),
+                product.getProductName()+"상품가 입찰이 체결되어 주문이 생성되었습니다.",
+                "/mypage/order", // 구매 내역 페이지
+                NotificationType.ORDER_STATUS
+        );
+
+        /// [추가] 판매자에게 알림 전송
+        notificationService.send(
+                seller.getUserId(),
+                product.getProductName()+"상품가 판매 입찰이 체결되었습니다. 상품을 발송해주세요.",
+                "/mypage/contract", // 판매 내역 페이지
+                NotificationType.ORDER_STATUS
+        );
 
         return savedOrder;
     }

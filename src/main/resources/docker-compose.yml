@@ -80,7 +80,7 @@ services:
       - kafka
     environment:
       - KAFKA_CLUSTERS_0_NAME=local-kraft
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
     mem_limit: 256m # 메모리 제한
 
 networks:
