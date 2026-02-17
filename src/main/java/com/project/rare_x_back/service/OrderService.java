@@ -84,7 +84,7 @@ public class OrderService {
         /// [추가] 구매자에게 알림 전송
         notificationService.send(
                 buyer.getUserId(),
-                product.getProductName()+"상품가 입찰이 체결되어 주문이 생성되었습니다.",
+                product.getProductName()+"상품의 입찰이 체결되어 주문이 생성되었습니다.",
                 "/mypage/order", // 구매 내역 페이지
                 NotificationType.ORDER_STATUS
         );
@@ -92,7 +92,7 @@ public class OrderService {
         /// [추가] 판매자에게 알림 전송
         notificationService.send(
                 seller.getUserId(),
-                product.getProductName()+"상품가 판매 입찰이 체결되었습니다. 상품을 발송해주세요.",
+                product.getProductName()+"상품의 판매 입찰이 체결되었습니다. 상품을 발송해주세요.",
                 "/mypage/contract", // 판매 내역 페이지
                 NotificationType.ORDER_STATUS
         );

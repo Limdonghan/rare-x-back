@@ -9,6 +9,7 @@ import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -51,6 +52,7 @@ public class NotificationService {
     /**
      * 특정 유저에게 알림을 전송
      */
+    @Transactional
     public void send(Long userId, String content, String url, NotificationType type) {
         /// 1. 알림 엔티티 저장
         User user = userRepository.findById(userId)

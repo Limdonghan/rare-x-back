@@ -3,7 +3,10 @@ package com.project.rare_x_back.entity;
 import com.project.rare_x_back.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications")
@@ -21,7 +24,7 @@ public class Notification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User userId;
+    private User user;
 
     @Column(name = "type")
     @Enumerated(EnumType.STRING)
@@ -35,6 +38,10 @@ public class Notification {
 
     @Column(name = "is_read")
     private boolean isRead;
+
+    @CreatedDate
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
 
 }

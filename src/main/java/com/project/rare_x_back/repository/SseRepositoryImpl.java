@@ -74,13 +74,9 @@ public class SseRepositoryImpl implements SseRepository {
      */
     @Override
     public void deleteAllEmitterStartWithId(String userId) {
-        emitters.forEach(
-                (key, emitter) -> {
-                    if (key.startsWith(userId)) {
-                        emitters.remove(key);
-                    }
-                }
-        );
+        // [수정] forEach 내에서 remove 호출 시 ConcurrentModificationException 발생 가능성 있음
+        // keySet().removeIf()를 사용하여 안전하게 삭제
+        emitters.keySet().removeIf(key -> key.startsWith(userId));
     }
 
     /**
@@ -89,12 +85,8 @@ public class SseRepositoryImpl implements SseRepository {
      */
     @Override
     public void deleteAllEventCacheStartWithId(String userId) {
-        eventCache.forEach(
-                (key, emitter) -> {
-                    if (key.startsWith(userId)) {
-                        eventCache.remove(key);
-                    }
-                }
-        );
+        // [수정] forEach 내에서 remove 호출 시 ConcurrentModificationException 발생 가능성 있음
+        // keySet().removeIf()를 사용하여 안전하게 삭제
+        eventCache.keySet().removeIf(key -> key.startsWith(userId));
     }
 }

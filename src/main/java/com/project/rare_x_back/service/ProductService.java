@@ -92,21 +92,40 @@ public class ProductService {
         List<BuyBid> allBuyBids = buyBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
         List<SaleBid> allSaleBids = saleBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
 
-        // Java Stream으로 그룹핑 & 카운트 & 정렬
-        // 구매 입찰 리스트: 가격별로 묶기 -> 내림차순
+        // [최적화] 1. 원본 리스트 미리 정렬 (O(N log N))
+        // 구매 입찰: 가격 내림차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
+        allBuyBids.sort(Comparator.comparingInt(BuyBid::getPrice).reversed()
+                .thenComparing(BuyBid::getCreatedAt));
+
+        // 판매 입찰: 가격 오름차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
+        allSaleBids.sort(Comparator.comparingInt(SaleBid::getPrice)
+                .thenComparing(SaleBid::getCreatedAt));
+
+        // [최적화] 2. 정렬된 리스트에서 즉시 ID 추출 (O(1))
+        Long highestBuyBidId = allBuyBids.isEmpty() ? null : allBuyBids.get(0).getBuyId();
+        Long lowestSaleBidId = allSaleBids.isEmpty() ? null : allSaleBids.get(0).getSellId();
+
+        // [최적화] 3. 정렬된 순서 유지하며 그룹핑 (O(N)) - LinkedHashMap 사용
+        // 구매 입찰 리스트: 가격별로 묶기 (이미 정렬되어 있음)
         List<BidInfo> buyBidList = allBuyBids.stream()
-                .collect(Collectors.groupingBy(BuyBid::getPrice, Collectors.counting()))
+                .collect(Collectors.groupingBy(
+                        BuyBid::getPrice,
+                        java.util.LinkedHashMap::new, // 순서 유지
+                        Collectors.counting()
+                ))
                 .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice).reversed())
+                .map(entry -> new BidInfo(entry.getKey(), entry.getValue()))
                 .toList();
 
-        // 판매 입찰 리스트: 가격별로 묶기 -> 오름차순
+        // 판매 입찰 리스트: 가격별로 묶기 (이미 정렬되어 있음)
         List<BidInfo> saleBidList = allSaleBids.stream()
-                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
+                .collect(Collectors.groupingBy(
+                        SaleBid::getPrice,
+                        java.util.LinkedHashMap::new, // 순서 유지
+                        Collectors.counting()
+                ))
                 .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice))
+                .map(entry -> new BidInfo(entry.getKey(), entry.getValue()))
                 .toList();
 
 
@@ -144,16 +163,8 @@ public class ProductService {
                 .saleBidInfoList(saleBidList)
                 .wishCount(product.getWishCount())
                 .isLiked(isLiked)
-                .highestBuyBidId(allBuyBids.stream()
-                        .sorted(Comparator.comparingInt(BuyBid::getPrice).reversed()
-                                .thenComparing(BuyBid::getCreatedAt))
-                        .map(BuyBid::getBuyId)
-                        .findFirst().orElse(null))
-                .lowestSaleBidId(allSaleBids.stream()
-                        .sorted(Comparator.comparingInt(SaleBid::getPrice)
-                                .thenComparing(SaleBid::getCreatedAt))
-                        .map(SaleBid::getSellId)
-                        .findFirst().orElse(null))
+                .highestBuyBidId(highestBuyBidId)
+                .lowestSaleBidId(lowestSaleBidId)
                 .build();
 
     }
