@@ -36,11 +36,11 @@ public class AdminController {
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
-                consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
             @RequestPart("images")List<MultipartFile> images
-            ) {
+    ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
     }
@@ -162,10 +162,22 @@ public class AdminController {
     public ResponseEntity <ApiResponse<Void>> deliveredOrder (
             @PathVariable Long orderId,
             @AuthenticationPrincipal CustomUserDetails adminDetails
-            ) {
+    ) {
         orderService.deliveryComplete(orderId);
         log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+    // 주문 일괄 배송 완료 처리
+    @PatchMapping("/orders/bulk/delivered")
+    public ResponseEntity<ApiResponse<Void>> bulkDeliveredOrders(
+            @RequestBody Map<String, List<Long>> request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        List<Long> orderIds = request.get("orderIds");
+        orderService.bulkDeliveryComplete(orderIds);
+        log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함", adminDetails.getUsername(), orderIds.size());
+        return ResponseEntity.ok(ApiResponse.success("일괄 배송 완료 처리되었습니다."));
     }
 
     // 카테고리 일괄 삭제

@@ -100,8 +100,8 @@ public class OrderService {
         return savedOrder;
     }
 
-     // 주문의 상태가 변하는 모든 순간에 호출
-     // 상태 변경과 이력 저장을 동시에 처리하는 공통 메서드
+    // 주문의 상태가 변하는 모든 순간에 호출
+    // 상태 변경과 이력 저장을 동시에 처리하는 공통 메서드
     @Transactional
     public void updateOrderStatus(Order order, CurrentStatus newStatus) {
         if (order == null || newStatus == null) {
@@ -179,6 +179,29 @@ public class OrderService {
         }
         // 주문 상태 변경 및 주문 이력 저장
         updateOrderStatus(order, CurrentStatus.DELIVERED);
+    }
+
+    // 관리자 주문 일괄 배송 완료 (SHIPPED -> DELIVERED)
+    @Transactional
+    public void bulkDeliveryComplete(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 ID 목록이 비어있습니다.");
+        }
+
+        List<Order> orders = orderRepository.findAllById(orderIds);
+
+        if (orders.size() != orderIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "일부 주문을 찾을 수 없습니다.");
+        }
+
+        for (Order order : orders) {
+            if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
+                throw new CustomException(ErrorCode.BAD_REQUEST,
+                        String.format("주문 %d은(는) 발송 상태가 아닙니다. (현재: %s)",
+                                order.getOrderId(), order.getCurrentStatus()));
+            }
+            updateOrderStatus(order, CurrentStatus.DELIVERED);
+        }
     }
 
     // 주문 내역 조회
@@ -706,7 +729,7 @@ public class OrderService {
             statuses = status.stream()
                     .map(s -> {
                         try {
-                           return CurrentStatus.valueOf(s);
+                            return CurrentStatus.valueOf(s);
                         } catch (IllegalArgumentException e) {
                             throw new CustomException(ErrorCode.BAD_REQUEST);
                         }
