@@ -269,11 +269,14 @@ public class AdminService {
 
     //카테고리 등록
     public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
+        // 중복 체크
+        if (categoryRepository.existsByCategoryName(categoryCreateRequestDto.getCategoryName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 카테고리입니다: " + categoryCreateRequestDto.getCategoryName());
+        }
 
         Category category = Category.builder()
                 .categoryName(categoryCreateRequestDto.getCategoryName())
                 .build();
-
         categoryRepository.save(category);
     }
 
@@ -290,11 +293,15 @@ public class AdminService {
     //카테고리 삭제
     public void deleteCategory (Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(()->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "카테고리를 찾을 수 없습니다.")
-                );
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByCategory_CategoryIdAndIsDeletedFalse(categoryId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 카테고리는 삭제할 수 없습니다: " + category.getCategoryName());
+        }
+
         categoryRepository.deleteById(category.getCategoryId());
     }
 
@@ -323,6 +330,10 @@ public class AdminService {
 
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
+        // 중복 체크
+        if (brandRepository.existsByBrandName(brandCreateRequestDto.getBrandName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 브랜드입니다: " + brandCreateRequestDto.getBrandName());
+        }
 
         Brand brand = Brand.builder()
                 .brandName(brandCreateRequestDto.getBrandName())
@@ -343,10 +354,15 @@ public class AdminService {
     //브랜드 삭제
     public void deleteBrand(Long brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "브랜드를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "브랜드를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByBrand_BrandIdAndIsDeletedFalse(brandId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 브랜드는 삭제할 수 없습니다: " + brand.getBrandName());
+        }
+
         brandRepository.deleteById(brand.getBrandId());
     }
 

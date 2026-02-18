@@ -33,6 +33,7 @@ public class StorageRequestService {
     private final BillingKeyRepository billingKeyRepository;
     private final PaymentService paymentService;
     private final StorageDepositRepository storageDepositRepository;
+    private final SearchService searchService;
 
     @Value("${inspection-center.address}")
     private String inspectionCenterAddress;
@@ -155,6 +156,7 @@ public class StorageRequestService {
                 .build();
 
         inspectionRepository.save(inspection);
+        searchService.indexInspection(inspection);
 
         return StorageRequestResponseDto.from(storageRequest, inspectionCenterAddress, inspectionCenterZipcode);
     }
