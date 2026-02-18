@@ -111,9 +111,15 @@ public class AdminService {
     }
 
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
-    public Page<ProductResponseDto> getAllProducts(Pageable pageable) {
+    public Page<ProductResponseDto> getAllProducts(Long categoryId, Pageable pageable) {
         // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
-        Page<Product> productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        Page<Product> productPage;
+        if (categoryId != null) {
+            productPage = productRepository.findByCategory_CategoryIdAndIsDeletedFalse(categoryId, pageable);
+        } else {
+            productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        }
+
         // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
         return productPage.map(product -> {
             // 썸네일 이미지 URL 추출(없으면 null,썸네일 이미지는 상품 하나에 연결된 모든 이미지 리스트 중 0번 인덱스)

@@ -60,8 +60,10 @@ public class AdminController {
 
     //상품 전체 조회
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(Pageable pageable){
-        Page<ProductResponseDto> response = adminService.getAllProducts(pageable);
+    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(
+            @RequestParam(required = false) Long categoryId,
+            Pageable pageable){
+        Page<ProductResponseDto> response = adminService.getAllProducts(categoryId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
