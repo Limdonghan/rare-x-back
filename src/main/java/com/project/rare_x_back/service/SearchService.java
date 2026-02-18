@@ -239,6 +239,7 @@ public class SearchService {
             document.put("email", user.getEmail());
             document.put("name", user.getName());
             document.put("role", user.getRole().name());
+            document.put("provider_type", user.getProviderType() != null ? user.getProviderType().name() : "");
             document.put("status", user.getStatus().name());
             document.put("is_deleted", user.getIsDeleted());
             document.put("created_at", user.getCreatedAt() != null
@@ -429,6 +430,12 @@ public class SearchService {
                             .name((String) doc.getOrDefault("name", ""))
                             .role((String) doc.getOrDefault("role", ""))
                             .status((String) doc.getOrDefault("status", ""))
+                            .providerType((String) doc.getOrDefault("provider_type", ""))
+                            .createdAt(doc.get("created_at") != null
+                                    ? java.time.LocalDateTime.ofInstant(
+                                    java.time.Instant.ofEpochSecond(((Number) doc.get("created_at")).longValue()),
+                                    java.time.ZoneId.systemDefault())
+                                    : null)
                             .build());
                 } catch (Exception e) {
                     log.error("회원 DTO 변환 실패: {}", e.getMessage());
@@ -605,6 +612,7 @@ public class SearchService {
                         new Field().name("name").type("string"),
                         new Field().name("role").type("string"),
                         new Field().name("status").type("string"),
+                        new Field().name("provider_type").type("string"),
                         new Field().name("is_deleted").type("bool"),
                         new Field().name("created_at").type("int64")
                 );

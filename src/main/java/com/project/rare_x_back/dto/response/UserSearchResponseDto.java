@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,4 +17,6 @@ public class UserSearchResponseDto {
     private String name;
     private String role;
     private String status;
+    private String providerType;
+    private LocalDateTime createdAt;
 }
