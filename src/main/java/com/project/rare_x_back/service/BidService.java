@@ -378,6 +378,28 @@ public class BidService {
                 .toList();
     }
 
+    // 구매 입찰 체결됨 탭 조회 (Order 기반)
+    @Transactional(readOnly = true)
+    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, CurrentStatus orderStatus) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        List<Order> orders;
+        if (orderStatus == null) {
+            orders = orderRepository.findByBuyer_UserId(user.getUserId(),
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        } else {
+            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(
+                    user.getUserId(), statuses,
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        }
+
+        return orders.stream()
+                .map(MyBuyBidMatchedResponseDto::from)
+                .toList();
+    }
+
     // CurrentStatus 매핑
     private List<CurrentStatus> mapToStatuses(CurrentStatus filterStatus) {
         return switch (filterStatus) {

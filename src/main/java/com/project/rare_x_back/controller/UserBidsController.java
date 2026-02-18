@@ -3,6 +3,7 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.UpdateBidPriceRequestDto;
+import com.project.rare_x_back.dto.response.MyBuyBidMatchedResponseDto;
 import com.project.rare_x_back.dto.response.MyBuyBidResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidMatchedResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidResponseDto;
@@ -14,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,6 +53,15 @@ public class UserBidsController {
         List<MySaleBidMatchedResponseDto> response = bidService.getMySaleBidMatched(
                 userDetails.getEmail(), orderStatus);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 구매 입찰 목록 조회 - 체결됨
+    @GetMapping("/buybid/matched")
+    public ResponseEntity<ApiResponse<List<MyBuyBidMatchedResponseDto>>> getMyBuyBidMatched(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) CurrentStatus orderStatus) {
+        List<MyBuyBidMatchedResponseDto> result = bidService.getMyBuyBidMatched(userDetails.getUsername(), orderStatus);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     // 구매 입찰가 수정
