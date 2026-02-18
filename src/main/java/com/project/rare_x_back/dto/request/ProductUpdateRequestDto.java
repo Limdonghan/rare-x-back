@@ -2,6 +2,7 @@ package com.project.rare_x_back.dto.request;
 
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -15,6 +16,7 @@ public class ProductUpdateRequestDto {
     @Positive
     private Long categoryId;
 
+    @Size(max = 100, message = "상품명은 100자 이내여야 합니다.")
     private String productName;
 
     private String productDescription;
