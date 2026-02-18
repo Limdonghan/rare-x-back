@@ -59,7 +59,7 @@ public class NotificationService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Notification notification = Notification.builder()
-                .userId(user)
+                .user(user)
                 .message(content)
                 .url(url)
                 .type(type)
