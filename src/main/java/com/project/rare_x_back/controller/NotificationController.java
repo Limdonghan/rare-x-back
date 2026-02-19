@@ -1,14 +1,17 @@
 package com.project.rare_x_back.controller;
 
+import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
+import com.project.rare_x_back.dto.response.NotificationResponseDto;
 import com.project.rare_x_back.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/notification")
@@ -24,6 +27,24 @@ public class NotificationController {
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return notificationService.subscribe(userDetails.getUserId());
+    }
+
+    /**
+     * 알림 목록 조회
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<NotificationResponseDto>>> getNotifications(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<NotificationResponseDto> notificationResponseDtos = notificationService.getNotification(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(notificationResponseDtos, "알림 목록 조회가 완료되었습니다."));
+    }
+
+    /**
+     * 알림 읽음 처리
+     */
+    @PatchMapping("/{notificationId}/read")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long notificationId) {
+        notificationService.markAsRead(notificationId);
+        return ResponseEntity.ok(ApiResponse.success(null, "알림 읽음 처리가 완료되었습니다."));
     }
 
 }
