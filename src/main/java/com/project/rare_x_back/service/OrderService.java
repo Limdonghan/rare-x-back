@@ -86,7 +86,8 @@ public class OrderService {
                 buyer.getUserId(),
                 product.getProductName()+"상품의 입찰이 체결되어 주문이 생성되었습니다.",
                 "/mypage/order", // 구매 내역 페이지
-                NotificationType.ORDER_STATUS
+                NotificationType.ORDER_STATUS,
+                EmailType.PURCHASE_BID_MATCHED // 구매 입찰 체결 이메일
         );
 
         /// [추가] 판매자에게 알림 전송
@@ -94,7 +95,8 @@ public class OrderService {
                 seller.getUserId(),
                 product.getProductName()+"상품의 판매 입찰이 체결되었습니다. 상품을 발송해주세요.",
                 "/mypage/contract", // 판매 내역 페이지
-                NotificationType.ORDER_STATUS
+                NotificationType.ORDER_STATUS,
+                EmailType.SALE_BID_MATCHED // 판매 입찰 체결 이메일
         );
 
         return savedOrder;

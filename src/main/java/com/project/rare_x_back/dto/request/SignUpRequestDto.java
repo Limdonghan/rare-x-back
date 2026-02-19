@@ -3,6 +3,7 @@ package com.project.rare_x_back.dto.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,6 +29,8 @@ public class SignUpRequestDto {
     @NotBlank(message = "비밀번호 확인을 입력해주세요")
     private String passwordConfirm;
 
+    @Size(min = 2, max = 20, message = "이름은 2자 이상 20자 이하로 입력해주세요.")
+    @Pattern(regexp = "^[가-힣a-zA-Z\\s]+$", message = "이름은 한글과 영문만 입력 가능합니다.")
     @NotBlank(message = "이름일 입력해주세요")
     private String name;
 }

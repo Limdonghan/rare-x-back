@@ -34,8 +34,8 @@ public class NotificationController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponseDto>>> getNotifications(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        List<NotificationResponseDto> notificationResponseDtos = notificationService.getNotification(userDetails.getUsername());
-        return ResponseEntity.ok(ApiResponse.success(notificationResponseDtos, "알림 목록 조회가 완료되었습니다."));
+        List<NotificationResponseDto> notificationResponseDtoList = notificationService.getNotification(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(notificationResponseDtoList, "알림 목록 조회가 완료되었습니다."));
     }
 
     /**

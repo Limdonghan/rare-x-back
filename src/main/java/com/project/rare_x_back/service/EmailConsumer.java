@@ -63,6 +63,29 @@ public class EmailConsumer {
                 body = "안녕하세요. RARE-X 입니다.\n\n" +
                         "패스워드리스 서비스 해지 후 로그인을 위한 인증 번호는 다음과 같습니다.\n\n" +
                         "임시 비밀번호: " + content + "\n\n";
+            } else if (type == EmailType.NOTIFICATION) {
+                title = "[RARE-X] 새로운 알림이 도착했습니다";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        content + "\n\n" +
+                        "자세한 내용은 홈페이지에서 확인하세요.";
+            } else if (type == EmailType.INSPECTION_RESULT) {
+                title = "[RARE-X] 검수 결과 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "고객님의 상품에 대한 검수 결과가 도착했습니다.\n\n" +
+                        content + "\n\n" +
+                        "자세한 내용은 마이페이지 > 판매 내역 또는 구매 내역에서 확인하실 수 있습니다.";
+            } else if (type == EmailType.PURCHASE_BID_MATCHED) {
+                title = "[RARE-X] 구매 입찰 체결 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "축하합니다! 등록하신 구매 입찰이 체결되었습니다.\n\n" +
+                        content + "\n\n" +
+                        "결제가 진행될 예정이니 마이페이지 > 구매 내역을 확인해 주세요.";
+            } else if (type == EmailType.SALE_BID_MATCHED) {
+                title = "[RARE-X] 판매 입찰 체결 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "축하합니다! 등록하신 판매 입찰이 체결되었습니다.\n\n" +
+                        content + "\n\n" +
+                        "상품 발송을 준비해 주세요. 마이페이지 > 판매 내역에서 배송 정보를 입력하실 수 있습니다.";
             } else {
                 log.warn("알 수 없는 이메일 타입 (Skip): {}", type);
                 return;
