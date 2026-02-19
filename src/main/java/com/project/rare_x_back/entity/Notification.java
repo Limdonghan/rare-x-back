@@ -43,5 +43,9 @@ public class Notification {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    public void isReadUpdate(boolean read) {
+        this.isRead = read;
+    }
+
 
 }

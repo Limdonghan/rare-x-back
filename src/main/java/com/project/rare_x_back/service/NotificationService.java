@@ -1,5 +1,6 @@
 package com.project.rare_x_back.service;
 
+import com.project.rare_x_back.dto.response.NotificationResponseDto;
 import com.project.rare_x_back.entity.Notification;
 import com.project.rare_x_back.entity.User;
 import com.project.rare_x_back.enums.NotificationType;
@@ -8,11 +9,13 @@ import com.project.rare_x_back.repository.SseRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -43,8 +46,8 @@ public class NotificationService {
         emitter.onTimeout(() -> sseRepository.deleteById(emitterId));
         emitter.onError((e) -> sseRepository.deleteById(emitterId));
 
-        /// 4. 503 Service Unavailable 오류 방지를 위한 더미 이벤트 전송
-        sendToClient(emitter, emitterId, emitterId, "EventStream Created. [userId=" + userId + "]");
+        /// 4. 503 Service Unavailable 오류 방지를 위한 더미 이벤트 전송 (JSON 포맷)
+        sendToClient(emitter, emitterId, emitterId, Map.of("message", "EventStream Created. [userId=" + userId + "]"));
 
         return emitter;
     }
@@ -70,14 +73,17 @@ public class NotificationService {
 
         String eventId = userId + "_" + System.currentTimeMillis();
 
+        /// DTO로 변환 (엔티티 직접 전송 방지)
+        NotificationResponseDto responseDto = NotificationResponseDto.from(notification);
+
         /// 2. 유저의 모든 SseEmitter를 가져와서 알림 전송 (다중 기기 접속 고려)
         Map<String, SseEmitter> emitters = sseRepository.findAllEmitterStartWithByUserId(String.valueOf(userId));
         emitters.forEach(
                 (emitterId, emitter) -> {
                     /// 데이터 캐시 저장 (유실 방지 - Last-Event-ID 사용 시 필요)
                     sseRepository.saveEventCache(emitterId, notification);
-                    /// 데이터 전송
-                    sendToClient(emitter, emitterId, eventId, notification); // emitterId 추가 전달
+                    /// 데이터 전송 (DTO보내기)
+                    sendToClient(emitter, emitterId, eventId, responseDto); // emitterId 추가 전달
                 }
         );
     }
@@ -88,12 +94,37 @@ public class NotificationService {
             emitter.send(SseEmitter.event()
                     .id(eventId)
                     .name("notification")
-                    .data(data));
+                    .data(data, MediaType.APPLICATION_JSON)); /// JSON 타입 명시
         } catch (IOException e) {
             sseRepository.deleteById(emitterId); // 올바른 emitterId로 삭제
             log.error("SSE 연결 오류 [emitterId={}]: {}", emitterId, e.getMessage());
-            // 예외를 던지지 않음 (다른 로직에 영향 주지 않기 위해)
+            /// 예외를 던지지 않음 (다른 로직에 영향 주지 않기 위해)
         }
+    }
+
+    /**
+     * 사용자의 모든 알림을 DTO리스트로 변환
+     * */
+    public List<NotificationResponseDto> getNotification(String userEmail){
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        List<Notification> notificationList = notificationRepository.findAllByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+
+        return notificationList.stream()
+                        .map(NotificationResponseDto::from)
+                .toList();
+    }
+
+    /**
+     * 알림 읽음 처리
+     * */
+    public void markAsRead (Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        notification.isReadUpdate(true);
+        notificationRepository.save(notification);
     }
 
 
