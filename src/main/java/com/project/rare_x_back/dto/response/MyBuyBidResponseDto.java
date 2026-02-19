@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 public class MyBuyBidResponseDto {
     private Long bidId;
+    private Long productId;
     private String productName;
     private String brandName;
     private String imageUrl;
@@ -26,6 +27,7 @@ public class MyBuyBidResponseDto {
 
         return MyBuyBidResponseDto.builder()
                 .bidId(bid.getBuyId())
+                .productId(bid.getProduct().getProductId())
                 .productName(bid.getProduct().getProductName())
                 .brandName(bid.getProduct().getBrand().getBrandName())
                 .imageUrl(imageUrl)
