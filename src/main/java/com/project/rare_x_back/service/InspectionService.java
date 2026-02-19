@@ -274,7 +274,8 @@ public class InspectionService {
                     order.getSeller().getUserId(),
                     "판매하신 상품(" + order.getProduct().getProductName() + ")이 검수에 합격했습니다.",
                     "/mypage/order", /// 판매 내역 페이지
-                    NotificationType.INSPECTION_RESULT
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
             );
         }
 
@@ -320,7 +321,8 @@ public class InspectionService {
                     storageRequest.getUser().getUserId(),
                     "보관 신청하신 상품이 검수 불합격되었습니다. (사유: " + failReason + ")",
                     "/mypage/storagerequest", /// 보관 신청 내역 (또는 불합격 상세)
-                    NotificationType.INSPECTION_RESULT
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
             );
         }
 
@@ -341,7 +343,8 @@ public class InspectionService {
                     order.getBuyer().getUserId(), /// 구매자 ID
                     "주문하신 상품이 검수 불합격되어 결제가 취소되었습니다.",
                     "/mypage/order", /// 구매 내역
-                    NotificationType.ORDER_STATUS
+                    NotificationType.ORDER_STATUS,
+                    EmailType.INSPECTION_RESULT
             );
 
             /// [추가] 판매자에게도 알림
@@ -349,7 +352,8 @@ public class InspectionService {
                     order.getSeller().getUserId(), /// 판매자 ID
                     "판매하신 상품이 검수 불합격 처리되었습니다. (사유: " + failReason + ")",
                     "/mypage/contract", /// 판매 내역
-                    NotificationType.INSPECTION_RESULT
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
             );
 
             // 환불 금액 (전액 -> 검수 실패 이므로 구매자 귀책 X)

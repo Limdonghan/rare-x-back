@@ -194,4 +194,16 @@ public class EmailService {
         log.info("임시 비밀번호 플래그 삭제: email={}", email);
     }
 
+    // 알림 이메일 발송 (비동기)
+    @Async
+    public void sendNotificationEmail(String email, EmailType type, String content) {
+        try {
+            emailProducer.sendEmail(email, type, content);
+            log.info("알림 이메일 발송 요청: email={}, type={}", email, type);
+        } catch (Exception e) {
+            log.error("알림 이메일 발송 실패: email={}, error={}", email, e.getMessage());
+            // 알림 메일 발송 실패는 치명적이지 않으므로 예외를 던지지 않고 로그만 남김
+        }
+    }
+
 }

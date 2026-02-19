@@ -3,7 +3,10 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.dto.response.NotificationResponseDto;
 import com.project.rare_x_back.entity.Notification;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.EmailType;
 import com.project.rare_x_back.enums.NotificationType;
+import com.project.rare_x_back.exceptions.CustomException;
+import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.NotificationRepository;
 import com.project.rare_x_back.repository.SseRepository;
 import com.project.rare_x_back.repository.UserRepository;
@@ -13,6 +16,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
 import java.util.List;
@@ -26,6 +31,7 @@ public class NotificationService {
     private final SseRepository sseRepository;
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     /// 기본 타임아웃: 60분
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
@@ -56,36 +62,42 @@ public class NotificationService {
      * 특정 유저에게 알림을 전송
      */
     @Transactional
-    public void send(Long userId, String content, String url, NotificationType type) {
-        /// 1. 알림 엔티티 저장
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    // 알림 전송 (기본 EmailType used: NOTIFICATION)
+    public void send(Long userId, String content, String url, NotificationType notificationType) {
+        send(userId, content, url, notificationType, EmailType.NOTIFICATION);
+    }
 
+    // 알림 전송 (EmailType 지정 가능)
+    @Transactional
+    public void send(Long userId, String content, String url, NotificationType notificationType, EmailType emailType) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        /// 1. 알림 저장
         Notification notification = Notification.builder()
                 .user(user)
                 .message(content)
                 .url(url)
-                .type(type)
                 .isRead(false)
+                .type(notificationType)
                 .build();
-        
-        notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
 
-        String eventId = userId + "_" + System.currentTimeMillis();
-
-        /// DTO로 변환 (엔티티 직접 전송 방지)
-        NotificationResponseDto responseDto = NotificationResponseDto.from(notification);
-
-        /// 2. 유저의 모든 SseEmitter를 가져와서 알림 전송 (다중 기기 접속 고려)
+        /// 2. SSE 전송
         Map<String, SseEmitter> emitters = sseRepository.findAllEmitterStartWithByUserId(String.valueOf(userId));
+
+        NotificationResponseDto responseDto = NotificationResponseDto.from(savedNotification);
+
         emitters.forEach(
-                (emitterId, emitter) -> {
-                    /// 데이터 캐시 저장 (유실 방지 - Last-Event-ID 사용 시 필요)
-                    sseRepository.saveEventCache(emitterId, notification);
-                    /// 데이터 전송 (DTO보내기)
-                    sendToClient(emitter, emitterId, eventId, responseDto); // emitterId 추가 전달
+                (key, emitter) -> {
+                    sseRepository.saveEventCache(key, responseDto);
+                    String eventId = key + "_" + System.currentTimeMillis();
+                    sendToClient(emitter, key, eventId, responseDto); // key (emitterId)를 사용
                 }
         );
+
+        /// 3. 이메일 전송 (비동기) - 지정된 EmailType 사용
+        emailService.sendNotificationEmail(user.getEmail(), emailType, content);
     }
     
     /// 알림 전송 공통 로직
@@ -125,6 +137,24 @@ public class NotificationService {
 
         notification.isReadUpdate(true);
         notificationRepository.save(notification);
+    }
+
+    /**
+     * 주기적으로(1분마다) Heartbeat 전송하여 503 에러 및 타임아웃 방지
+     */
+    @Scheduled(fixedRate = 60 * 1000)
+    public void sendHeartbeat() {
+        Map<String, SseEmitter> emitters = sseRepository.findAll();
+        emitters.forEach((key, emitter) -> {
+            try {
+                emitter.send(SseEmitter.event()
+                        .id(key)
+                        .name("heartbeat")
+                        .data(""));
+            } catch (IOException e) {
+                sseRepository.deleteById(key);
+            }
+        });
     }
 
 
