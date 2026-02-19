@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +127,24 @@ public class NotificationService {
 
         notification.isReadUpdate(true);
         notificationRepository.save(notification);
+    }
+
+    /**
+     * 주기적으로(1분마다) Heartbeat 전송하여 503 에러 및 타임아웃 방지
+     */
+    @Scheduled(fixedRate = 60 * 1000)
+    public void sendHeartbeat() {
+        Map<String, SseEmitter> emitters = sseRepository.findAll();
+        emitters.forEach((key, emitter) -> {
+            try {
+                emitter.send(SseEmitter.event()
+                        .id(key)
+                        .name("heartbeat")
+                        .data(""));
+            } catch (IOException e) {
+                sseRepository.deleteById(key);
+            }
+        });
     }
 
 

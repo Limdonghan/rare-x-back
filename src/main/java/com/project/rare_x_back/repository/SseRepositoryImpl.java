@@ -89,4 +89,8 @@ public class SseRepositoryImpl implements SseRepository {
         // keySet().removeIf()를 사용하여 안전하게 삭제
         eventCache.keySet().removeIf(key -> key.startsWith(userId));
     }
+    @Override
+    public Map<String, SseEmitter> findAll() {
+        return emitters;
+    }
 }
