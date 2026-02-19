@@ -68,6 +68,7 @@ public class NotificationService {
     }
 
     // 알림 전송 (EmailType 지정 가능)
+    @Transactional
     public void send(Long userId, String content, String url, NotificationType notificationType, EmailType emailType) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -83,7 +84,6 @@ public class NotificationService {
         Notification savedNotification = notificationRepository.save(notification);
 
         /// 2. SSE 전송
-        String emitterId = userId + "_" + System.currentTimeMillis();
         Map<String, SseEmitter> emitters = sseRepository.findAllEmitterStartWithByUserId(String.valueOf(userId));
 
         NotificationResponseDto responseDto = NotificationResponseDto.from(savedNotification);
@@ -92,7 +92,7 @@ public class NotificationService {
                 (key, emitter) -> {
                     sseRepository.saveEventCache(key, responseDto);
                     String eventId = key + "_" + System.currentTimeMillis();
-                    sendToClient(emitter, emitterId, eventId, responseDto); // emitterId 추가 전달
+                    sendToClient(emitter, key, eventId, responseDto); // key (emitterId)를 사용
                 }
         );
 
