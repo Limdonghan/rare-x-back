@@ -111,9 +111,15 @@ public class AdminService {
     }
 
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
-    public Page<ProductResponseDto> getAllProducts(Pageable pageable) {
+    public Page<ProductResponseDto> getAllProducts(Long categoryId, Pageable pageable) {
         // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
-        Page<Product> productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        Page<Product> productPage;
+        if (categoryId != null) {
+            productPage = productRepository.findByCategory_CategoryIdAndIsDeletedFalse(categoryId, pageable);
+        } else {
+            productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        }
+
         // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
         return productPage.map(product -> {
             // 썸네일 이미지 URL 추출(없으면 null,썸네일 이미지는 상품 하나에 연결된 모든 이미지 리스트 중 0번 인덱스)
@@ -269,11 +275,14 @@ public class AdminService {
 
     //카테고리 등록
     public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
+        // 중복 체크
+        if (categoryRepository.existsByCategoryName(categoryCreateRequestDto.getCategoryName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 카테고리입니다: " + categoryCreateRequestDto.getCategoryName());
+        }
 
         Category category = Category.builder()
                 .categoryName(categoryCreateRequestDto.getCategoryName())
                 .build();
-
         categoryRepository.save(category);
     }
 
@@ -290,11 +299,15 @@ public class AdminService {
     //카테고리 삭제
     public void deleteCategory (Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(()->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "카테고리를 찾을 수 없습니다.")
-                );
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByCategory_CategoryIdAndIsDeletedFalse(categoryId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 카테고리는 삭제할 수 없습니다: " + category.getCategoryName());
+        }
+
         categoryRepository.deleteById(category.getCategoryId());
     }
 
@@ -323,6 +336,10 @@ public class AdminService {
 
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
+        // 중복 체크
+        if (brandRepository.existsByBrandName(brandCreateRequestDto.getBrandName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 브랜드입니다: " + brandCreateRequestDto.getBrandName());
+        }
 
         Brand brand = Brand.builder()
                 .brandName(brandCreateRequestDto.getBrandName())
@@ -343,10 +360,15 @@ public class AdminService {
     //브랜드 삭제
     public void deleteBrand(Long brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "브랜드를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "브랜드를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByBrand_BrandIdAndIsDeletedFalse(brandId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 브랜드는 삭제할 수 없습니다: " + brand.getBrandName());
+        }
+
         brandRepository.deleteById(brand.getBrandId());
     }
 

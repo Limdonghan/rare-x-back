@@ -41,6 +41,7 @@ public class BidService {
     private String inspectionCenterZipcode;
 
     private final OrderService orderService;
+    private final SearchService searchService;
 
     public FeeResponseDto getFees() {
         return FeeResponseDto.builder()
@@ -251,6 +252,7 @@ public class BidService {
                 .status(InspectionStatus.SHIPPED_TO_WAREHOUSE)
                 .build();
         inspectionRepository.save(inspection);
+        searchService.indexInspection(inspection);
 
         return OrderShipResponseDto.from(order, inspectionCenterAddress, inspectionCenterZipcode);
     }

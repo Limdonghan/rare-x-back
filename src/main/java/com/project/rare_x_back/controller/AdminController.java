@@ -36,11 +36,11 @@ public class AdminController {
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
-                consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
             @RequestPart("images")List<MultipartFile> images
-            ) {
+    ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
     }
@@ -60,8 +60,10 @@ public class AdminController {
 
     //상품 전체 조회
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(Pageable pageable){
-        Page<ProductResponseDto> response = adminService.getAllProducts(pageable);
+    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(
+            @RequestParam(required = false) Long categoryId,
+            Pageable pageable){
+        Page<ProductResponseDto> response = adminService.getAllProducts(categoryId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -162,10 +164,37 @@ public class AdminController {
     public ResponseEntity <ApiResponse<Void>> deliveredOrder (
             @PathVariable Long orderId,
             @AuthenticationPrincipal CustomUserDetails adminDetails
-            ) {
+    ) {
         orderService.deliveryComplete(orderId);
         log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+    // 주문 일괄 배송 완료 처리
+    @PatchMapping("/orders/bulk/delivered")
+    public ResponseEntity<ApiResponse<Void>> bulkDeliveredOrders(
+            @RequestBody Map<String, List<Long>> request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        if (request == null || !request.containsKey("orderIds")) {
+            log.warn("관리자({})가 유효하지 않은 일괄 배송 완료 요청을 보냈습니다. request 또는 orderIds 키가 없습니다.", 
+                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.success("유효한 주문 ID 목록(orderIds)이 요청에 포함되어야 합니다."));
+        }
+
+        List<Long> orderIds = request.get("orderIds");
+        if (orderIds == null || orderIds.isEmpty()) {
+            log.warn("관리자({})가 비어 있거나 null인 주문 ID 목록으로 일괄 배송 완료 요청을 보냈습니다.", 
+                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.success("주문 ID 목록(orderIds)은 비어 있을 수 없습니다."));
+        }
+
+        orderService.bulkDeliveryComplete(orderIds);
+        log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함", 
+                adminDetails != null ? adminDetails.getUsername() : "anonymous", orderIds.size());
+        return ResponseEntity.ok(ApiResponse.success("일괄 배송 완료 처리되었습니다."));
     }
 
     // 카테고리 일괄 삭제

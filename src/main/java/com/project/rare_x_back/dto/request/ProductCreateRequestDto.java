@@ -22,6 +22,6 @@ public class ProductCreateRequestDto {
     private String productDescription;
 
     @NotNull(message = "상품의 발매가를 입력해주세요.")
-    @PositiveOrZero(message = "발매가는 0원 이상이어야 합니다.")
+    @Positive(message = "올바른 가격을 입력해주세요")
     private Integer retailPrice;
 }
