@@ -20,6 +20,7 @@ public class ProductDetailResponseDto {
     private String productDescription;
     private int salePrice;
     private int buyPrice;
+    private int retailPrice;
     private List<String> imageUrls;
 
     private List<BidInfo>  saleBidInfoList;

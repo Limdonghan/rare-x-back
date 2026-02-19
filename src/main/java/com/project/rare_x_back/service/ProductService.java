@@ -161,6 +161,7 @@ public class ProductService {
                 .salePrice(salePrice)
                 .buyBidInfoList(buyBidList)
                 .saleBidInfoList(saleBidList)
+                .retailPrice(product.getRetailPrice())
                 .wishCount(product.getWishCount())
                 .isLiked(isLiked)
                 .highestBuyBidId(highestBuyBidId)
