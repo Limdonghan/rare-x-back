@@ -96,6 +96,7 @@ public class BidService {
         attemptMatchForSaleBid(savedBid);
 
         return RegisterSaleBidResponseDto.builder()
+                .bidId(savedBid.getSellId())
                 .productName(product.getProductName())
                 .brandName(product.getBrand().getBrandName())
                 .category(product.getCategory().getCategoryName())
@@ -138,6 +139,7 @@ public class BidService {
         attemptMatchForBuyBid(savedBid);
 
         return RegisterBuyBidResponseDto.builder()
+                .bidId(savedBid.getBuyId())
                 .productName(product.getProductName())
                 .brandName(product.getBrand().getBrandName())
                 .category(product.getCategory().getCategoryName())
