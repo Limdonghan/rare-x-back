@@ -510,6 +510,21 @@ public class InspectionService {
         }
     }
 
+    /**
+     * 일괄 배송 처리 (PASSED → SHIPPED, 주문 검수 전용)
+     * - ORDER 타입 검수 건만 배송 처리 가능
+     */
+    @Transactional
+    public void bulkDeliveryToBuyer(List<Long> inspectionIds) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.PASSED);
+
+        // 2. 개별 배송 처리 (ORDER 타입 검증 + 주문 상태 변경)
+        for (Long id : inspectionIds) {
+            deliveryToBuyer(id);
+        }
+    }
+
     // ============================================
     // 공통 검증 메서드
     // ============================================
