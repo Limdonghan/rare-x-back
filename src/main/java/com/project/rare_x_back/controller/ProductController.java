@@ -33,11 +33,11 @@ public class ProductController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllPublicProd (
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) List<Long> categoryIds,
+            @RequestParam(required = false) List<Long> brandIds,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        Page<ProductResponseDto> response = productService.getAllPublicProd(categoryId, brandId, pageable);
+        Page<ProductResponseDto> response = productService.getAllPublicProd(categoryIds, brandIds, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

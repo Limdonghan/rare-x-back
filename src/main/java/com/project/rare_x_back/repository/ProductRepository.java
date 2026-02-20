@@ -33,6 +33,18 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"category", "brand", "images"})
     Page<Product> findByCategory_CategoryIdAndBrand_BrandIdAndIsDeletedFalse(Long categoryId, Long brandId, Pageable pageable);
 
+    // 카테고리 다중 필터링
+    @EntityGraph(attributePaths = {"category", "brand", "images"})
+    Page<Product> findByCategory_CategoryIdInAndIsDeletedFalse(List<Long> categoryIds, Pageable pageable);
+
+    // 브랜드 다중 필터링
+    @EntityGraph(attributePaths = {"category", "brand", "images"})
+    Page<Product> findByBrand_BrandIdInAndIsDeletedFalse(List<Long> brandIds, Pageable pageable);
+
+    // 카테고리 + 브랜드 다중 필터링
+    @EntityGraph(attributePaths = {"category", "brand", "images"})
+    Page<Product> findByCategory_CategoryIdInAndBrand_BrandIdInAndIsDeletedFalse(List<Long> categoryIds, List<Long> brandIds, Pageable pageable);
+
     // 동기화용 - N+1 방지
     @EntityGraph(attributePaths = {"brand", "category"})
     @Query("SELECT p FROM Product p WHERE p.isDeleted = false")
