@@ -31,6 +31,7 @@ public class InspectionResponseDto {
     private String failReason;
     private LocalDateTime createdAt;
     private LocalDateTime inspectedAt;
+    private String orderCurrentStatus;  // 주문 상태 (ORDER 타입일 때만)
 
     // Inspection 엔티티를 ResponseDto로 변환
     public static InspectionResponseDto from(Inspection inspection) {
@@ -68,6 +69,11 @@ public class InspectionResponseDto {
         // 주문 검수(ORDER)인 경우
         Order order = inspection.getOrder();
         if (order != null) {
+            // 주문 현재 상태
+            if (order.getCurrentStatus() != null) {
+                builder.orderCurrentStatus(order.getCurrentStatus().name());
+            }
+
             // 판매자 정보
             User seller = order.getSeller();
             if (seller != null) {
