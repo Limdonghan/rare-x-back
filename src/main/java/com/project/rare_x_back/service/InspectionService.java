@@ -430,13 +430,19 @@ public class InspectionService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "주문 검수 건만 발송 처리할 수 있습니다.");
         }
 
-        // 2. 상태가 검수 통과인지 확인
+        // 3. 주문 정보 확인
+        Order order = inspection.getOrder();
+        if (order == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+        }
+
+        // 4. 상태가 검수 통과인지 확인
         if (inspection.getStatus() != InspectionStatus.PASSED) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과된 상품만 배송할 수 있습니다.");
         }
 
-        // 3. order 상태 변경, order_history 이력 저장
-        orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
+        // 5. order 상태 변경, order_history 이력 저장
+        orderService.updateOrderStatus(order, CurrentStatus.SHIPPED);
     }
 
     // ============================================
