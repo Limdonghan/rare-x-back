@@ -31,6 +31,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     @Query("""
     SELECT s
     FROM SaleBid s
+    LEFT JOIN FETCH s.storageItem
     WHERE s.status = :status
       AND s.product = :product
       AND s.price <= :buyPrice
@@ -44,6 +45,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             @Param("buyerId") Long buyerId,
             Pageable pageable
     );
+
 
     // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
     @Query("SELECT s.product.productId, MIN(s.price) FROM SaleBid s " +

@@ -186,6 +186,13 @@ public class BidService {
                 purchaseRequestDto.getAddressId()
         );
 
+        // 보관 상품 즉시 구매 체결 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회
+        storageItemRepository.findBySellBidId(saleBid.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("즉시 구매 체결: SaleBidId={}, StorageItem SOLD 처리 완료", saleBid.getSellId());
+        });
+
         /// 결제 승인
         PaymentConfirmRequestDto paymentConfirmRequestDto = PaymentConfirmRequestDto.builder()
                 .paymentKey(purchaseRequestDto.getPaymentKey())
@@ -210,6 +217,7 @@ public class BidService {
                 .build();
 
     }
+
 
     /**
      * [Order 발송 처리]
@@ -467,6 +475,13 @@ public class BidService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
         }
         cancelBid.statusUpdate(BidStatus.CANCELED);
+
+        // 보관 상품 입찰 취소 시 StorageItem 상태를 ON_SALE → STORED로 복구
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회
+        storageItemRepository.findBySellBidId(sellId).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.STORED);
+            log.info("판매 입찰 취소: SaleBidId={}, StorageItem STORED 복구 완료", sellId);
+        });
     }
 
     // 구매 입찰 기준 매칭 메소드
@@ -512,6 +527,14 @@ public class BidService {
                 BidType.BUY, //구매 입찰이 들어와서 체결됨
                 buyBid.getAddressId()
         );
+
+        // 보관 상품 입찰 매칭 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회 (getStorageItem() 사용 시 null 반환 버그 있음)
+        storageItemRepository.findBySellBidId(target.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("구매 입찰 매칭: SaleBidId={}, StorageItem SOLD 처리 완료", target.getSellId());
+        });
+
         // 저장된 빌링키로 자동 결제 실행
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
@@ -570,6 +593,13 @@ public class BidService {
                 BidType.SELL,
                 target.getAddressId()    // 구매자 주소
         );
+
+        // 보관 상품 입찰 매칭 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회 (getStorageItem() 사용 시 null 반환 버그 있음)
+        storageItemRepository.findBySellBidId(saleBid.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("판매 입찰 매칭: SaleBidId={}, StorageItem SOLD 처리 완료", saleBid.getSellId());
+        });
 
         // 4. 자동결제 실행
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()

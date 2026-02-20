@@ -42,6 +42,7 @@ public class OrderService {
     private final PaymentService paymentService;
     private final PaymentHistoryRepository paymentHistoryRepository;
     private final NotificationService notificationService;
+    private final StorageItemRepository storageItemRepository;
 
 
     @Value("${app.service-start-date}")
@@ -181,6 +182,40 @@ public class OrderService {
         }
         // 주문 상태 변경 및 주문 이력 저장
         updateOrderStatus(order, CurrentStatus.DELIVERED);
+    }
+
+    // 관리자 보관 주문 발송 처리 (PASSED → SHIPPED)
+    // 보관 상품 주문은 Inspection이 없으므로 별도 메서드로 처리
+    @Transactional
+    public void shipStorageOrder(Long orderId) {
+        // 1. 주문 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        // 2. PASSED 상태인지 확인
+        if (order.getCurrentStatus() != CurrentStatus.PASSED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과(PASSED) 상태의 주문만 발송 처리할 수 있습니다.");
+        }
+
+        // 3. 보관 주문인지 확인 (Inspection 레코드가 없어야 보관 주문)
+        boolean hasInspection = inspectionRepository.existsByOrder_OrderId(orderId);
+        if (hasInspection) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "일반 주문은 검수 발송 처리를 이용해주세요.");
+        }
+
+        // 4. Order 상태 변경 PASSED → SHIPPED
+        updateOrderStatus(order, CurrentStatus.SHIPPED);
+
+        // 5. StorageItem 상태를 RELEASED(출고완료)로 변경
+        // - SOLD는 이미 입찰 매칭(BidService) 시점에 처리됨
+        // - 관리자가 발송 처리하는 순간 = 보관함에서 출고된 시점 → RELEASED
+        // - LAZY 로딩 문제를 피하기 위해 Repository에서 sellBidId로 직접 조회
+        if (order.getSellBid() != null) {
+            storageItemRepository.findBySellBidId(order.getSellBid().getSellId()).ifPresent(storageItem -> {
+                storageItem.updateStatus(StorageStatus.RELEASED);
+                log.info("보관 주문 발송 처리: OrderId={}, StorageItem RELEASED 처리 완료", orderId);
+            });
+        }
     }
 
     // 관리자 주문 일괄 배송 완료 (SHIPPED -> DELIVERED)
