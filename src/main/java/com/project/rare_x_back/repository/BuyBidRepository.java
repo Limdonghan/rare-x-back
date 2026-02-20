@@ -43,6 +43,15 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
             Pageable pageable
     );
 
+
+    // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
+    @Query("SELECT s.product.productId, MAX(s.price) FROM BuyBid s " +
+            "WHERE s.product.productId IN :productIds AND s.status = :status " +
+            "GROUP BY s.product.productId")
+    List<Object[]> findHighestPriceByProductIds(@Param("productIds") List<Long> productIds,
+                                               @Param("status") BidStatus status);
+
+
     // ===== 마이페이지 구매입찰 조회 (N+1 방지) =====
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})

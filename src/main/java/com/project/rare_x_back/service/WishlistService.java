@@ -8,10 +8,7 @@ import com.project.rare_x_back.entity.WishList;
 import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.ProductRepository;
-import com.project.rare_x_back.repository.SaleBidRepository;
-import com.project.rare_x_back.repository.UserRepository;
-import com.project.rare_x_back.repository.WishListRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +27,7 @@ public class WishlistService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final SaleBidRepository saleBidRepository;
+    private final BuyBidRepository buyBidRepository;
 
     // ===== WISH-002 관심 상품 등록 =====
     @Transactional
@@ -112,8 +110,18 @@ public class WishlistService {
                 .stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],   // 상품ID
-                        row -> (Integer) row[1] // 최저가
+                        row -> (Integer) row[1] // 최저가 BUY NOW
                 ));
+
+        Map<Long, Integer> HighestPrice = buyBidRepository
+                .findHighestPriceByProductIds(productIds, BidStatus.OPEN)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],   // 상품ID
+                        row -> (Integer) row[1] // 최고가 SELL NOW
+                ));
+
+
 
         // 3단계: DTO 변환
         return wishPage.map(wish -> {
@@ -131,6 +139,7 @@ public class WishlistService {
                     .brandName(brandName)
                     .productImageUrl(imageUrl)
                     .lowestPrice(lowestPriceMap.get(product.getProductId()))
+                    .HighestPrice(HighestPrice.get(product.getProductId()))
                     .wishCount(product.getWishCount())
                     .createdAt(wish.getCreatedAt())
                     .build();

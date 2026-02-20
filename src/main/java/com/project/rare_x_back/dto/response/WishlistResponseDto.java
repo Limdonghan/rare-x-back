@@ -17,6 +17,7 @@ public class WishlistResponseDto {
 
     // 가격 정보
     private Integer lowestPrice;  // 즉시 구매가 (null이면 매물 없음)
+    private Integer HighestPrice;
 
     // 찜 정보
     private int wishCount;
