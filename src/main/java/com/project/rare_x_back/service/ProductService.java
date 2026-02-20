@@ -37,19 +37,22 @@ public class ProductService {
     /**
     * [상품 목록 조회]
     * */
-    public Page<ProductResponseDto> getAllPublicProd(Long categoryId, Long brandId, Pageable pageable) {
+    public Page<ProductResponseDto> getAllPublicProd(List<Long> categoryIds, List<Long> brandIds, Pageable pageable) {
 
         Page<Product> productPage;
 
+        boolean hasCategory = categoryIds != null && !categoryIds.isEmpty();    // null 체크 + 빈 리스트 체크
+        boolean hasBrand = brandIds != null && !brandIds.isEmpty();    // null 체크 + 빈 리스트 체크
+
         // 카테고리 + 브랜드 필터 적용 하는 경우
-        if (categoryId != null && brandId != null) {
-            productPage = productRepository.findByCategory_CategoryIdAndBrand_BrandIdAndIsDeletedFalse(categoryId, brandId, pageable);
-        } else if (categoryId != null) { // 카테고리만 필터링
-            productPage = productRepository.findByCategory_CategoryIdAndIsDeletedFalse(categoryId, pageable);
-        } else if (brandId != null) { // 브랜드만 필터링
-            productPage = productRepository.findByBrand_BrandIdAndIsDeletedFalse(brandId, pageable);
+        if (hasCategory && hasBrand) {
+            productPage = productRepository.findByCategory_CategoryIdInAndBrand_BrandIdInAndIsDeletedFalse(categoryIds, brandIds, pageable);
+        } else if (hasCategory) {
+            productPage = productRepository.findByCategory_CategoryIdInAndIsDeletedFalse(categoryIds, pageable);
+        } else if (hasBrand) {
+            productPage = productRepository.findByBrand_BrandIdInAndIsDeletedFalse(brandIds, pageable);
         } else {
-                productPage = productRepository.findAllByIsDeletedFalse(pageable);
+            productPage = productRepository.findAllByIsDeletedFalse(pageable);
         }
         // DTO 변환 및 이미지 처리
         return productPage.map(product -> {
