@@ -418,7 +418,9 @@ public class InspectionService {
         return InspectionHistoryDetailResponseDto.from(inspection, checklist);
     }
 
-    // 검수 패스 후 구매자에게 발송함 PASSED -> SHIPPED (주문 검수 전용)
+    /**
+     * 검수 합격(PASSED) 건에 대해 환동을 통해 구매자에게 발송 (연관된 주문 상태를 SHIPPED로 변경)
+     * */
     @Transactional
     public void deliveryToBuyer (Long inspectionId) {
         // 1. 검수 조회
@@ -441,8 +443,16 @@ public class InspectionService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과된 상품만 배송할 수 있습니다.");
         }
 
-        // 5. order 상태 변경, order_history 이력 저장
-        orderService.updateOrderStatus(order, CurrentStatus.SHIPPED);
+        if (inspection.getType() != InspectionType.ORDER) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 검수 건만 배송 처리할 수 있습니다.");
+        }
+
+        if (inspection.getOrder() == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보가 존재하지 않습니다.");
+        }
+
+        // 3. order 상태 변경, order_history 이력 저장
+        orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
     }
 
     // ============================================
@@ -518,6 +528,44 @@ public class InspectionService {
                 updateChecklist(id, checklistDto);
             }
             failInspection(id, failReason);
+        }
+    }
+
+    /**
+     * 일괄 배송 처리 (주문 검수 전용)
+     * - 검수 상태(InspectionStatus)는 PASSED로 유지되며,
+     * - 연관된 주문(Order)의 상태만 배송 중(SHIPPED)으로 변경합니다.
+     */
+    @Transactional
+    public void bulkDeliveryToBuyer(List<Long> inspectionIds) {
+        // 1. ID 존재 여부, 상태 일치 및 타입 선검증
+        List<Inspection> inspections = inspectionRepository.findAllByIdWithDetails(inspectionIds);
+
+        if (inspections.size() != inspectionIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 검수 건이 포함되어 있습니다.");
+        }
+
+        for (Inspection inspection : inspections) {
+            if (inspection.getStatus() != InspectionStatus.PASSED) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "선택한 검수 건의 상태가 일치하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+            if (inspection.getType() != InspectionType.ORDER) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "주문 검수 건만 배송 처리할 수 있습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+            if (inspection.getOrder() == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "주문 정보가 존재하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+        }
+
+        // 2. 개별 배송 처리 (선검증 완료, 주문 상태 업데이트 위임)
+        for (Inspection inspection : inspections) {
+            orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
         }
     }
 

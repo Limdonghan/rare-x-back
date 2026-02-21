@@ -146,8 +146,8 @@ public class InspectionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 검수 통과 후 구매자에게 발송함
-    @PostMapping("/{inspectionId}/delivery")
+    // 검수 통과 후 구매자에게 발송함 (검수 타입 order 건만 처리)
+    @PatchMapping("/{inspectionId}/delivery")
     public ResponseEntity<ApiResponse<Void>> deliveryToBuyer (@PathVariable Long inspectionId) {
         inspectionService.deliveryToBuyer(inspectionId);
         return ResponseEntity.ok(ApiResponse.success("구매자에게 발송 완료"));
@@ -196,5 +196,14 @@ public class InspectionController {
                 request.getFailReason()
         );
         return ResponseEntity.ok(ApiResponse.success("일괄 불합격 처리가 완료되었습니다."));
+    }
+
+    // 일괄 배송 처리 (ORDER 타입 검수 건만 배송 처리 가능)
+    @PatchMapping("/bulk/delivery")
+    public ResponseEntity<ApiResponse<Void>> bulkDeliveryToBuyer(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request) {
+
+        inspectionService.bulkDeliveryToBuyer(request.getInspectionIds());
+        return ResponseEntity.ok(ApiResponse.success("일괄 배송 처리가 완료되었습니다."));
     }
 }
