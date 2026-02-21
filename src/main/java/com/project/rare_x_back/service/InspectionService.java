@@ -427,7 +427,18 @@ public class InspectionService {
         Inspection inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
-        // 2. 상태가 검수 통과인지 확인
+        // 2. 주문 검수인지 확인 (보관 검수는 일반 주문이 아닌 보관 신청 건이므로 InspectionType이 order가 아님)
+        if (inspection.getType() != InspectionType.ORDER) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 검수 건만 발송 처리할 수 있습니다.");
+        }
+
+        // 3. 주문 정보 확인
+        Order order = inspection.getOrder();
+        if (order == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+        }
+
+        // 4. 상태가 검수 통과인지 확인
         if (inspection.getStatus() != InspectionStatus.PASSED) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과된 상품만 배송할 수 있습니다.");
         }
