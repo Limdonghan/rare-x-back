@@ -21,11 +21,13 @@ public class SellingOrderDetailResponseDto {
     // 가격 정보
     private int price;
     private Integer settlementPayout;
+    private Integer commissionFee;
     private LocalDateTime settlementCompletedAt;
 
     // 상태 정보
     private String currentStatus;
     private String returnStatus;
+    private boolean settlementCompleted;
 
     // 발송 관련
     private LocalDateTime shipDeadline;

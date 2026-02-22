@@ -48,6 +48,9 @@ public class StorageDeposit {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "cancel_idempotency_key")
+    private String cancelIdempotencyKey;
+
     // === 비즈니스 메서드 ===
 
     public void markSuccess(String tossPaymentKey) {
@@ -58,5 +61,13 @@ public class StorageDeposit {
 
     public void markFailed() {
         this.status = StoragePaymentStatus.FAILED;
+    }
+
+    public void markCanceled() {
+        this.status = StoragePaymentStatus.CANCELED;
+    }
+
+    public void assignCancelIdempotencyKey(String cancelIdempotencyKey) {
+        this.cancelIdempotencyKey = cancelIdempotencyKey;
     }
 }
