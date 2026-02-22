@@ -425,7 +425,7 @@ public class InspectionService {
     public void deliveryToBuyer (Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException( ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
         // 2. 주문 검수인지 확인 (보관 검수는 일반 주문이 아닌 보관 신청 건이므로 InspectionType이 order가 아님)
         if (inspection.getType() != InspectionType.ORDER) {

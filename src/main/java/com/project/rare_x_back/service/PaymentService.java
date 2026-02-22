@@ -482,8 +482,31 @@ public class PaymentService {
                 requestedBy
         );
     }
-}
 
+    /**
+     * 보관 보증금 결제 취소
+     * @param storageDeposit 취소할 보관 보증금 엔티티
+     * @param cancelAmount 보증금 취소 금액 (보통 전액)
+     * @param reason 취소 사유
+     */
+    public void cancelStorageDeposit(StorageDeposit storageDeposit, int cancelAmount, String reason) {
+        String idempotencyKey = storageDeposit.getCancelIdempotencyKey();
+        
+        // 멱등성 키가 없을 경우 새로 생성 및 적용
+        if (idempotencyKey == null) {
+            idempotencyKey = "CANCEL_DEP_" + UUID.randomUUID().toString();
+            storageDeposit.assignCancelIdempotencyKey(idempotencyKey);
+        }
+        
+        try {
+            cancelPayment(storageDeposit.getTossPaymentKey(), idempotencyKey, cancelAmount, reason);
+            log.info("보관 보증금 결제 취소 완료: paymentKey={}, amount={}", storageDeposit.getTossPaymentKey(), cancelAmount);
+        } catch (Exception e) {
+            log.error("보관 보증금 결제 취소 실패: paymentKey={}, error={}", storageDeposit.getTossPaymentKey(), e.getMessage());
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 환불 처리에 실패했습니다.");
+        }
+    }
+}
 
 
 

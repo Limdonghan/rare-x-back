@@ -6,6 +6,7 @@ import com.project.rare_x_back.dto.response.StorageRequestResponseDto;
 import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.InspectionStatus;
 import com.project.rare_x_back.enums.InspectionType;
+import com.project.rare_x_back.enums.StoragePaymentStatus;
 import com.project.rare_x_back.enums.StorageRequestStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
@@ -159,5 +160,41 @@ public class StorageRequestService {
         searchService.indexInspection(inspection);
 
         return StorageRequestResponseDto.from(storageRequest, inspectionCenterAddress, inspectionCenterZipcode);
+    }
+
+    // 보관 신청 취소 (발송 전)
+    @Transactional
+    public void cancelStorageRequest(String userEmail, Long storageRequestId) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 1. 보관 신청 조회
+        StorageRequest storageRequest = storageRequestRepository.findByIdWithDetails(storageRequestId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청을 찾을 수 없습니다."));
+
+        // 2. 본인 확인
+        if (!storageRequest.getUser().getUserId().equals(user.getUserId())) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 보관 신청만 취소할 수 있습니다.");
+        }
+
+        // 3. 상태 확인 (PENDING만 취소 가능)
+        if (storageRequest.getStatus() != StorageRequestStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "발송 대기 상태에서만 보관 신청 취소가 가능합니다.");
+        }
+
+        // 4. 결제(보증금) 내역 확인 및 환불 처리
+        StorageDeposit deposit = storageDepositRepository.findByStorageRequest_StorageRequestId(storageRequestId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 보증금 결제 내역을 찾을 수 없습니다."));
+
+        // 이미 성공 상태인 보증금만 결제 취소 API 호출
+        if (deposit.getStatus() == StoragePaymentStatus.SUCCESS && deposit.getTossPaymentKey() != null) {
+            paymentService.cancelStorageDeposit(deposit, deposit.getAmount(), "사용자 요청에 의한 보관 신청 취소");
+            
+            // 보증금 상태를 취소로 변경
+            deposit.markCanceled();
+        }
+
+        // 5. StorageRequest 상태 변경
+        storageRequest.updateStatus(StorageRequestStatus.CANCELLED);
     }
 }

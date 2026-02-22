@@ -368,18 +368,21 @@ public class BidService {
                 .toList();
     }
 
-    // 판매입찰 체결됨 탭 조회 (Order 기반)
+    // 판매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, CurrentStatus orderStatus) {
+    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, String orderStatusStr) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         List<Order> orders;
-        if (orderStatus == null) {
+        if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
             orders = orderRepository.findBySeller_UserId(user.getUserId(),
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "CreatedAt"))).getContent();
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
         } else {
-            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
+            // BEFORE_SHIPPING (PASSED)의 경우, 통계 로직과 동일하게 분리할 수도 있지만
+            // 여기선 기존 로직이 'findBySeller_UserIdAndCurrentStatusIn' 이므로 
+            // 상태값 목록으로 조회하게 매핑된statuses를 그대로 사용
             orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
                     user.getUserId(), statuses,
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
@@ -392,16 +395,16 @@ public class BidService {
 
     // 구매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, CurrentStatus orderStatus) {
+    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, String orderStatusStr) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         List<Order> orders;
-        if (orderStatus == null) {
+        if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
             orders = orderRepository.findByBuyer_UserId(user.getUserId(),
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
         } else {
-            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(
                     user.getUserId(), statuses,
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
@@ -412,8 +415,19 @@ public class BidService {
                 .toList();
     }
 
-    // CurrentStatus 매핑
-    private List<CurrentStatus> mapToStatuses(CurrentStatus filterStatus) {
+    // CurrentStatus 매핑 (통계 탭 별 상태 그룹핑)
+    private List<CurrentStatus> parseAndMapToStatuses(String filterStatusStr) {
+        if ("BEFORE_SHIPPING".equals(filterStatusStr)) {
+            return List.of(CurrentStatus.PASSED);
+        }
+        
+        CurrentStatus filterStatus;
+        try {
+            filterStatus = CurrentStatus.valueOf(filterStatusStr);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "유효하지 않은 주문 상태입니다.");
+        }
+
         return switch (filterStatus) {
             case PENDING -> List.of(CurrentStatus.PENDING);
             case INSPECTING -> List.of(
@@ -421,7 +435,8 @@ public class BidService {
                     CurrentStatus.PENDING_INSPECTION,
                     CurrentStatus.INSPECTING
             );
-            case SHIPPED -> List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED);
+            case PASSED -> List.of(CurrentStatus.PASSED);
+            case SHIPPED -> List.of(CurrentStatus.SHIPPED); // 순수 배송중
             case DELIVERED -> List.of(CurrentStatus.DELIVERED);
             case CONFIRMED_PURCHASE -> List.of(CurrentStatus.CONFIRMED_PURCHASE);
             case CANCELLED -> List.of(CurrentStatus.RETURN, CurrentStatus.CANCELLED);

@@ -247,6 +247,7 @@ public class OrderService {
         Page<Order> orders;
 
         if ("IN_PROGRESS".equals(status)) {
+            // 변경없음 (진행중 전체)
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.PENDING,
                     CurrentStatus.SHIPPED_TO_WAREHOUSE,
@@ -258,6 +259,7 @@ public class OrderService {
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
         } else if ("COMPLETED".equals(status)) {
+            // 완료 탭
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.DELIVERED,
                     CurrentStatus.RETURN,
@@ -267,6 +269,7 @@ public class OrderService {
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
         } else {
+            // 전체
             orders = orderRepository.findByBuyer_UserId(userId, pageable);
         }
 
@@ -400,46 +403,41 @@ public class OrderService {
         Page<Order> orders;
 
         if ("PENDING".equals(status)) {
-            // 발송대기
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.PENDING),
-                    pageable
+            // 결제완료
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.PENDING), null, pageable
             );
         } else if ("INSPECTING".equals(status)) {
             // 검수중
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId,
                     List.of(CurrentStatus.SHIPPED_TO_WAREHOUSE, CurrentStatus.PENDING_INSPECTION, CurrentStatus.INSPECTING),
-                    pageable
+                    null, pageable
+            );
+        } else if ("BEFORE_SHIPPING".equals(status)) {
+            // 발송전: PASSED인데 (일반주문이거나(검수O) 보관주문이거나(검수X) 둘 다 포함됨 - 모두 관리자가 발송처리해야 함)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.PASSED), null, pageable
             );
         } else if ("SHIPPING".equals(status)) {
-            // 배송중
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED),
-                    pageable
+            // 배송중: SHIPPED만 포함
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.SHIPPED), null, pageable
             );
         } else if ("SETTLEMENT_PENDING".equals(status)) {
             // 정산대기
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.DELIVERED),
-                    pageable
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.DELIVERED), null, pageable
             );
         } else if ("COMPLETED".equals(status)) {
             // 완료
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.CONFIRMED_PURCHASE),
-                    pageable
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.CONFIRMED_PURCHASE), null, pageable
             );
         } else if ("CANCELLED".equals(status)) {
             // 취소·반송
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN),
-                    pageable
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN), null, pageable
             );
         } else {
             // 전체
@@ -760,18 +758,27 @@ public class OrderService {
             List<String> status, LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
 
-        // DB 직접 조회
-        List<CurrentStatus> statuses = null;
+        // DB 직접 조회 (BEFORE_SHIPPING 예외 처리)
+        List<CurrentStatus> statuses = new java.util.ArrayList<>();
+        Boolean inspectionExists = null;
+
         if (status != null && !status.isEmpty()) {
-            statuses = status.stream()
-                    .map(s -> {
-                        try {
-                            return CurrentStatus.valueOf(s);
-                        } catch (IllegalArgumentException e) {
-                            throw new CustomException(ErrorCode.BAD_REQUEST);
-                        }
-                    })
-                    .toList();
+            for (String s : status) {
+                if ("BEFORE_SHIPPING".equals(s)) {
+                    statuses.add(CurrentStatus.PASSED);
+                    // 발송전(BEFORE_SHIPPING) 탭: 일반(검수O) + 보관(검수X) 모두 포함하므로 null
+                    // 프론트엔드에서 BEFORE_SHIPPING만単독으로 보낼 때를 가정합니다.
+                    inspectionExists = null; 
+                } else {
+                    try {
+                        statuses.add(CurrentStatus.valueOf(s));
+                    } catch (IllegalArgumentException e) {
+                        throw new CustomException(ErrorCode.BAD_REQUEST);
+                    }
+                }
+            }
+        } else {
+            statuses = null; // empty인 경우 null로 처리
         }
 
         // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
@@ -785,12 +792,14 @@ public class OrderService {
         Page<Order> orders;
 
         if (statuses != null && startDate != null) {
-            orders = orderRepository.findByCurrentStatusInAndCreatedAtBetween(
-                    statuses, startDate, endDate, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, startDate, endDate, inspectionExists, pageable);
         } else if (statuses != null) {
-            orders = orderRepository.findByCurrentStatusIn(statuses, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, null, null, inspectionExists, pageable);
         } else if (startDate != null) {
-            orders = orderRepository.findByCreatedAtBetween(startDate, endDate, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    null, startDate, endDate, inspectionExists, pageable);
         } else {
             orders = orderRepository.findAllForAdmin(pageable);
         }

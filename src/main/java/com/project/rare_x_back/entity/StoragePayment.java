@@ -58,6 +58,9 @@ public class StoragePayment {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "cancel_idempotency_key")
+    private String cancelIdempotencyKey;
+
     // === 비즈니스 메서드 ===
 
     /**
@@ -89,5 +92,12 @@ public class StoragePayment {
      */
     public void resetForRetry() {
         this.status = StoragePaymentStatus.PENDING;
+    }
+
+    /**
+     * 결제 취소용 멱등성 키 부여
+     */
+    public void assignCancelIdempotencyKey(String cancelIdempotencyKey) {
+        this.cancelIdempotencyKey = cancelIdempotencyKey;
     }
 }
