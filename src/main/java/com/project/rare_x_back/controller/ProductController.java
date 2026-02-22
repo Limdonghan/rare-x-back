@@ -3,6 +3,7 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.response.*;
+import com.project.rare_x_back.repository.ProductRankingProjection;
 import com.project.rare_x_back.service.ProductService;
 import com.project.rare_x_back.service.SearchService;
 import lombok.AllArgsConstructor;
@@ -85,5 +86,13 @@ public class ProductController {
     @GetMapping("/storage")
     public ResponseEntity<ApiResponse<List<StorageProductResponseDto>>> getStorageProducts() {
         return ResponseEntity.ok(ApiResponse.success(productService.getStorageProducts()));
+    }
+
+    // 랭킹 목록 조회
+    @GetMapping("/ranking")
+    public List<ProductRankingProjection> getRanking(
+            @RequestParam(defaultValue = "7d") String period
+    ) {
+        return productService.getRanking(period);
     }
 }

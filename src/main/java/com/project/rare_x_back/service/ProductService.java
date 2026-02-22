@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final WishListRepository wishListRepository;
+    private final OrderRepository orderRepository;
 
     /**
     * [상품 목록 조회]
@@ -227,4 +229,32 @@ public class ProductService {
 
         return results;
     }
+
+    // 랭킹
+    public List<ProductRankingProjection> getRanking(String period) {
+
+        int limit = 30; // 랭킹 개수
+
+        LocalDateTime startDate = getStartDate(period);
+
+        return orderRepository.findRanking(startDate, limit);
+    }
+
+    // 기간 분기 메서드
+    private LocalDateTime getStartDate(String period) {
+
+        return switch (period) {
+
+            case "7d" -> LocalDateTime.now().minusDays(7);
+
+            case "30d" -> LocalDateTime.now().minusDays(30);
+
+            case "90d" -> LocalDateTime.now().minusDays(90);
+
+            case "all" -> LocalDateTime.of(2026, 1, 1, 0, 0);
+
+            default -> LocalDateTime.now().minusDays(7);
+        };
+    }
+
 }

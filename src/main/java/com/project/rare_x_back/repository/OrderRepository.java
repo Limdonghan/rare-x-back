@@ -88,4 +88,44 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByBuyer_UserId(Long userId);
 
     long countBySeller_UserId(Long userId);
+
+
+    // 랭킹 조회
+    @Query(value = """
+    SELECT 
+        ranked.productId,
+        p.product_name AS productName,
+        pi.img_url AS thumbnailUrl,
+        ranked.dealCount,
+        b.name AS brandName,
+        (SELECT MIN(sb.price) 
+         FROM sell_bids sb 
+         WHERE sb.product_id = ranked.productId AND sb.status = 'OPEN') AS lowestPrice
+    FROM (
+        -- [Step 1] 인덱스를 타고 빠르게 랭킹만 계산 (상위 20개 등)
+        SELECT 
+            o.product_id AS productId,
+            COUNT(o.order_id) AS dealCount
+        FROM orders o
+        WHERE o.current_status = 'CONFIRMED_PURCHASE'
+          AND o.created_at >= :startDate
+        GROUP BY o.product_id
+        ORDER BY dealCount DESC
+        LIMIT :limit
+    ) ranked
+    -- [Step 2] 확정된 20개 상품에 대해서만 조인 수행
+    JOIN products p ON p.product_id = ranked.productId
+    LEFT JOIN brands b ON b.brand_id = p.brand_id
+    LEFT JOIN (
+        SELECT product_id, MIN(prod_img_id) AS min_image_id
+        FROM product_images
+        GROUP BY product_id
+    ) pim ON pim.product_id = ranked.productId
+    LEFT JOIN product_images pi ON pi.prod_img_id = pim.min_image_id
+    """, nativeQuery = true)
+    List<ProductRankingProjection> findRanking(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("limit") int limit
+    );
+
 }
