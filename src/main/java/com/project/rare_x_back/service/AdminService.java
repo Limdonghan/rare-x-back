@@ -232,7 +232,7 @@ public class AdminService {
     //상품 삭제 (연결된 s3이미지도 같이 삭제 추가)
     public void deleteProduct (Long productId) {
 
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(() ->
                         new CustomException(
                                 ErrorCode.RESOURCE_NOT_FOUND,
@@ -241,7 +241,12 @@ public class AdminService {
         //s3에서 실제 파일 삭제 (반드시 s3이미지 부터 지워야 함)
         if(product.getImages() != null) {
             for (ProductImage productImage : product.getImages()) {
-                s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                try {
+                    s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                } catch (Exception e) {
+                    log.error("S3 이미지 삭제 실패 (무시하고 계속): {}", productImage.getImageUrl(), e);
+                }
+
             }
             // 연관관계 컬렉션을 비워 orphanRemoval 을 트리거하여 이미지 엔티티를 DB에서 물리적으로 삭제 (상품은 논리 삭제)
             product.getImages().clear();
