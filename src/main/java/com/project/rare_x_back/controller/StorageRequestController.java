@@ -78,4 +78,15 @@ public class StorageRequestController {
 
         return ResponseEntity.ok(ApiResponse.success(response, "발송 처리가 완료되었습니다"));
     }
+
+    // 보관 신청 취소
+    @PatchMapping("/{storageRequestId}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelStorageRequest(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long storageRequestId) {
+
+        storageRequestService.cancelStorageRequest(userDetails.getUsername(), storageRequestId);
+
+        return ResponseEntity.ok(ApiResponse.success("보관 신청이 취소되고 보증금이 환불되었습니다."));
+    }
 }

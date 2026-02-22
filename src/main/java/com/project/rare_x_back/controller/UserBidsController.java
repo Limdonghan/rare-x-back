@@ -49,7 +49,7 @@ public class UserBidsController {
     @GetMapping("/salebid/matched")
     public ResponseEntity<ApiResponse<List<MySaleBidMatchedResponseDto>>> getMySaleBidMatched(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) CurrentStatus orderStatus) {
+            @RequestParam(required = false) String orderStatus) {
         List<MySaleBidMatchedResponseDto> response = bidService.getMySaleBidMatched(
                 userDetails.getEmail(), orderStatus);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -59,7 +59,7 @@ public class UserBidsController {
     @GetMapping("/buybid/matched")
     public ResponseEntity<ApiResponse<List<MyBuyBidMatchedResponseDto>>> getMyBuyBidMatched(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(required = false) CurrentStatus orderStatus) {
+            @RequestParam(required = false) String orderStatus) {
         List<MyBuyBidMatchedResponseDto> result = bidService.getMyBuyBidMatched(userDetails.getUsername(), orderStatus);
         return ResponseEntity.ok(ApiResponse.success(result));
     }

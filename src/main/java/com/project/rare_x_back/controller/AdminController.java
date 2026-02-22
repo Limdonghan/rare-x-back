@@ -170,6 +170,18 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
     }
 
+    // 보관 주문 발송 처리 (PASSED → SHIPPED)
+    // 보관 상품 주문은 Inspection이 없으므로 InspectionController 대신 이 API 사용
+    @PatchMapping("/orders/{orderId}/ship")
+    public ResponseEntity<ApiResponse<Void>> shipStorageOrder(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        orderService.shipStorageOrder(orderId);
+        log.info("관리자({})가 보관 주문 {}를 발송 처리함", adminDetails.getUsername(), orderId);
+        return ResponseEntity.ok(ApiResponse.success("발송 처리되었습니다."));
+    }
+
     // 주문 일괄 배송 완료 처리
     @PatchMapping("/orders/bulk/delivered")
     public ResponseEntity<ApiResponse<Void>> bulkDeliveredOrders(

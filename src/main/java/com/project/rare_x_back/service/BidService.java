@@ -186,6 +186,13 @@ public class BidService {
                 purchaseRequestDto.getAddressId()
         );
 
+        // 보관 상품 즉시 구매 체결 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회
+        storageItemRepository.findBySellBidId(saleBid.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("즉시 구매 체결: SaleBidId={}, StorageItem SOLD 처리 완료", saleBid.getSellId());
+        });
+
         /// 결제 승인
         PaymentConfirmRequestDto paymentConfirmRequestDto = PaymentConfirmRequestDto.builder()
                 .paymentKey(purchaseRequestDto.getPaymentKey())
@@ -210,6 +217,7 @@ public class BidService {
                 .build();
 
     }
+
 
     /**
      * [Order 발송 처리]
@@ -360,18 +368,21 @@ public class BidService {
                 .toList();
     }
 
-    // 판매입찰 체결됨 탭 조회 (Order 기반)
+    // 판매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, CurrentStatus orderStatus) {
+    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, String orderStatusStr) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         List<Order> orders;
-        if (orderStatus == null) {
+        if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
             orders = orderRepository.findBySeller_UserId(user.getUserId(),
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "CreatedAt"))).getContent();
+                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
         } else {
-            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
+            // BEFORE_SHIPPING (PASSED)의 경우, 통계 로직과 동일하게 분리할 수도 있지만
+            // 여기선 기존 로직이 'findBySeller_UserIdAndCurrentStatusIn' 이므로 
+            // 상태값 목록으로 조회하게 매핑된statuses를 그대로 사용
             orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
                     user.getUserId(), statuses,
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
@@ -384,16 +395,16 @@ public class BidService {
 
     // 구매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, CurrentStatus orderStatus) {
+    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, String orderStatusStr) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         List<Order> orders;
-        if (orderStatus == null) {
+        if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
             orders = orderRepository.findByBuyer_UserId(user.getUserId(),
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
         } else {
-            List<CurrentStatus> statuses = mapToStatuses(orderStatus);
+            List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(
                     user.getUserId(), statuses,
                     PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
@@ -404,8 +415,19 @@ public class BidService {
                 .toList();
     }
 
-    // CurrentStatus 매핑
-    private List<CurrentStatus> mapToStatuses(CurrentStatus filterStatus) {
+    // CurrentStatus 매핑 (통계 탭 별 상태 그룹핑)
+    private List<CurrentStatus> parseAndMapToStatuses(String filterStatusStr) {
+        if ("BEFORE_SHIPPING".equals(filterStatusStr)) {
+            return List.of(CurrentStatus.PASSED);
+        }
+        
+        CurrentStatus filterStatus;
+        try {
+            filterStatus = CurrentStatus.valueOf(filterStatusStr);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "유효하지 않은 주문 상태입니다.");
+        }
+
         return switch (filterStatus) {
             case PENDING -> List.of(CurrentStatus.PENDING);
             case INSPECTING -> List.of(
@@ -413,7 +435,8 @@ public class BidService {
                     CurrentStatus.PENDING_INSPECTION,
                     CurrentStatus.INSPECTING
             );
-            case SHIPPED -> List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED);
+            case PASSED -> List.of(CurrentStatus.PASSED);
+            case SHIPPED -> List.of(CurrentStatus.SHIPPED); // 순수 배송중
             case DELIVERED -> List.of(CurrentStatus.DELIVERED);
             case CONFIRMED_PURCHASE -> List.of(CurrentStatus.CONFIRMED_PURCHASE);
             case CANCELLED -> List.of(CurrentStatus.RETURN, CurrentStatus.CANCELLED);
@@ -467,6 +490,19 @@ public class BidService {
             throw new CustomException(ErrorCode.BAD_REQUEST, "매칭 대기 중인 입찰만 취소할 수 있습니다.");
         }
         cancelBid.statusUpdate(BidStatus.CANCELED);
+
+        // 보관 상품 입찰 취소 시 StorageItem 상태를 ON_SALE → STORED로 복구
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회
+        storageItemRepository.findBySellBidId(sellId).ifPresent(storageItem -> {
+//            storageItem.updateStatus(StorageStatus.STORED);
+//            log.info("판매 입찰 취소: SaleBidId={}, StorageItem STORED 복구 완료", sellId);
+            if (storageItem.getStatus() == StorageStatus.ON_SALE) {
+                storageItem.updateStatus(StorageStatus.STORED);
+                log.info("판매 입찰 취소: SaleBidId={}, StorageItem 상태를 ON_SALE에서 STORED로 복구 완료", sellId);
+            } else {
+                log.warn("판매 입찰 취소 시 StorageItem 상태 복구 스킵: SaleBidId={}, 현재 상태={}", sellId, storageItem.getStatus());
+            }
+        });
     }
 
     // 구매 입찰 기준 매칭 메소드
@@ -512,6 +548,14 @@ public class BidService {
                 BidType.BUY, //구매 입찰이 들어와서 체결됨
                 buyBid.getAddressId()
         );
+
+        // 보관 상품 입찰 매칭 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회 (getStorageItem() 사용 시 null 반환 버그 있음)
+        storageItemRepository.findBySellBidId(target.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("구매 입찰 매칭: SaleBidId={}, StorageItem SOLD 처리 완료", target.getSellId());
+        });
+
         // 저장된 빌링키로 자동 결제 실행
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()
                 .userId(buyBid.getUser().getUserId())
@@ -570,6 +614,13 @@ public class BidService {
                 BidType.SELL,
                 target.getAddressId()    // 구매자 주소
         );
+
+        // 보관 상품 입찰 매칭 시 StorageItem → SOLD 전환
+        // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회 (getStorageItem() 사용 시 null 반환 버그 있음)
+        storageItemRepository.findBySellBidId(saleBid.getSellId()).ifPresent(storageItem -> {
+            storageItem.updateStatus(StorageStatus.SOLD);
+            log.info("판매 입찰 매칭: SaleBidId={}, StorageItem SOLD 처리 완료", saleBid.getSellId());
+        });
 
         // 4. 자동결제 실행
         AutoPaymentRequestDto autoPaymentRequestDto = AutoPaymentRequestDto.builder()

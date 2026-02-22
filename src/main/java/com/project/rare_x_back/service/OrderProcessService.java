@@ -5,11 +5,13 @@ import com.project.rare_x_back.entity.OrderHistory;
 import com.project.rare_x_back.entity.Payment;
 import com.project.rare_x_back.enums.CancelStatus;
 import com.project.rare_x_back.enums.CurrentStatus;
+import com.project.rare_x_back.enums.StorageStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.OrderHistoryRepository;
 import com.project.rare_x_back.repository.OrderRepository;
 import com.project.rare_x_back.repository.PaymentRepository;
+import com.project.rare_x_back.repository.StorageItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class OrderProcessService {
     private final OrderHistoryRepository historyRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
+    private final StorageItemRepository storageItemRepository;
 
     // 각 주문마다 완전히 새로운 트랜잭션을 시작.
     // 이렇게 하면 한 주문이 실패해도 다른 주문들은 무사히 커밋됨.
@@ -44,8 +47,9 @@ public class OrderProcessService {
         order.updateStatus(CurrentStatus.CONFIRMED_PURCHASE);
         order.updateExpAt();
         historyRepository.save(OrderHistory.create(order, CurrentStatus.CONFIRMED_PURCHASE));
-
+        // StorageItem RELEASED 처리는 SHIPPED 전환(shipStorageOrder) 시점에 이미 수행됨
     }
+
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void cancelDueToShipDeadline(Long orderId) {

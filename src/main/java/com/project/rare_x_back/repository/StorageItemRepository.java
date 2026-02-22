@@ -30,6 +30,10 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             StorageStatus status
     );
 
+    // SaleBid와 연결된 StorageItem 조회 (서브쿼리 대신 JOIN 사용하여 성능 최적화)
+    @Query("SELECT si FROM StorageItem si JOIN SaleBid sb ON sb.storageItem.storageId = si.storageId WHERE sb.sellId = :sellId")
+    Optional<StorageItem> findBySellBidId(@Param("sellId") Long sellId);
+
     /**
      * 180일 만료 + 활성 상태인 보관함 조회 (자동결제 대상)
      * user 함께 로딩 (N+1 방지)

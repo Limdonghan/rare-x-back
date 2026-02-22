@@ -256,6 +256,15 @@ public class InspectionService {
                     .expiredAt(LocalDateTime.now().plusDays(180))
                     .build();
             storageItemRepository.save(storageItem);
+
+            /// [추가] 보관 신청자에게 검수 합격 및 보관 시작 알림 전송
+            notificationService.send(
+                    storageRequest.getUser().getUserId(),
+                    "보관 신청하신 상품의 검수가 완료되어 보관이 시작되었습니다.",
+                    "/mypage/storage", /// 보관함 페이지
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
         }
 
         if (inspection.getType() == InspectionType.ORDER) {
@@ -425,7 +434,7 @@ public class InspectionService {
     public void deliveryToBuyer (Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException( ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
         // 2. 주문 검수인지 확인 (보관 검수는 일반 주문이 아닌 보관 신청 건이므로 InspectionType이 order가 아님)
         if (inspection.getType() != InspectionType.ORDER) {
