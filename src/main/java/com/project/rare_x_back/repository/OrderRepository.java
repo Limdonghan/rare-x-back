@@ -88,4 +88,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByBuyer_UserId(Long userId);
 
     long countBySeller_UserId(Long userId);
+
+    // 회원탈퇴 - 진행 중인 주문 존재 여부 (구매자)
+    boolean existsByBuyer_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses);
+
+    // 회원탈퇴 - 진행 중인 주문 존재 여부 (판매자)
+    boolean existsBySeller_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses);
 }

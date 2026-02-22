@@ -42,4 +42,7 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             @Param("now") LocalDateTime now,
             @Param("statuses") List<StorageStatus> statuses
     );
+
+    // 회원탈퇴 - 보관 중 상품 존재 여부
+    boolean existsByUser_UserIdAndStatusIn(Long userId, List<StorageStatus> statuses);
 }

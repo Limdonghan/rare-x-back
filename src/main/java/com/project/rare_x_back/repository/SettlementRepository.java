@@ -34,4 +34,7 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
             @Param("userId") Long userId,
             @Param("status") SettlementStatus status
     );
+
+    // 회원탈퇴 - 미정산 건 존재 여부
+    boolean existsBySeller_UserIdAndStatus(Long userId, SettlementStatus status);
 }

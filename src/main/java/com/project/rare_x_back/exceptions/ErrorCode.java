@@ -10,6 +10,13 @@ public enum ErrorCode {
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 가입된 이메일입니다"),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다"),
 
+    // 회원탈퇴 관련
+    ACTIVE_ORDER_EXISTS(HttpStatus.BAD_REQUEST, "진행 중인 주문이 있어 탈퇴할 수 없습니다."),
+    PENDING_SETTLEMENT_EXISTS(HttpStatus.BAD_REQUEST, "미정산 건이 있어 탈퇴할 수 없습니다."),
+    UNPAID_PENALTY_EXISTS(HttpStatus.BAD_REQUEST, "미납 패널티가 있어 탈퇴할 수 없습니다."),
+    ACTIVE_STORAGE_EXISTS(HttpStatus.BAD_REQUEST, "보관 중인 상품이 있어 탈퇴할 수 없습니다."),
+    ACTIVE_STORAGE_REQUEST_EXISTS(HttpStatus.BAD_REQUEST, "진행 중인 보관 신청이 있어 탈퇴할 수 없습니다."),
+
     // 사용자 관련
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다"),     // 미가입 유저
     USER_ALREADY_DELETED(HttpStatus.GONE, "사용자를 찾을 수 없습니다"),    // 탈퇴 유저(softDelete)

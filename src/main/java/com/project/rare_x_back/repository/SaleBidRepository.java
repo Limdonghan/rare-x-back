@@ -93,4 +93,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     // ====== 관리자 회원 상세 - 활성 판매입찰 건수 (MANAGER-004) ======
 
     long countByUser_UserIdAndStatus(Long userId, BidStatus status);
+
+    // 회원탈퇴 - OPEN 입찰 조회 (자동 취소용)
+    List<SaleBid> findByUser_UserIdAndStatus(Long userId, BidStatus status);
 }
