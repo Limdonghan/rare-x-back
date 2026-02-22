@@ -93,16 +93,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 랭킹 조회
     @Query(value = """
     SELECT 
-        ranked.productId,
+        ranked.productId AS productId,
         p.product_name AS productName,
         pi.img_url AS thumbnailUrl,
-        ranked.dealCount,
+        ranked.dealCount AS dealCount,
         b.name AS brandName,
-        (SELECT MIN(sb.price) 
-         FROM sell_bids sb 
-         WHERE sb.product_id = ranked.productId AND sb.status = 'OPEN') AS lowestPrice
+        p.brand_id AS brandId,
+        p.category_id AS categoryId,
+        MIN(sb.price) AS lowestPrice
     FROM (
-        -- [Step 1] 인덱스를 타고 빠르게 랭킹만 계산 (상위 20개 등)
         SELECT 
             o.product_id AS productId,
             COUNT(o.order_id) AS dealCount
@@ -113,15 +112,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         ORDER BY dealCount DESC
         LIMIT :limit
     ) ranked
-    -- [Step 2] 확정된 20개 상품에 대해서만 조인 수행
     JOIN products p ON p.product_id = ranked.productId
     LEFT JOIN brands b ON b.brand_id = p.brand_id
+    LEFT JOIN sell_bids sb ON sb.product_id = p.product_id AND sb.status = 'OPEN'
     LEFT JOIN (
         SELECT product_id, MIN(prod_img_id) AS min_image_id
         FROM product_images
         GROUP BY product_id
-    ) pim ON pim.product_id = ranked.productId
+    ) pim ON pim.product_id = p.product_id
     LEFT JOIN product_images pi ON pi.prod_img_id = pim.min_image_id
+    GROUP BY 
+        ranked.productId, p.product_name, pi.img_url, 
+        ranked.dealCount, b.name, p.brand_id, p.category_id
     """, nativeQuery = true)
     List<ProductRankingProjection> findRanking(
             @Param("startDate") LocalDateTime startDate,

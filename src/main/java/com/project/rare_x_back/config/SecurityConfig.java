@@ -64,7 +64,7 @@ public class SecurityConfig {
                                 "/api/serving/cancel",
                                 "/actuator/health",
                                 "/api/auth/users/resetpw",
-                                "api/product/ranking",
+                                "/api/product/ranking",
                                 "/api/serving/status"
                         ).permitAll()
                         .requestMatchers(

@@ -6,6 +6,7 @@ import com.project.rare_x_back.dto.response.*;
 import com.project.rare_x_back.repository.ProductRankingProjection;
 import com.project.rare_x_back.service.ProductService;
 import com.project.rare_x_back.service.SearchService;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -90,9 +91,11 @@ public class ProductController {
 
     // 랭킹 목록 조회
     @GetMapping("/ranking")
-    public List<ProductRankingProjection> getRanking(
+    public ResponseEntity<ApiResponse<List<ProductRankingProjection>>> getRanking(
+            @Pattern(regexp = "^(7d|30d|90d|all)$", message = "유효하지 않은 기간 형식입니다.")
             @RequestParam(defaultValue = "7d") String period
     ) {
-        return productService.getRanking(period);
+        List<ProductRankingProjection> ranking = productService.getRanking(period);
+        return ResponseEntity.ok(ApiResponse.success(ranking));
     }
 }
