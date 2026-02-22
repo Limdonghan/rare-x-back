@@ -268,6 +268,13 @@ public class OrderService {
             );
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
+        } else if ("BEFORE_SHIPPING".equals(status)) {
+            // 구매자 입장에서 발송 전 (판매자가 아직 발송 안 한 상태)
+            List<CurrentStatus> statuses = List.of(
+                    CurrentStatus.PENDING
+            );
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
+
         } else {
             // 전체
             orders = orderRepository.findByBuyer_UserId(userId, pageable);
@@ -402,7 +409,21 @@ public class OrderService {
     public Page<SellingOrderResponseDto> getSellingOrders(Long userId, String status, Pageable pageable) {
         Page<Order> orders;
 
-        if ("PENDING".equals(status)) {
+        if ("IN_PROGRESS".equals(status)) {
+            // 진행 중 (판매자 입장)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId,
+                    List.of(
+                            CurrentStatus.PENDING,
+                            CurrentStatus.SHIPPED_TO_WAREHOUSE,
+                            CurrentStatus.PENDING_INSPECTION,
+                            CurrentStatus.INSPECTING,
+                            CurrentStatus.PASSED,
+                            CurrentStatus.SHIPPED
+                    ),
+                    null, pageable
+            );
+        } else if ("PENDING".equals(status)) {
             // 결제완료
             orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId, List.of(CurrentStatus.PENDING), null, pageable
@@ -415,9 +436,9 @@ public class OrderService {
                     null, pageable
             );
         } else if ("BEFORE_SHIPPING".equals(status)) {
-            // 발송전: PASSED인데 (일반주문이거나(검수O) 보관주문이거나(검수X) 둘 다 포함됨 - 모두 관리자가 발송처리해야 함)
+            // 발송 전 (판매자가 상품을 발송해야 하는 상태)
             orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
-                    userId, List.of(CurrentStatus.PASSED), null, pageable
+                    userId, List.of(CurrentStatus.PENDING), null, pageable
             );
         } else if ("SHIPPING".equals(status)) {
             // 배송중: SHIPPED만 포함
@@ -430,9 +451,16 @@ public class OrderService {
                     userId, List.of(CurrentStatus.DELIVERED), null, pageable
             );
         } else if ("COMPLETED".equals(status)) {
-            // 완료
+            // 완료 탭 (정산대기, 정산완료, 취소, 반송 포함)
             orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
-                    userId, List.of(CurrentStatus.CONFIRMED_PURCHASE), null, pageable
+                    userId,
+                    List.of(
+                            CurrentStatus.DELIVERED,
+                            CurrentStatus.CONFIRMED_PURCHASE,
+                            CurrentStatus.RETURN,
+                            CurrentStatus.CANCELLED
+                    ),
+                    null, pageable
             );
         } else if ("CANCELLED".equals(status)) {
             // 취소·반송
