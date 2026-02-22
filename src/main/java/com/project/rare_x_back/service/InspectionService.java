@@ -256,6 +256,15 @@ public class InspectionService {
                     .expiredAt(LocalDateTime.now().plusDays(180))
                     .build();
             storageItemRepository.save(storageItem);
+
+            /// [추가] 보관 신청자에게 검수 합격 및 보관 시작 알림 전송
+            notificationService.send(
+                    storageRequest.getUser().getUserId(),
+                    "보관 신청하신 상품의 검수가 완료되어 보관이 시작되었습니다.",
+                    "/mypage/storage", /// 보관함 페이지
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
         }
 
         if (inspection.getType() == InspectionType.ORDER) {
