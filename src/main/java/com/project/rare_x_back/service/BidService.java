@@ -494,8 +494,14 @@ public class BidService {
         // 보관 상품 입찰 취소 시 StorageItem 상태를 ON_SALE → STORED로 복구
         // LAZY 로딩 문제를 피하기 위해 Repository에서 직접 조회
         storageItemRepository.findBySellBidId(sellId).ifPresent(storageItem -> {
-            storageItem.updateStatus(StorageStatus.STORED);
-            log.info("판매 입찰 취소: SaleBidId={}, StorageItem STORED 복구 완료", sellId);
+//            storageItem.updateStatus(StorageStatus.STORED);
+//            log.info("판매 입찰 취소: SaleBidId={}, StorageItem STORED 복구 완료", sellId);
+            if (storageItem.getStatus() == StorageStatus.ON_SALE) {
+                storageItem.updateStatus(StorageStatus.STORED);
+                log.info("판매 입찰 취소: SaleBidId={}, StorageItem 상태를 ON_SALE에서 STORED로 복구 완료", sellId);
+            } else {
+                log.warn("판매 입찰 취소 시 StorageItem 상태 복구 스킵: SaleBidId={}, 현재 상태={}", sellId, storageItem.getStatus());
+            }
         });
     }
 

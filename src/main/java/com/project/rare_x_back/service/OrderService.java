@@ -185,14 +185,15 @@ public class OrderService {
     }
 
     // 관리자 보관 주문 발송 처리 (PASSED → SHIPPED)
-    // 보관 상품 주문은 Inspection이 없으므로 별도 메서드로 처리
     @Transactional
     public void shipStorageOrder(Long orderId) {
         // 1. 주문 조회
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
 
-        // 2. PASSED 상태인지 확인
+        // 2. PASSED 상태 확인
+        // (참고: 보관 상품은 이미 과거에 창고 입고될 때 검수를 통과해서 들어온 상품이므로
+        // 다시 검수할 필요 없이 바로 'PASSED' 상태로 시작. PASSED를 체크해서 배송(SHIPPED)으로 변경
         if (order.getCurrentStatus() != CurrentStatus.PASSED) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과(PASSED) 상태의 주문만 발송 처리할 수 있습니다.");
         }
@@ -812,7 +813,7 @@ public class OrderService {
                 if ("BEFORE_SHIPPING".equals(s)) {
                     statuses.add(CurrentStatus.PASSED);
                     // 발송전(BEFORE_SHIPPING) 탭: 일반(검수O) + 보관(검수X) 모두 포함하므로 null
-                    // 프론트엔드에서 BEFORE_SHIPPING만単독으로 보낼 때를 가정합니다.
+                    // 프론트엔드에서 BEFORE_SHIPPING만 단독으로 보낼 때를 가정합니다.
                     inspectionExists = null; 
                 } else {
                     try {

@@ -187,11 +187,48 @@ public class StorageRequestService {
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 보증금 결제 내역을 찾을 수 없습니다."));
 
         // 이미 성공 상태인 보증금만 결제 취소 API 호출
-        if (deposit.getStatus() == StoragePaymentStatus.SUCCESS && deposit.getTossPaymentKey() != null) {
-            paymentService.cancelStorageDeposit(deposit, deposit.getAmount(), "사용자 요청에 의한 보관 신청 취소");
-            
-            // 보증금 상태를 취소로 변경
-            deposit.markCanceled();
+//        if (deposit.getStatus() == StoragePaymentStatus.SUCCESS && deposit.getTossPaymentKey() != null) {
+//            paymentService.cancelStorageDeposit(deposit, deposit.getAmount(), "사용자 요청에 의한 보관 신청 취소");
+//
+//            // 보증금 상태를 취소로 변경
+//            deposit.markCanceled();
+
+        StoragePaymentStatus paymentStatus = deposit.getStatus();
+
+        // 결제 상태에 따른 보증금 처리
+        if (deposit.getTossPaymentKey() == null) {
+            // 결제 키가 없는 상태에서 취소 요청이 들어온 경우: 예외 상황이므로 로그만 남김
+            log.warn("보관 보증금 결제 키가 없는 상태에서 취소가 요청되었습니다. storageRequestId={}, paymentStatus={}",
+                    storageRequestId, paymentStatus);
+
+        } else if (paymentStatus == StoragePaymentStatus.SUCCESS) {
+            try {
+                // 이미 성공 상태인 보증금만 결제 취소 API 호출
+                paymentService.cancelStorageDeposit(deposit, deposit.getAmount(), "사용자 요청에 의한 보관 신청 취소");
+                // 보증금 상태를 취소로 변경
+                deposit.markCanceled();
+            } catch (Exception e) {
+                log.error("보증금 환불(결제 취소) 중 오류가 발생하여 보관 신청 취소를 중단(Rollback)합니다. storageRequestId={}", storageRequestId, e);
+                throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 결제 취소에 실패하여 보관 신청을 취소할 수 없습니다.");
+            }
+
+        } else if (paymentStatus == StoragePaymentStatus.PENDING) {
+            // 결제가 진행 중인 상태에서의 취소 요청: 현재는 별도 취소 시도는 하지 않고 경고 로그만 남김
+            log.warn("보관 보증금 결제가 PENDING 상태인 동안 보관 신청 취소가 요청되었습니다. "
+                            + "추가적인 결제 취소 처리 여부를 검토하세요. storageRequestId={}, paymentStatus={}",
+                    storageRequestId, paymentStatus);
+
+        } else if (paymentStatus == StoragePaymentStatus.FAILED) {
+            // 이미 결제가 실패한 상태: 환불 시도는 필요 없으나 상황을 로그로 남김
+            log.info("보관 보증금 결제가 FAILED 상태인 보관 신청에 대해 취소가 요청되었습니다. "
+                            + "추가적인 결제 처리 없이 보관 신청만 취소됩니다. storageRequestId={}, paymentStatus={}",
+                    storageRequestId, paymentStatus);
+
+        } else {
+            // 정의되지 않은/예상하지 못한 상태에 대한 방어적 로깅
+            log.warn("예상하지 못한 보관 보증금 결제 상태에서 보관 신청 취소가 요청되었습니다. "
+                            + "storageRequestId={}, paymentStatus={}",
+                    storageRequestId, paymentStatus);
         }
 
         // 5. StorageRequest 상태 변경

@@ -30,10 +30,8 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             StorageStatus status
     );
 
-    // SaleBid와 연결된 StorageItem 조회 (LAZY 로딩 없이 직접 조회)
-    // sell_bids 테이블의 storage_id 컬럼을 기준으로 조회
-    @Query("SELECT si FROM StorageItem si WHERE si.storageId = " +
-           "(SELECT sb.storageItem.storageId FROM SaleBid sb WHERE sb.sellId = :sellId AND sb.storageItem IS NOT NULL)")
+    // SaleBid와 연결된 StorageItem 조회 (서브쿼리 대신 JOIN 사용하여 성능 최적화)
+    @Query("SELECT si FROM StorageItem si JOIN SaleBid sb ON sb.storageItem.storageId = si.storageId WHERE sb.sellId = :sellId")
     Optional<StorageItem> findBySellBidId(@Param("sellId") Long sellId);
 
     /**
