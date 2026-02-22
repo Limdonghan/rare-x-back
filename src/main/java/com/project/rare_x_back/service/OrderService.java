@@ -549,12 +549,27 @@ public class OrderService {
         // 3. 정산 정보
         Integer settlementPayout = null;
         LocalDateTime settlementCompletedAt = null;
+        boolean settlementCompleted = false;
+        Integer commissionFee = null;
 
-        Optional<Settlement> settlement = settlementRepository.findByOrder_OrderId(orderId);
-        if (settlement.isPresent()) {
-            settlementPayout = settlement.get().getPayout();
-            settlementCompletedAt = settlement.get().getCompletedAt();
+        Optional<Settlement> settlementOpt =
+                settlementRepository.findByOrder_OrderId(orderId);
+
+        if (settlementOpt.isPresent()) {
+
+            Settlement settlement = settlementOpt.get();
+
+            // payout 항상 계산 or 저장값 사용
+            settlementPayout = settlement.getPayout() != 0
+                    ? settlement.getPayout()
+                    : FeeCalculator.sellerPayout(order.getPrice());
+
+            commissionFee = settlement.getCommissionFee();
+
+            settlementCompletedAt = settlement.getCompletedAt();
+            settlementCompleted = settlementCompletedAt != null;
         }
+
 
         // 4. 검수 정보
         String inspectionStatus = null;
@@ -585,7 +600,9 @@ public class OrderService {
                 .productImages(productImages)
                 .price(order.getPrice())
                 .settlementPayout(settlementPayout)
+                .commissionFee(commissionFee)
                 .settlementCompletedAt(settlementCompletedAt)
+                .settlementCompleted(settlementCompleted)
                 .currentStatus(order.getCurrentStatus().name())
                 .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
                 .shipDeadline(order.getShipDeadline())
