@@ -88,4 +88,46 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByBuyer_UserId(Long userId);
 
     long countBySeller_UserId(Long userId);
+
+
+    // 랭킹 조회
+    @Query(value = """
+    SELECT 
+        ranked.productId AS productId,
+        p.product_name AS productName,
+        pi.img_url AS thumbnailUrl,
+        ranked.dealCount AS dealCount,
+        b.name AS brandName,
+        p.brand_id AS brandId,
+        p.category_id AS categoryId,
+        MIN(sb.price) AS lowestPrice
+    FROM (
+        SELECT 
+            o.product_id AS productId,
+            COUNT(o.order_id) AS dealCount
+        FROM orders o
+        WHERE o.current_status = 'CONFIRMED_PURCHASE'
+          AND o.created_at >= :startDate
+        GROUP BY o.product_id
+        ORDER BY dealCount DESC
+        LIMIT :limit
+    ) ranked
+    JOIN products p ON p.product_id = ranked.productId
+    LEFT JOIN brands b ON b.brand_id = p.brand_id
+    LEFT JOIN sell_bids sb ON sb.product_id = p.product_id AND sb.status = 'OPEN'
+    LEFT JOIN (
+        SELECT product_id, MIN(prod_img_id) AS min_image_id
+        FROM product_images
+        GROUP BY product_id
+    ) pim ON pim.product_id = p.product_id
+    LEFT JOIN product_images pi ON pi.prod_img_id = pim.min_image_id
+    GROUP BY 
+        ranked.productId, p.product_name, pi.img_url, 
+        ranked.dealCount, b.name, p.brand_id, p.category_id
+    """, nativeQuery = true)
+    List<ProductRankingProjection> findRanking(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("limit") int limit
+    );
+
 }
