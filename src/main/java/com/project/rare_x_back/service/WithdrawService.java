@@ -32,6 +32,7 @@ public class WithdrawService {
     private final StorageItemRepository storageItemRepository;
     private final StorageRequestRepository storageRequestRepository;
     private final TokenBlacklistService tokenBlacklistService;
+    private final SearchService searchService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTemplate<String, String> redisTemplate;
@@ -90,6 +91,8 @@ public class WithdrawService {
         user.setStatus(Status.QUITED);
         user.setIsDeleted(true);
         user.setDeletedAt(LocalDateTime.now());
+
+        searchService.indexUser(user);  // Typesense 인덱스 갱신
 
         // 6. JWT 무효화
         String refreshKey = REFRESH_TOKEN_PREFIX + userId;
