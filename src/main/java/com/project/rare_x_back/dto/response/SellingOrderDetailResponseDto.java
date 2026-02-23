@@ -37,6 +37,11 @@ public class SellingOrderDetailResponseDto {
     private String inspectionStatus;
     private String inspectionFailReason;
 
+
+    // 취소 관련
+    private String cancelledBy;
+    private Long cancelPenaltyCompensation; // 보상금
+
     // 타임라인
     private List<StatusHistory> statusHistories;
 

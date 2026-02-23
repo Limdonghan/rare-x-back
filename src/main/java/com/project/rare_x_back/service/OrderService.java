@@ -335,6 +335,14 @@ public class OrderService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
+        String cancelledBy = null;
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            cancelledBy = historyRepository
+                    .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
+                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .orElse(null);
+        }
+
         // 2. 상품 이미지
         List<String> productImages = order.getProduct().getImages().stream()
                 .map(ProductImage::getImageUrl)
@@ -402,6 +410,7 @@ public class OrderService {
                 .inspectionStatus(inspectionStatus)
                 .failReason(failReason)
                 .statusHistories(statusHistories)
+                .cancelledBy(cancelledBy)
                 .build();
     }
 
@@ -542,6 +551,25 @@ public class OrderService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
+        String cancelledBy = null;
+        Long cancelPenaltyCompensation = null;
+
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            // OrderHistory description으로 취소 주체 판별
+            cancelledBy = historyRepository
+                    .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
+                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .orElse(null);
+
+            // 구매자 취소인 경우 UserPenalty에서 보상금 조회
+            if ("BUYER".equals(cancelledBy)) {
+                cancelPenaltyCompensation = userPenaltyRepository
+                        .findByOrder_OrderIdAndRole(orderId, PenaltyRole.BUYER)
+                        .map(p -> p.getAmount() / 2)  // 패널티의 50%가 보상금
+                        .orElse(null);
+            }
+        }
+
         // 2. 상품 이미지
         List<String> productImages = order.getProduct().getImages().stream()
                 .map(ProductImage::getImageUrl)
@@ -611,6 +639,8 @@ public class OrderService {
                 .inspectionStatus(inspectionStatus)
                 .inspectionFailReason(inspectionFailReason)
                 .statusHistories(statusHistories)
+                .cancelledBy(cancelledBy)
+                .cancelPenaltyCompensation(cancelPenaltyCompensation)
                 .build();
     }
 
