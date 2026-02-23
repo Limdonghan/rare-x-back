@@ -35,6 +35,15 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
             @Param("status") SettlementStatus status
     );
 
+    // 총 판매 수수료 합
+    @Query(value = """
+        SELECT COALESCE(SUM(commission_fee),0)
+        FROM settlements
+        WHERE status = 'COMPLETE'
+          AND DATE(completed_at) = CURDATE()
+    """, nativeQuery = true)
+    Long sumTodaySellerFee();
+
     // 회원탈퇴 - 미정산 건 존재 여부
     boolean existsBySeller_UserIdAndStatus(Long userId, SettlementStatus status);
 }

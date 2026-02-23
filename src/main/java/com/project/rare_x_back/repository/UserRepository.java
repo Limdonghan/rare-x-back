@@ -66,4 +66,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 통계
     @Query("SELECT u.status, COUNT(u) FROM User u GROUP BY u.status")
     List<Object[]> countByStatus();
+
+    // 활성회원 총 수
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM users u
+        WHERE u.status = 'ACTIVE'
+        """, nativeQuery = true)
+    Long countActiveUsers();
 }

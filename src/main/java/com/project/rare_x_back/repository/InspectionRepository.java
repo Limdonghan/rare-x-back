@@ -161,4 +161,13 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     })
     @Query("SELECT i FROM Inspection i WHERE i.inspectionId IN :ids")
     List<Inspection> findAllByIdWithDetails(@Param("ids") List<Long> ids);
+
+    // 검수 대기 수
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM inspections i
+        WHERE i.status = 'PENDING_INSPECTION'
+        """, nativeQuery = true)
+    Long countPendingInspections();
+
 }

@@ -4,6 +4,7 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.*;
+import com.project.rare_x_back.service.AdminDashboardService;
 import com.project.rare_x_back.service.AdminService;
 import com.project.rare_x_back.service.AdminUserService;
 import com.project.rare_x_back.service.OrderService;
@@ -33,6 +34,7 @@ public class AdminController {
     private final AdminService adminService;
     private final OrderService orderService;
     private final AdminUserService adminUserService;
+    private final AdminDashboardService adminDashboardService;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
@@ -189,7 +191,7 @@ public class AdminController {
             @AuthenticationPrincipal CustomUserDetails adminDetails
     ) {
         if (request == null || !request.containsKey("orderIds")) {
-            log.warn("관리자({})가 유효하지 않은 일괄 배송 완료 요청을 보냈습니다. request 또는 orderIds 키가 없습니다.", 
+            log.warn("관리자({})가 유효하지 않은 일괄 배송 완료 요청을 보냈습니다. request 또는 orderIds 키가 없습니다.",
                     adminDetails != null ? adminDetails.getUsername() : "anonymous");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.success("유효한 주문 ID 목록(orderIds)이 요청에 포함되어야 합니다."));
@@ -197,14 +199,14 @@ public class AdminController {
 
         List<Long> orderIds = request.get("orderIds");
         if (orderIds == null || orderIds.isEmpty()) {
-            log.warn("관리자({})가 비어 있거나 null인 주문 ID 목록으로 일괄 배송 완료 요청을 보냈습니다.", 
+            log.warn("관리자({})가 비어 있거나 null인 주문 ID 목록으로 일괄 배송 완료 요청을 보냈습니다.",
                     adminDetails != null ? adminDetails.getUsername() : "anonymous");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.success("주문 ID 목록(orderIds)은 비어 있을 수 없습니다."));
         }
 
         orderService.bulkDeliveryComplete(orderIds);
-        log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함", 
+        log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함",
                 adminDetails != null ? adminDetails.getUsername() : "anonymous", orderIds.size());
         return ResponseEntity.ok(ApiResponse.success("일괄 배송 완료 처리되었습니다."));
     }
@@ -270,4 +272,25 @@ public class AdminController {
                 adminDetails.getUsername(), request.getUserIds().size(), request.getStatus());
         return ResponseEntity.ok(ApiResponse.success("회원 상태가 일괄 변경되었습니다."));
     }
+
+    // 관리자 대시보드 통계
+    @GetMapping("/dashboard/summary")
+    public ResponseEntity<ApiResponse<AdminDashboardResponseDto>> getDashboardSummary(
+            @RequestParam(required = false) String date
+    ) {
+        AdminDashboardResponseDto result = adminDashboardService.getSummary(date);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/dashboard/revenue/daily")
+    public ResponseEntity<ApiResponse<List<AdminDailyRevenueResponseDto>>> getDailyRevenue(
+            @RequestParam String startDate, // "2026-02-01"
+            @RequestParam String endDate    // "2026-02-28"
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                adminDashboardService.getDailyRevenue(startDate, endDate)
+        ));
+    }
+
+
 }
