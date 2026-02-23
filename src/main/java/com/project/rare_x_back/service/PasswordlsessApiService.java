@@ -42,7 +42,7 @@ public class PasswordlsessApiService {
      * 사용자 등록 여부 확인 API 호출
      */
     public Boolean checkUserStatus(String email) {
-        userRepository.findByEmail(email)
+        userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         /// URL 생성
         URI uri = UriComponentsBuilder.fromUriString(servingUrl)
@@ -65,7 +65,7 @@ public class PasswordlsessApiService {
      * 로컬 사용자 패스워드리스 활성화 여부 확인
      */
     public Boolean checkLocalUserStatus(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         return user.getPasswordlessEnabled();
     }
@@ -74,7 +74,7 @@ public class PasswordlsessApiService {
      * 사용자 등록 API 호출
      */
     public String registerUser(String email){
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Boolean userStatus = checkUserStatus(email);
@@ -101,7 +101,7 @@ public class PasswordlsessApiService {
      */
     @Transactional
     public void passwordlessEnabled(String email){
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         userRepository.updatePasswordlessStatus(user.getEmail(),true);
@@ -111,7 +111,7 @@ public class PasswordlsessApiService {
      * 로그인 인증 요청
      */
     public String triggerLogin(String email,String ip) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Boolean userStatus = checkUserStatus(email);
@@ -136,7 +136,7 @@ public class PasswordlsessApiService {
      * 인증 결과 확인
      */
     public PasswordlessResponseDto checkResult(String email, String sessionId) throws JsonProcessingException {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
@@ -217,7 +217,7 @@ public class PasswordlsessApiService {
      */
     @Transactional
     public PasswordlessResponseDto withdrawalAp(String email){
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
                 .path("/withdrawal")
