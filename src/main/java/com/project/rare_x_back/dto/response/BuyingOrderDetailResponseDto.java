@@ -40,6 +40,9 @@ public class BuyingOrderDetailResponseDto {
     // 상태 이력 (주문상세에서 배송조회)
     private List<StatusHistory> statusHistories;
 
+    // 취소 관련
+    private String cancelledBy;
+
     // Inner Class
     @Getter
     @Builder
