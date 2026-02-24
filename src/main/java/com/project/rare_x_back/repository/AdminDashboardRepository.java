@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 public interface AdminDashboardRepository extends JpaRepository<PaymentHistory, Long> {
@@ -67,8 +68,8 @@ public interface AdminDashboardRepository extends JpaRepository<PaymentHistory, 
         GROUP BY DATE(ph.res_date)
         ORDER BY d
         """, nativeQuery = true)
-    List<Map<String, Object>> sumNetBuyerFeeDaily(@Param("startDate") String startDate,
-                                                  @Param("endDate") String endDate);
+    List<Map<String, Object>> sumNetBuyerFeeDaily(@Param("startDate") LocalDate startDate,
+                                                  @Param("endDate") LocalDate endDate);
 
     // (4) 일별 판매 수수료 (그래프용)
     @Query(value = """
@@ -81,6 +82,8 @@ public interface AdminDashboardRepository extends JpaRepository<PaymentHistory, 
         GROUP BY DATE(s.completed_at)
         ORDER BY d
         """, nativeQuery = true)
-    List<Map<String, Object>> sumSellerFeeDaily(@Param("startDate") String startDate,
-                                                @Param("endDate") String endDate);
+    List<Map<String, Object>> sumSellerFeeDaily(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
 }

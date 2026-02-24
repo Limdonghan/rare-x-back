@@ -46,7 +46,7 @@ public class AdminDashboardService {
                 .build();
     }
 
-    public List<AdminDailyRevenueResponseDto> getDailyRevenue(String startDate, String endDate) {
+    public List<AdminDailyRevenueResponseDto> getDailyRevenue(LocalDate startDate, LocalDate endDate) {
         // 1) 구매 순수수료 일별
         List<Map<String, Object>> buyerRows = dashboardRepository.sumNetBuyerFeeDaily(startDate, endDate);
         // 2) 판매 수수료 일별
@@ -66,8 +66,8 @@ public class AdminDashboardService {
         }
 
         // 날짜 범위 전체를 채워서(빈 날 0) 프론트에서 그래프 깔끔하게
-        LocalDate s = LocalDate.parse(startDate);
-        LocalDate e = LocalDate.parse(endDate);
+        LocalDate s = startDate;
+        LocalDate e = endDate;
 
         List<AdminDailyRevenueResponseDto> result = new ArrayList<>();
         for (LocalDate cur = s; !cur.isAfter(e); cur = cur.plusDays(1)) {
