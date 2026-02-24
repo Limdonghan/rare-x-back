@@ -112,6 +112,8 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     // 타입 + 상태별 건수 조회 (대시보드용)
     long countByTypeAndStatus(InspectionType type, InspectionStatus status);
 
+    //
+    boolean existsByStorageItemStorageIdAndStatus(Long storageId, InspectionStatus status);
 
     // ===== VER-004 검수 이력 조회용 (페이징) =====
 

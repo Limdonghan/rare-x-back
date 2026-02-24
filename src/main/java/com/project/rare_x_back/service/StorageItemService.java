@@ -77,6 +77,13 @@ public class StorageItemService {
             log.info("반송 요청으로 판매 입찰 자동 취소: storageId={}", storageId);
         }
 
+        // 5-2. 이미 반송 요청 중인지 확인
+        boolean alreadyRequested = inspectionRepository
+                .existsByStorageItemStorageIdAndStatus(storageItem.getStorageId(), InspectionStatus.RELEASE_REQUESTED);
+        if (alreadyRequested) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 반송 요청 중인 상품입니다.");
+        }
+
         // 6. Inspection 레코드 생성 (반송 요청)
         Inspection inspection = Inspection.builder()
                 .storageItem(storageItem)
