@@ -20,6 +20,27 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     /// [추가] 상품별 상태별 가격순 조회
     List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
 
+    // 즉시 구매용
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+      SELECT s
+      FROM SaleBid s
+      WHERE s.product = :product
+        AND s.price = :price
+        AND s.status = :status
+        AND s.user.userId <> :buyerId
+      ORDER BY s.createdAt ASC
+    """)
+    List<SaleBid> findAllByProductAndPriceAndStatusAndUserNot(
+            @Param("product") Product product,
+            @Param("price") int price,
+            @Param("status") BidStatus status,
+            @Param("buyerId") Long buyerId,
+            Pageable pageable
+    );
+
+
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<SaleBid> findAllByProductAndPriceAndStatusOrderByCreatedAtAsc(Product productId, int price, BidStatus status);
 

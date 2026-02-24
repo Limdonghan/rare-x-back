@@ -163,13 +163,23 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(purchaseRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        /// [매칭] 해당 가격에 파는 판매 입찰(SaleBid) 찾기, (가장 저렴하고, 먼저 등록된 판매 입찰 1개 조회)
-        List<SaleBid> saleBidList = saleBidRepository
-                .findAllByProductAndPriceAndStatusOrderByCreatedAtAsc(product, purchaseRequestDto.getPrice(), BidStatus.OPEN);
+        /// [매칭] 해당 가격에 파는 판매 입찰(SaleBid) 찾기, (가장 저렴하고, 먼저 등록된 판매 입찰 1개 조회 + 본인 입찰 제외 추가)
+        List<SaleBid> saleBidList = saleBidRepository.findAllByProductAndPriceAndStatusAndUserNot(
+                product,
+                purchaseRequestDto.getPrice(),
+                BidStatus.OPEN,
+                buyer.getUserId(),
+                PageRequest.of(0, 1)
+        );
+
         if (saleBidList.isEmpty()) {
             throw new CustomException(ErrorCode.PRODUCT_NOT_ON_SALE);
         }
         SaleBid saleBid = saleBidList.getFirst();
+
+        if (saleBid.getUser().getUserId().equals(buyer.getUserId())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "본인의 판매 입찰은 구매할 수 없습니다.");
+        }
 
         /// [상태 변경] 판매 입찰 -> 체결됨(MATCHED)
         saleBid.statusUpdate(BidStatus.MATCHED);
@@ -282,8 +292,15 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(sellNowRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        BuyBid buyBid = buyBidRepository.findById(sellNowRequestDto.getBidId())
-                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
+        BuyBid buyBid = buyBidRepository.findForSellNow(
+                sellNowRequestDto.getBidId(),
+                BidStatus.OPEN,
+                seller.getUserId()
+        ).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_BID));
+
+        if (buyBid.getUser().getUserId().equals(seller.getUserId())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "본인의 구매 입찰은 판매할 수 없습니다.");
+        }
 
         String orderNumber = UUID.randomUUID().toString();
 

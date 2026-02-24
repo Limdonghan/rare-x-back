@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -97,6 +98,23 @@ public class ProductService {
         List<BuyBid> allBuyBids = buyBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
         List<SaleBid> allSaleBids = saleBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
 
+        // 내 입찰 가격 추출
+        List<Integer> myBuyPrices =
+                (userId == null) ? List.of() :
+                        allBuyBids.stream()
+                                .filter(b -> b.getUser().getUserId().equals(userId))
+                                .map(BuyBid::getPrice)
+                                .distinct()
+                                .toList();
+
+        List<Integer> mySellPrices =
+                (userId == null) ? List.of() :
+                        allSaleBids.stream()
+                                .filter(s -> s.getUser().getUserId().equals(userId))
+                                .map(SaleBid::getPrice)
+                                .distinct()
+                                .toList();
+
         // [최적화] 1. 원본 리스트 미리 정렬 (O(N log N))
         // 구매 입찰: 가격 내림차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
         allBuyBids.sort(Comparator.comparingInt(BuyBid::getPrice).reversed()
@@ -115,23 +133,53 @@ public class ProductService {
         List<BidInfo> buyBidList = allBuyBids.stream()
                 .collect(Collectors.groupingBy(
                         BuyBid::getPrice,
-                        java.util.LinkedHashMap::new, // 순서 유지
-                        Collectors.counting()
+                        LinkedHashMap::new,
+                        Collectors.toList()
                 ))
                 .entrySet().stream()
-                .map(entry -> new BidInfo(entry.getKey(), entry.getValue()))
+                .map(entry -> {
+
+                    int price = entry.getKey();
+                    List<BuyBid> bids = entry.getValue();
+
+                    long quantity = bids.size();
+
+                    boolean isMine = userId != null &&
+                            bids.stream().anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+                    return new BidInfo(price, quantity, isMine);
+                })
                 .toList();
 
         // 판매 입찰 리스트: 가격별로 묶기 (이미 정렬되어 있음)
         List<BidInfo> saleBidList = allSaleBids.stream()
                 .collect(Collectors.groupingBy(
                         SaleBid::getPrice,
-                        java.util.LinkedHashMap::new, // 순서 유지
-                        Collectors.counting()
+                        LinkedHashMap::new,
+                        Collectors.toList()
                 ))
                 .entrySet().stream()
-                .map(entry -> new BidInfo(entry.getKey(), entry.getValue()))
+                .map(entry -> {
+
+                    int price = entry.getKey();
+                    List<SaleBid> bids = entry.getValue();
+
+                    long quantity = bids.size();
+
+                    boolean isMine = userId != null &&
+                            bids.stream().anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+                    return new BidInfo(price, quantity, isMine);
+                })
                 .toList();
+
+        boolean hasMyBuyBid = userId != null &&
+                allBuyBids.stream()
+                        .anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+        boolean hasMySellBid = userId != null &&
+                allSaleBids.stream()
+                        .anyMatch(b -> b.getUser().getUserId().equals(userId));
 
 
         // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
@@ -171,6 +219,10 @@ public class ProductService {
                 .isLiked(isLiked)
                 .highestBuyBidId(highestBuyBidId)
                 .lowestSaleBidId(lowestSaleBidId)
+                .hasMyBuyBid(hasMyBuyBid)
+                .hasMySellBid(hasMySellBid)
+                .buyBidInfoList(buyBidList)
+                .saleBidInfoList(saleBidList)
                 .build();
 
     }

@@ -18,6 +18,21 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
     List<BuyBid> findAllByProduct_ProductIdAndStatus(Long productId, BidStatus status);
 
+    // 즉시 판매용
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+    SELECT b
+    FROM BuyBid b
+    WHERE b.buyId = :buyId
+      AND b.status = :status
+      AND b.user.userId <> :sellerId
+""")
+    Optional<BuyBid> findForSellNow(
+            @Param("buyId") Long buyId,
+            @Param("status") BidStatus status,
+            @Param("sellerId") Long sellerId
+    );
+
     /// [추가] 상품별 상태별 가격순 조회
     List<BuyBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
 

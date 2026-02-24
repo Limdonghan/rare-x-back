@@ -152,6 +152,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 회원탈퇴 - 진행 중인 주문 존재 여부 (판매자)
     boolean existsBySeller_UserIdAndCurrentStatusIn(Long userId, List<CurrentStatus> statuses);
 
+    // 주문 수 합 (취소 제외)
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM orders o
+        WHERE DATE(o.created_at) = :date
+        """, nativeQuery = true)
+    Long countOrdersByDate(@Param("date") String date);
 
     // 랭킹 조회
     @Query(value = """
