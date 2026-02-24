@@ -183,10 +183,6 @@ public class ProductService {
 
                     boolean isStorageSale = storageQuantity > 0;
 
-//                    // 보관 판매 포함 여부
-//                    boolean isStorageSale =
-//                            bids.stream().anyMatch(b -> b.getStorageItem() != null);
-
 
                     return new BidInfo(price, quantity, isMine,  isStorageSale, storageQuantity);
                 })
