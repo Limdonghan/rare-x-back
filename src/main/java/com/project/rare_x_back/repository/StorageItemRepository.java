@@ -18,7 +18,8 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             "JOIN FETCH s.product p " +
             "JOIN FETCH p.brand " +
             "LEFT JOIN FETCH p.images " +
-            "WHERE s.user.userId = :userId")
+            "WHERE s.user.userId = :userId " +
+            "ORDER BY s.storedAt DESC")
     List<StorageItem> findByUserUserId(@Param("userId") Long userId);
 
 

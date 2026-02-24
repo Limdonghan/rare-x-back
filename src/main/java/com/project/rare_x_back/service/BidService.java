@@ -430,16 +430,15 @@ public class BidService {
 
         return switch (filterStatus) {
             case PENDING -> List.of(CurrentStatus.PENDING);
-            case INSPECTING -> List.of(
-                    CurrentStatus.SHIPPED_TO_WAREHOUSE,
-                    CurrentStatus.PENDING_INSPECTION,
-                    CurrentStatus.INSPECTING
-            );
+            case SHIPPED_TO_WAREHOUSE -> List.of(CurrentStatus.SHIPPED_TO_WAREHOUSE);
+            case PENDING_INSPECTION -> List.of(CurrentStatus.PENDING_INSPECTION);
+            case INSPECTING -> List.of(CurrentStatus.INSPECTING);
             case PASSED -> List.of(CurrentStatus.PASSED);
             case SHIPPED -> List.of(CurrentStatus.SHIPPED); // 순수 배송중
             case DELIVERED -> List.of(CurrentStatus.DELIVERED);
             case CONFIRMED_PURCHASE -> List.of(CurrentStatus.CONFIRMED_PURCHASE);
-            case CANCELLED -> List.of(CurrentStatus.RETURN, CurrentStatus.CANCELLED);
+            case RETURN -> List.of(CurrentStatus.RETURN);
+            case CANCELLED -> List.of(CurrentStatus.CANCELLED);
             default -> List.of(filterStatus);
         };
     }
