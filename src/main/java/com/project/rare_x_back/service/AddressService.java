@@ -82,6 +82,7 @@ public class AddressService {
                 .postalCode(requestDto.getPostalCode())         // 프론트가 보내준 우편번호
                 .address(requestDto.getBaseAddress())           // 프론트가 보내준 기본주소
                 .detailAddress(requestDto.getDetailAddress())   // 유저가 직접 쓴 상세주소
+                .nickname(requestDto.getNickname())             // 유저가 직접 쓴 배송지별칭
                 .isDefault(isDefault)
                 .build();
         log.info("요청 isDefault = {}", requestDto.isDefaultAddress());
@@ -101,6 +102,7 @@ public class AddressService {
                     .postalCode(address.getPostalCode())
                     .address(address.getAddress())
                     .detailAddress(address.getDetailAddress())
+                    .nickname(address.getNickname())
                     .defaultAddress(address.isDefault())
                     .createdAt(address.getCreatedAt())
                     .updatedAt(address.getUpdatedAt())
@@ -119,7 +121,7 @@ public class AddressService {
         // 수정할 유저의 주소록 정보 찾기
         Address changeAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
-        changeAddress.updateAddress(requestDto.getRecipientName(), requestDto.getDetailAddress());
+        changeAddress.updateAddress(requestDto.getRecipientName(), requestDto.getDetailAddress(), requestDto.getNickname());
     }
 
     // 기본 배송지 여부 수정

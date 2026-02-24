@@ -31,7 +31,7 @@ public class PaymentCancel {
     @Column(name = "cancel_reason")
     private String cancelReason;
 
-    // BUYER / SELLER / SYSTEM / INSPECTION
+    // BUYER / SELLER / INSPECTION_FAIL
     @Column(name = "requested_by")
     private String requestedBy;
 

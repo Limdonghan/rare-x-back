@@ -3,8 +3,10 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.response.*;
+import com.project.rare_x_back.repository.ProductRankingProjection;
 import com.project.rare_x_back.service.ProductService;
 import com.project.rare_x_back.service.SearchService;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,11 +35,11 @@ public class ProductController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllPublicProd (
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) List<Long> categoryIds,
+            @RequestParam(required = false) List<Long> brandIds,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        Page<ProductResponseDto> response = productService.getAllPublicProd(categoryId, brandId, pageable);
+        Page<ProductResponseDto> response = productService.getAllPublicProd(categoryIds, brandIds, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -85,5 +87,15 @@ public class ProductController {
     @GetMapping("/storage")
     public ResponseEntity<ApiResponse<List<StorageProductResponseDto>>> getStorageProducts() {
         return ResponseEntity.ok(ApiResponse.success(productService.getStorageProducts()));
+    }
+
+    // 랭킹 목록 조회
+    @GetMapping("/ranking")
+    public ResponseEntity<ApiResponse<List<ProductRankingProjection>>> getRanking(
+            @Pattern(regexp = "^(7d|30d|90d|all)$", message = "유효하지 않은 기간 형식입니다.")
+            @RequestParam(defaultValue = "7d") String period
+    ) {
+        List<ProductRankingProjection> ranking = productService.getRanking(period);
+        return ResponseEntity.ok(ApiResponse.success(ranking));
     }
 }

@@ -3,16 +3,19 @@ package com.project.rare_x_back.controller;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
-import com.project.rare_x_back.dto.response.BrandListResponseDto;
-import com.project.rare_x_back.dto.response.CategoryListResponseDto;
-import com.project.rare_x_back.dto.response.ProductResponseDto;
+import com.project.rare_x_back.dto.response.*;
+import com.project.rare_x_back.service.AdminDashboardService;
 import com.project.rare_x_back.service.AdminService;
+import com.project.rare_x_back.service.AdminUserService;
 import com.project.rare_x_back.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +23,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @AllArgsConstructor
 @RestController
@@ -29,14 +35,16 @@ public class AdminController {
 
     private final AdminService adminService;
     private final OrderService orderService;
+    private final AdminUserService adminUserService;
+    private final AdminDashboardService adminDashboardService;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
-                consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<String>>> uploadProductImage(
             @PathVariable Long productId,
             @RequestPart("images")List<MultipartFile> images
-            ) {
+    ) {
         List<String> imageUrls = adminService.saveProductImage(productId, images);
         return ResponseEntity.ok(ApiResponse.success(imageUrls,"상품 이미지 등록이 완료되었습니다."));
     }
@@ -56,8 +64,10 @@ public class AdminController {
 
     //상품 전체 조회
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(Pageable pageable){
-        Page<ProductResponseDto> response = adminService.getAllProducts(pageable);
+    public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllProduct(
+            @RequestParam(required = false) Long categoryId,
+            Pageable pageable){
+        Page<ProductResponseDto> response = adminService.getAllProducts(categoryId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -158,10 +168,130 @@ public class AdminController {
     public ResponseEntity <ApiResponse<Void>> deliveredOrder (
             @PathVariable Long orderId,
             @AuthenticationPrincipal CustomUserDetails adminDetails
-            ) {
+    ) {
         orderService.deliveryComplete(orderId);
         log.info("관리자({})가 주문 {}를 배송 완료 처리함", adminDetails.getUsername(), orderId);
         return ResponseEntity.ok(ApiResponse.success("배송 완료 처리되었습니다."));
+    }
+
+    // 보관 주문 발송 처리 (PASSED → SHIPPED)
+    // 보관 상품 주문은 Inspection이 없으므로 InspectionController 대신 이 API 사용
+    @PatchMapping("/orders/{orderId}/ship")
+    public ResponseEntity<ApiResponse<Void>> shipStorageOrder(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        orderService.shipStorageOrder(orderId);
+        log.info("관리자({})가 보관 주문 {}를 발송 처리함", adminDetails.getUsername(), orderId);
+        return ResponseEntity.ok(ApiResponse.success("발송 처리되었습니다."));
+    }
+
+    // 주문 일괄 배송 완료 처리
+    @PatchMapping("/orders/bulk/delivered")
+    public ResponseEntity<ApiResponse<Void>> bulkDeliveredOrders(
+            @RequestBody Map<String, List<Long>> request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails
+    ) {
+        if (request == null || !request.containsKey("orderIds")) {
+            log.warn("관리자({})가 유효하지 않은 일괄 배송 완료 요청을 보냈습니다. request 또는 orderIds 키가 없습니다.",
+                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.success("유효한 주문 ID 목록(orderIds)이 요청에 포함되어야 합니다."));
+        }
+
+        List<Long> orderIds = request.get("orderIds");
+        if (orderIds == null || orderIds.isEmpty()) {
+            log.warn("관리자({})가 비어 있거나 null인 주문 ID 목록으로 일괄 배송 완료 요청을 보냈습니다.",
+                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.success("주문 ID 목록(orderIds)은 비어 있을 수 없습니다."));
+        }
+
+        orderService.bulkDeliveryComplete(orderIds);
+        log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함",
+                adminDetails != null ? adminDetails.getUsername() : "anonymous", orderIds.size());
+        return ResponseEntity.ok(ApiResponse.success("일괄 배송 완료 처리되었습니다."));
+    }
+
+    // 카테고리 일괄 삭제
+    @DeleteMapping("/categories/bulk")
+    public ResponseEntity<ApiResponse<Void>> bulkDeleteCategories(
+            @RequestBody Map<String, List<Long>> request) {
+        adminService.bulkDeleteCategories(request.get("ids"));
+        return ResponseEntity.ok(ApiResponse.success("카테고리 일괄 삭제가 완료되었습니다."));
+    }
+
+    // 브랜드 일괄 삭제
+    @DeleteMapping("/brands/bulk")
+    public ResponseEntity<ApiResponse<Void>> bulkDeleteBrands(
+            @RequestBody Map<String, List<Long>> request) {
+        adminService.bulkDeleteBrands(request.get("ids"));
+        return ResponseEntity.ok(ApiResponse.success("브랜드 일괄 삭제가 완료되었습니다."));
+    }
+
+    // ====== 관리자 회원 관리 (MANAGER-004) ======
+
+    // 회원 목록 조회 + 통계
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<AdminUserListResponseDto>> getAdminUsers(
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) String providerType,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        AdminUserListResponseDto result = adminUserService.getAdminUsers(status, providerType, pageable);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 회원 상세 조회
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponseDto>> getAdminUserDetail(
+            @PathVariable Long userId) {
+
+        AdminUserDetailResponseDto result = adminUserService.getAdminUserDetail(userId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // 회원 상태 변경
+    @PatchMapping("/users/{userId}/status")
+    public ResponseEntity<ApiResponse<Void>> updateUserStatus(
+            @PathVariable Long userId,
+            @Valid @RequestBody AdminUserStatusRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        adminUserService.updateUserStatus(userId, request);
+        log.info("관리자({})가 회원 {} 상태를 {} 으로 변경", adminDetails.getUsername(), userId, request.getStatus());
+        return ResponseEntity.ok(ApiResponse.success("회원 상태가 변경되었습니다."));
+    }
+
+    // 회원 일괄 상태 변경
+    @PatchMapping("/users/bulk/status")
+    public ResponseEntity<ApiResponse<Void>> bulkUpdateUserStatus(
+            @Valid @RequestBody AdminUserStatusRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        adminUserService.bulkUpdateUserStatus(request);
+        log.info("관리자({})가 회원 {}명 상태를 {} 으로 일괄 변경",
+                adminDetails.getUsername(), request.getUserIds().size(), request.getStatus());
+        return ResponseEntity.ok(ApiResponse.success("회원 상태가 일괄 변경되었습니다."));
+    }
+
+    // 관리자 대시보드 통계
+    @GetMapping("/dashboard/summary")
+    public ResponseEntity<ApiResponse<AdminDashboardResponseDto>> getDashboardSummary(
+            @RequestParam(required = false) String date
+    ) {
+        AdminDashboardResponseDto result = adminDashboardService.getSummary(date);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/dashboard/revenue/daily")
+    public ResponseEntity<ApiResponse<List<AdminDailyRevenueResponseDto>>> getDailyRevenue(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                adminDashboardService.getDailyRevenue(startDate, endDate)
+        ));
     }
 
 

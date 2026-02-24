@@ -18,7 +18,8 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             "JOIN FETCH s.product p " +
             "JOIN FETCH p.brand " +
             "LEFT JOIN FETCH p.images " +
-            "WHERE s.user.userId = :userId")
+            "WHERE s.user.userId = :userId " +
+            "ORDER BY s.storedAt DESC")
     List<StorageItem> findByUserUserId(@Param("userId") Long userId);
 
 
@@ -29,6 +30,10 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             Long productId,
             StorageStatus status
     );
+
+    // SaleBid와 연결된 StorageItem 조회 (서브쿼리 대신 JOIN 사용하여 성능 최적화)
+    @Query("SELECT si FROM StorageItem si JOIN SaleBid sb ON sb.storageItem.storageId = si.storageId WHERE sb.sellId = :sellId")
+    Optional<StorageItem> findBySellBidId(@Param("sellId") Long sellId);
 
     /**
      * 180일 만료 + 활성 상태인 보관함 조회 (자동결제 대상)
@@ -42,4 +47,7 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             @Param("now") LocalDateTime now,
             @Param("statuses") List<StorageStatus> statuses
     );
+
+    // 회원탈퇴 - 보관 중 상품 존재 여부
+    boolean existsByUser_UserIdAndStatusIn(Long userId, List<StorageStatus> statuses);
 }

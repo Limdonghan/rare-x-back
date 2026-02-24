@@ -26,4 +26,7 @@ public interface UserPenaltyRepository extends JpaRepository<UserPenalty, Long> 
             Long orderId,
             PenaltyRole role
     );
+
+    // 회원탈퇴 - 미납 패널티 존재 여부
+    boolean existsByUser_UserIdAndStatus(Long userId, PenaltyStatus status);
 }

@@ -37,4 +37,7 @@ public interface StorageRequestRepository extends JpaRepository<StorageRequest, 
             "JOIN FETCH sr.user " +
             "WHERE sr.storageRequestId = :id")
     Optional<StorageRequest> findByIdWithDetails(@Param("id") Long id);
+
+    // 회원탈퇴 - 진행 중 보관 신청 존재 여부
+    boolean existsByUser_UserIdAndStatusIn(Long userId, List<StorageRequestStatus> statuses);
 }

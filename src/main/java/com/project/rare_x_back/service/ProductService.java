@@ -17,7 +17,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,23 +35,27 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final WishListRepository wishListRepository;
+    private final OrderRepository orderRepository;
 
     /**
     * [상품 목록 조회]
     * */
-    public Page<ProductResponseDto> getAllPublicProd(Long categoryId, Long brandId, Pageable pageable) {
+    public Page<ProductResponseDto> getAllPublicProd(List<Long> categoryIds, List<Long> brandIds, Pageable pageable) {
 
         Page<Product> productPage;
 
+        boolean hasCategory = categoryIds != null && !categoryIds.isEmpty();    // null 체크 + 빈 리스트 체크
+        boolean hasBrand = brandIds != null && !brandIds.isEmpty();    // null 체크 + 빈 리스트 체크
+
         // 카테고리 + 브랜드 필터 적용 하는 경우
-        if (categoryId != null && brandId != null) {
-            productPage = productRepository.findByCategory_CategoryIdAndBrand_BrandIdAndIsDeletedFalse(categoryId, brandId, pageable);
-        } else if (categoryId != null) { // 카테고리만 필터링
-            productPage = productRepository.findByCategory_CategoryIdAndIsDeletedFalse(categoryId, pageable);
-        } else if (brandId != null) { // 브랜드만 필터링
-            productPage = productRepository.findByBrand_BrandIdAndIsDeletedFalse(brandId, pageable);
+        if (hasCategory && hasBrand) {
+            productPage = productRepository.findByCategory_CategoryIdInAndBrand_BrandIdInAndIsDeletedFalse(categoryIds, brandIds, pageable);
+        } else if (hasCategory) {
+            productPage = productRepository.findByCategory_CategoryIdInAndIsDeletedFalse(categoryIds, pageable);
+        } else if (hasBrand) {
+            productPage = productRepository.findByBrand_BrandIdInAndIsDeletedFalse(brandIds, pageable);
         } else {
-                productPage = productRepository.findAllByIsDeletedFalse(pageable);
+            productPage = productRepository.findAllByIsDeletedFalse(pageable);
         }
         // DTO 변환 및 이미지 처리
         return productPage.map(product -> {
@@ -92,22 +98,88 @@ public class ProductService {
         List<BuyBid> allBuyBids = buyBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
         List<SaleBid> allSaleBids = saleBidRepository.findAllByProduct_ProductIdAndStatus(product.getProductId(), BidStatus.OPEN);
 
-        // Java Stream으로 그룹핑 & 카운트 & 정렬
-        // 구매 입찰 리스트: 가격별로 묶기 -> 내림차순
+        // 내 입찰 가격 추출
+        List<Integer> myBuyPrices =
+                (userId == null) ? List.of() :
+                        allBuyBids.stream()
+                                .filter(b -> b.getUser().getUserId().equals(userId))
+                                .map(BuyBid::getPrice)
+                                .distinct()
+                                .toList();
+
+        List<Integer> mySellPrices =
+                (userId == null) ? List.of() :
+                        allSaleBids.stream()
+                                .filter(s -> s.getUser().getUserId().equals(userId))
+                                .map(SaleBid::getPrice)
+                                .distinct()
+                                .toList();
+
+        // [최적화] 1. 원본 리스트 미리 정렬 (O(N log N))
+        // 구매 입찰: 가격 내림차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
+        allBuyBids.sort(Comparator.comparingInt(BuyBid::getPrice).reversed()
+                .thenComparing(BuyBid::getCreatedAt));
+
+        // 판매 입찰: 가격 오름차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
+        allSaleBids.sort(Comparator.comparingInt(SaleBid::getPrice)
+                .thenComparing(SaleBid::getCreatedAt));
+
+        // [최적화] 2. 정렬된 리스트에서 즉시 ID 추출 (O(1))
+        Long highestBuyBidId = allBuyBids.isEmpty() ? null : allBuyBids.get(0).getBuyId();
+        Long lowestSaleBidId = allSaleBids.isEmpty() ? null : allSaleBids.get(0).getSellId();
+
+        // [최적화] 3. 정렬된 순서 유지하며 그룹핑 (O(N)) - LinkedHashMap 사용
+        // 구매 입찰 리스트: 가격별로 묶기 (이미 정렬되어 있음)
         List<BidInfo> buyBidList = allBuyBids.stream()
-                .collect(Collectors.groupingBy(BuyBid::getPrice, Collectors.counting()))
+                .collect(Collectors.groupingBy(
+                        BuyBid::getPrice,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ))
                 .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice).reversed())
+                .map(entry -> {
+
+                    int price = entry.getKey();
+                    List<BuyBid> bids = entry.getValue();
+
+                    long quantity = bids.size();
+
+                    boolean isMine = userId != null &&
+                            bids.stream().anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+                    return new BidInfo(price, quantity, isMine);
+                })
                 .toList();
 
-        // 판매 입찰 리스트: 가격별로 묶기 -> 오름차순
+        // 판매 입찰 리스트: 가격별로 묶기 (이미 정렬되어 있음)
         List<BidInfo> saleBidList = allSaleBids.stream()
-                .collect(Collectors.groupingBy(SaleBid::getPrice, Collectors.counting()))
+                .collect(Collectors.groupingBy(
+                        SaleBid::getPrice,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ))
                 .entrySet().stream()
-                .map(integerLongEntry -> new BidInfo(integerLongEntry.getKey(), integerLongEntry.getValue()))
-                .sorted(Comparator.comparingInt(BidInfo::getPrice))
+                .map(entry -> {
+
+                    int price = entry.getKey();
+                    List<SaleBid> bids = entry.getValue();
+
+                    long quantity = bids.size();
+
+                    boolean isMine = userId != null &&
+                            bids.stream().anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+                    return new BidInfo(price, quantity, isMine);
+                })
                 .toList();
+
+        boolean hasMyBuyBid = userId != null &&
+                allBuyBids.stream()
+                        .anyMatch(b -> b.getUser().getUserId().equals(userId));
+
+        boolean hasMySellBid = userId != null &&
+                allSaleBids.stream()
+                        .anyMatch(b -> b.getUser().getUserId().equals(userId));
 
 
         // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
@@ -142,8 +214,15 @@ public class ProductService {
                 .salePrice(salePrice)
                 .buyBidInfoList(buyBidList)
                 .saleBidInfoList(saleBidList)
+                .retailPrice(product.getRetailPrice())
                 .wishCount(product.getWishCount())
                 .isLiked(isLiked)
+                .highestBuyBidId(highestBuyBidId)
+                .lowestSaleBidId(lowestSaleBidId)
+                .hasMyBuyBid(hasMyBuyBid)
+                .hasMySellBid(hasMySellBid)
+                .buyBidInfoList(buyBidList)
+                .saleBidInfoList(saleBidList)
                 .build();
 
     }
@@ -202,4 +281,32 @@ public class ProductService {
 
         return results;
     }
+
+    // 랭킹
+    public List<ProductRankingProjection> getRanking(String period) {
+
+        int limit = 30; // 랭킹 개수
+
+        LocalDateTime startDate = getStartDate(period);
+
+        return orderRepository.findRanking(startDate, limit);
+    }
+
+    // 기간 분기 메서드
+    private LocalDateTime getStartDate(String period) {
+
+        return switch (period) {
+
+            case "7d" -> LocalDateTime.now().minusDays(7);
+
+            case "30d" -> LocalDateTime.now().minusDays(30);
+
+            case "90d" -> LocalDateTime.now().minusDays(90);
+
+            case "all" -> LocalDateTime.of(2026, 1, 1, 0, 0);
+
+            default -> LocalDateTime.now().minusDays(7);
+        };
+    }
+
 }

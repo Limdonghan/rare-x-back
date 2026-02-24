@@ -111,9 +111,15 @@ public class AdminService {
     }
 
     //상품 조회(전체 조회(목록)이니까 이미지는 여러개 있어도 썸네일 이미지만 가져옴.)
-    public Page<ProductResponseDto> getAllProducts(Pageable pageable) {
+    public Page<ProductResponseDto> getAllProducts(Long categoryId, Pageable pageable) {
         // 1. @EntityGraph가 있는 findAll(pageable) 실행해서 전체 조회
-        Page<Product> productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        Page<Product> productPage;
+        if (categoryId != null) {
+            productPage = productRepository.findByCategory_CategoryIdAndIsDeletedFalse(categoryId, pageable);
+        } else {
+            productPage = productRepository.findAllByIsDeletedFalse(pageable);
+        }
+
         // 2. map -> 리스트나 페이지안에 들어있는 내용물들을 하나씩 꺼내서 내가 원하는 다른 DTO로 바꾸고 다시 집어넣음
         return productPage.map(product -> {
             // 썸네일 이미지 URL 추출(없으면 null,썸네일 이미지는 상품 하나에 연결된 모든 이미지 리스트 중 0번 인덱스)
@@ -226,7 +232,7 @@ public class AdminService {
     //상품 삭제 (연결된 s3이미지도 같이 삭제 추가)
     public void deleteProduct (Long productId) {
 
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(() ->
                         new CustomException(
                                 ErrorCode.RESOURCE_NOT_FOUND,
@@ -235,7 +241,12 @@ public class AdminService {
         //s3에서 실제 파일 삭제 (반드시 s3이미지 부터 지워야 함)
         if(product.getImages() != null) {
             for (ProductImage productImage : product.getImages()) {
-                s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                try {
+                    s3ImageService.deleteImageByUrl(productImage.getImageUrl());
+                } catch (Exception e) {
+                    log.error("S3 이미지 삭제 실패 (무시하고 계속): {}", productImage.getImageUrl(), e);
+                }
+
             }
             // 연관관계 컬렉션을 비워 orphanRemoval 을 트리거하여 이미지 엔티티를 DB에서 물리적으로 삭제 (상품은 논리 삭제)
             product.getImages().clear();
@@ -269,11 +280,14 @@ public class AdminService {
 
     //카테고리 등록
     public void createCategory (CategoryCreateRequestDto categoryCreateRequestDto) {
+        // 중복 체크
+        if (categoryRepository.existsByCategoryName(categoryCreateRequestDto.getCategoryName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 카테고리입니다: " + categoryCreateRequestDto.getCategoryName());
+        }
 
         Category category = Category.builder()
                 .categoryName(categoryCreateRequestDto.getCategoryName())
                 .build();
-
         categoryRepository.save(category);
     }
 
@@ -290,11 +304,15 @@ public class AdminService {
     //카테고리 삭제
     public void deleteCategory (Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(()->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "카테고리를 찾을 수 없습니다.")
-                );
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByCategory_CategoryIdAndIsDeletedFalse(categoryId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 카테고리는 삭제할 수 없습니다: " + category.getCategoryName());
+        }
+
         categoryRepository.deleteById(category.getCategoryId());
     }
 
@@ -323,6 +341,10 @@ public class AdminService {
 
     //브랜드 등록
     public void createBrand (BrandCreateRequestDto brandCreateRequestDto) {
+        // 중복 체크
+        if (brandRepository.existsByBrandName(brandCreateRequestDto.getBrandName())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 존재하는 브랜드입니다: " + brandCreateRequestDto.getBrandName());
+        }
 
         Brand brand = Brand.builder()
                 .brandName(brandCreateRequestDto.getBrandName())
@@ -343,11 +365,55 @@ public class AdminService {
     //브랜드 삭제
     public void deleteBrand(Long brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "브랜드를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "브랜드를 찾을 수 없습니다."));
+
+        // 상품 연결 체크
+        long productCount = productRepository.countByBrand_BrandIdAndIsDeletedFalse(brandId);
+        if (productCount > 0) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 브랜드는 삭제할 수 없습니다: " + brand.getBrandName());
+        }
+
         brandRepository.deleteById(brand.getBrandId());
     }
 
+    // 카테고리 일괄 삭제
+    public void bulkDeleteCategories(List<Long> categoryIds) {
+        List<Category> categories = categoryRepository.findAllById(categoryIds);
+        if (categories.size() != categoryIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 카테고리가 포함되어 있습니다.");
+        }
+
+        List<Long> linkedIds = productRepository.findCategoryIdsWithProducts(categoryIds);
+        if (!linkedIds.isEmpty()) {
+            String names = categories.stream()
+                    .filter(c -> linkedIds.contains(c.getCategoryId()))
+                    .map(Category::getCategoryName)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 카테고리가 포함되어 있습니다: " + names);
+        }
+
+        categoryRepository.deleteAllInBatch(categories);
+    }
+
+    // 브랜드 일괄 삭제
+    public void bulkDeleteBrands(List<Long> brandIds) {
+        List<Brand> brands = brandRepository.findAllById(brandIds);
+        if (brands.size() != brandIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 브랜드가 포함되어 있습니다.");
+        }
+
+        List<Long> linkedIds = productRepository.findBrandIdsWithProducts(brandIds);
+        if (!linkedIds.isEmpty()) {
+            String names = brands.stream()
+                    .filter(b -> linkedIds.contains(b.getBrandId()))
+                    .map(Brand::getBrandName)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CustomException(ErrorCode.INVALID_REQUEST,
+                    "상품이 등록된 브랜드가 포함되어 있습니다: " + names);
+        }
+
+        brandRepository.deleteAllInBatch(brands);
+    }
 }

@@ -20,12 +20,29 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     /// [추가] 상품별 상태별 가격순 조회
     List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
 
+    // 즉시 구매용
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+      SELECT s
+      FROM SaleBid s
+      WHERE s.product = :product
+        AND s.price = :price
+        AND s.status = :status
+        AND s.user.userId <> :buyerId
+      ORDER BY s.createdAt ASC
+    """)
+    List<SaleBid> findAllByProductAndPriceAndStatusAndUserNot(
+            @Param("product") Product product,
+            @Param("price") int price,
+            @Param("status") BidStatus status,
+            @Param("buyerId") Long buyerId,
+            Pageable pageable
+    );
+
+
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<SaleBid> findAllByProductAndPriceAndStatusOrderByCreatedAtAsc(Product productId, int price, BidStatus status);
-
-    // 유저 아이디로 판매 입찰 내역 조회
-    List<SaleBid> findAllByUser_UserIdOrderByCreatedAtDesc(Long userId);
-    List<SaleBid> findAllByUser_UserIdAndStatusOrderByCreatedAtDesc(Long userId, BidStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<SaleBid> findBySellIdAndUser_UserId(Long sellId, Long userId);
@@ -35,6 +52,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     @Query("""
     SELECT s
     FROM SaleBid s
+    LEFT JOIN FETCH s.storageItem
     WHERE s.status = :status
       AND s.product = :product
       AND s.price <= :buyPrice
@@ -48,6 +66,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             @Param("buyerId") Long buyerId,
             Pageable pageable
     );
+
 
     // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
     @Query("SELECT s.product.productId, MIN(s.price) FROM SaleBid s " +
@@ -93,4 +112,11 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status ORDER BY s.createdAt DESC")
     List<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
+
+    // ====== 관리자 회원 상세 - 활성 판매입찰 건수 (MANAGER-004) ======
+
+    long countByUser_UserIdAndStatus(Long userId, BidStatus status);
+
+    // 회원탈퇴 - OPEN 입찰 조회 (자동 취소용)
+    List<SaleBid> findByUser_UserIdAndStatus(Long userId, BidStatus status);
 }

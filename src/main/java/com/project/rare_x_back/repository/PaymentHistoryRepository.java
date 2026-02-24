@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface PaymentHistoryRepository extends JpaRepository<PaymentHistory, Long> {
 
     Optional<PaymentHistory> findByOrder_OrderId(Long orderId);
+
 }

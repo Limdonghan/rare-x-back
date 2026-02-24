@@ -410,7 +410,7 @@ public class PaymentService {
                                         );
                                         return new CustomException(
                                                 ErrorCode.PAYMENT_FAILED,
-                                                "결제 취소 요청 오류"
+                                                msg
                                         );
                                     })
                     )
@@ -482,8 +482,36 @@ public class PaymentService {
                 requestedBy
         );
     }
-}
 
+    /**
+     * 보관 보증금 결제 취소
+     * @param storageDeposit 취소할 보관 보증금 엔티티
+     * @param cancelAmount 보증금 취소 금액 (보통 전액)
+     * @param reason 취소 사유
+     */
+    public void cancelStorageDeposit(StorageDeposit storageDeposit, int cancelAmount, String reason) {
+        String idempotencyKey = storageDeposit.getCancelIdempotencyKey();
+        
+        // 멱등성 키가 없을 경우 새로 생성 및 적용
+        if (idempotencyKey == null) {
+            idempotencyKey = "CANCEL_DEP_" + UUID.randomUUID().toString();
+            storageDeposit.assignCancelIdempotencyKey(idempotencyKey);
+        }
+
+        try {
+            cancelPayment(storageDeposit.getTossPaymentKey(), idempotencyKey, cancelAmount, reason);
+            log.info("보관 보증금 결제 취소 완료: paymentKey={}, amount={}", storageDeposit.getTossPaymentKey(), cancelAmount);
+        } catch (Exception e) {
+            // 이미 취소된 결제인 경우 정상 처리 (Toss ALREADY_CANCELED_PAYMENT)
+            if (e.getMessage() != null && e.getMessage().contains("ALREADY_CANCELED_PAYMENT")) {
+                log.info("이미 취소된 보증금 결제로 판단하여 정상 처리합니다: paymentKey={}", storageDeposit.getTossPaymentKey());
+                return;
+            }
+            log.error("보관 보증금 결제 취소 실패: paymentKey={}, error={}", storageDeposit.getTossPaymentKey(), e.getMessage());
+            throw new CustomException(ErrorCode.PAYMENT_FAILED, "보증금 환불 처리에 실패했습니다.");
+        }
+    }
+}
 
 
 

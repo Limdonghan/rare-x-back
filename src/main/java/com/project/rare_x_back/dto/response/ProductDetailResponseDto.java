@@ -20,6 +20,7 @@ public class ProductDetailResponseDto {
     private String productDescription;
     private int salePrice;
     private int buyPrice;
+    private int retailPrice;
     private List<String> imageUrls;
 
     private List<BidInfo>  saleBidInfoList;
@@ -27,4 +28,12 @@ public class ProductDetailResponseDto {
 
     private int wishCount;  // 현재 상품 찜수
     private boolean isLiked;    // 현재 상품 유저 찜 여부
+    //본인 입찰인지 여부
+    private boolean hasMyBuyBid;
+    private boolean hasMySellBid;
+    private List<Integer> myBuyBidPrices;
+    private List<Integer> mySellBidPrices;
+
+    private Long highestBuyBidId; // 즉시 판매 시 사용할 최고가 매수 입찰 ID
+    private Long lowestSaleBidId; // 즉시 구매 시 사용할 최저가 판매 입찰 ID
 }

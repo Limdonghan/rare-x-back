@@ -7,7 +7,6 @@ import com.project.rare_x_back.enums.EmailType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -20,7 +19,6 @@ public class EmailConsumer {
 
     private final JavaMailSender javaMailSender;
     private final ObjectMapper objectMapper;
-    private final RedisTemplate<String, String> redisTemplate; // 추가
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -44,35 +42,50 @@ public class EmailConsumer {
             EmailMessageRequestDto messageRequestDto = objectMapper.readValue(jsonMessage, EmailMessageRequestDto.class);
             String email = messageRequestDto.getTo();
             EmailType type = messageRequestDto.getType();
+            // 암호화 제거: 평문 content 사용
+            String content = messageRequestDto.getContent();
             
             String title;
             String body;
 
             if (type == EmailType.VERIFICATION) {
-                String key = EmailService.EMAIL_PREFIX + email;
-                String code = redisTemplate.opsForValue().get(key);
-                if (code == null) {
-                    log.warn("인증번호 만료 또는 없음 (Skip): email={}", email);
-                    return;
-                }
+                // Redis 조회 로직 제거됨. 복호화된 content(인증번호) 사용.
                 title = "[RARE-X] 이메일 인증번호";
                 body = "안녕하세요. RARE-X입니다.\n\n" +
                         "회원가입을 위한 인증번호는 다음과 같습니다.\n\n" +
-                        "인증번호: " + code + "\n\n" +
+                        "인증번호: " + content + "\n\n" +
                         "인증번호는 5분간 유효합니다.\n" +
                         "본인이 요청하지 않았다면 이 메일을 무시하세요.";
 
             } else if (type == EmailType.TEMP_PASSWORD) {
-                String key = EmailService.TEMP_PASSWORD_PREFIX + email;
-                String tempPassword = redisTemplate.opsForValue().get(key);
-                if (tempPassword == null) {
-                    log.warn("임시 비밀번호 만료 또는 없음 (Skip): email={}", email);
-                    return;
-                }
+                // Redis 조회 로직 제거됨. 복호화된 content(임시비밀번호) 사용.
                 title = "[RARE-X] 패스워드리스 서비스 해지 임시 비밀번호 발송";
                 body = "안녕하세요. RARE-X 입니다.\n\n" +
                         "패스워드리스 서비스 해지 후 로그인을 위한 인증 번호는 다음과 같습니다.\n\n" +
-                        "임시 비밀번호: " + tempPassword + "\n\n";
+                        "임시 비밀번호: " + content + "\n\n";
+            } else if (type == EmailType.NOTIFICATION) {
+                title = "[RARE-X] 새로운 알림이 도착했습니다";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        content + "\n\n" +
+                        "자세한 내용은 홈페이지에서 확인하세요.";
+            } else if (type == EmailType.INSPECTION_RESULT) {
+                title = "[RARE-X] 검수 결과 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "고객님의 상품에 대한 검수 결과가 도착했습니다.\n\n" +
+                        content + "\n\n" +
+                        "자세한 내용은 마이페이지 > 판매 내역 또는 구매 내역에서 확인하실 수 있습니다.";
+            } else if (type == EmailType.PURCHASE_BID_MATCHED) {
+                title = "[RARE-X] 구매 입찰 체결 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "축하합니다! 등록하신 구매 입찰이 체결되었습니다.\n\n" +
+                        content + "\n\n" +
+                        "결제가 진행될 예정이니 마이페이지 > 구매 내역을 확인해 주세요.";
+            } else if (type == EmailType.SALE_BID_MATCHED) {
+                title = "[RARE-X] 판매 입찰 체결 안내";
+                body = "안녕하세요. RARE-X 입니다.\n\n" +
+                        "축하합니다! 등록하신 판매 입찰이 체결되었습니다.\n\n" +
+                        content + "\n\n" +
+                        "상품 발송을 준비해 주세요. 마이페이지 > 판매 내역에서 배송 정보를 입력하실 수 있습니다.";
             } else {
                 log.warn("알 수 없는 이메일 타입 (Skip): {}", type);
                 return;
@@ -90,12 +103,12 @@ public class EmailConsumer {
 
         } catch (JsonProcessingException e) {
             log.error("Kafka 메시지 파싱 에러 (Skip): payload={}, error={}", jsonMessage, e.getMessage());
-            /// 예외를 던지지 않아 메시지를 Skip 처리 (오프셋 커밋됨)
+            /// JSON 변환 실패는 재시도해도 해결되지 않으므로 예외후 스킵
         } catch (Exception e) {
-            log.error("이메일 발송 실패 (Retry 가능성 있음): {}", e.getMessage());
-            /// 일시적인 메일 서버 오류 등은 재시도 할 수 있도록 예외를 던질 수 있음
-            /// 다만, 무한 재시도를 방지하려면 별도의 ErrorHandler 설정이 필요함.
-            /// 여기서는 일단 로그 찍고 넘어가는 방식으로 처리 (안정성 우선)
+            log.error("이메일 발송 실패 (재시도 예정): {}", e.getMessage());
+            /// SMTP 연결 실패 등 일시적 오류는 재시도하기 위해 다시 예외 던짐
+            /// Spring Kafka의 DefaultErrorHandler가 동작하여 재시도(기본 10회)를 수행
+            throw new RuntimeException("이메일 발송 실패", e);
         }
     }
 }

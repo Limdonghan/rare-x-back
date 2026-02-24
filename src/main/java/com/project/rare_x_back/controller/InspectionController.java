@@ -2,6 +2,7 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
+import com.project.rare_x_back.dto.request.AdminInspectionBulkRequestDto;
 import com.project.rare_x_back.dto.request.InspectionChecklistRequestDto;
 import com.project.rare_x_back.dto.request.InspectionFailRequestDto;
 import com.project.rare_x_back.dto.response.InspectionChecklistResponseDto;
@@ -145,10 +146,64 @@ public class InspectionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // 검수 통과 후 구매자에게 발송함
-    @PostMapping("/{inspectionId}/delivery")
+    // 검수 통과 후 구매자에게 발송함 (검수 타입 order 건만 처리)
+    @PatchMapping("/{inspectionId}/delivery")
     public ResponseEntity<ApiResponse<Void>> deliveryToBuyer (@PathVariable Long inspectionId) {
         inspectionService.deliveryToBuyer(inspectionId);
         return ResponseEntity.ok(ApiResponse.success("구매자에게 발송 완료"));
+    }
+
+    // ============================================
+    // 일괄 처리 엔드포인트
+    // ============================================
+
+    // 일괄 도착 확인
+    @PatchMapping("/bulk/confirm-arrival")
+    public ResponseEntity<ApiResponse<Void>> bulkConfirmArrival(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request) {
+
+        inspectionService.bulkConfirmArrival(request.getInspectionIds());
+        return ResponseEntity.ok(ApiResponse.success("일괄 도착 확인이 완료되었습니다."));
+    }
+
+    // 일괄 검수 시작
+    @PatchMapping("/bulk/start")
+    public ResponseEntity<ApiResponse<Void>> bulkStartInspection(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+
+        inspectionService.bulkStartInspection(request.getInspectionIds(), adminDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success("일괄 검수 시작이 완료되었습니다."));
+    }
+
+    // 일괄 합격 처리
+    @PatchMapping("/bulk/pass")
+    public ResponseEntity<ApiResponse<Void>> bulkPassInspection(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request) {
+
+        inspectionService.bulkPassInspection(request.getInspectionIds(), request.getChecklist());
+        return ResponseEntity.ok(ApiResponse.success("일괄 합격 처리가 완료되었습니다."));
+    }
+
+    // 일괄 불합격 처리
+    @PatchMapping("/bulk/fail")
+    public ResponseEntity<ApiResponse<Void>> bulkFailInspection(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request) {
+
+        inspectionService.bulkFailInspection(
+                request.getInspectionIds(),
+                request.getChecklist(),
+                request.getFailReason()
+        );
+        return ResponseEntity.ok(ApiResponse.success("일괄 불합격 처리가 완료되었습니다."));
+    }
+
+    // 일괄 배송 처리 (ORDER 타입 검수 건만 배송 처리 가능)
+    @PatchMapping("/bulk/delivery")
+    public ResponseEntity<ApiResponse<Void>> bulkDeliveryToBuyer(
+            @Valid @RequestBody AdminInspectionBulkRequestDto request) {
+
+        inspectionService.bulkDeliveryToBuyer(request.getInspectionIds());
+        return ResponseEntity.ok(ApiResponse.success("일괄 배송 처리가 완료되었습니다."));
     }
 }

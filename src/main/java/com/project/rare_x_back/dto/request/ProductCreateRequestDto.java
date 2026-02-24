@@ -14,7 +14,7 @@ public class ProductCreateRequestDto {
     private Long categoryId;
 
     @NotBlank(message = "상품명은 필수입니다.")
-    @Size(max = 20, message = "상품명은 20자 이내여야 합니다.")
+    @Size(max = 100, message = "상품명은 100자 이내여야 합니다.")
     private String productName;
 
     @NotBlank(message = "상품 설명을 입력해주세요.")
@@ -22,6 +22,6 @@ public class ProductCreateRequestDto {
     private String productDescription;
 
     @NotNull(message = "상품의 발매가를 입력해주세요.")
-    @PositiveOrZero(message = "발매가는 0원 이상이어야 합니다.")
+    @Positive(message = "올바른 가격을 입력해주세요")
     private Integer retailPrice;
 }

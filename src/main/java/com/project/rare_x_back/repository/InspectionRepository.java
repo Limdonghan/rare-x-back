@@ -17,6 +17,12 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     // 주문 ID로 검수 정보 조회 (단건 - ORDER-003용)
     Optional<Inspection> findTopByOrder_OrderIdOrderByCreatedAtDesc(Long orderId);
 
+    // 주문에 검수 레코드가 존재하는지 확인 (보관 주문 여부 판별용)
+    // 보관 주문은 Inspection 레코드가 생성되지 않으므로 false → 보관 주문
+    boolean existsByOrder_OrderId(Long orderId);
+
+
+
     // 주문 ID 목록으로 검수 정보 일괄 조회 (다건 - ORDER-002용)
     @EntityGraph(attributePaths = {"order"})
     List<Inspection> findByOrder_OrderIdIn(List<Long> orderIds);
@@ -141,4 +147,27 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     })
     @Query("SELECT i FROM Inspection i")
     List<Inspection> findAllForSync();
+
+    // ===== 일괄 처리용 (N+1 방지) =====
+    @EntityGraph(attributePaths = {
+            "user",
+            "storageRequest",
+            "storageRequest.product",
+            "storageRequest.user",
+            "order",
+            "order.product",
+            "order.buyer",
+            "order.seller"
+    })
+    @Query("SELECT i FROM Inspection i WHERE i.inspectionId IN :ids")
+    List<Inspection> findAllByIdWithDetails(@Param("ids") List<Long> ids);
+
+    // 검수 대기 수
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM inspections i
+        WHERE i.status = 'PENDING_INSPECTION'
+        """, nativeQuery = true)
+    Long countPendingInspections();
+
 }

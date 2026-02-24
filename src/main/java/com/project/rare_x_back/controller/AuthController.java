@@ -8,6 +8,7 @@ import com.project.rare_x_back.dto.response.RefreshTokenResponseDto;
 import com.project.rare_x_back.dto.response.SignUpResponseDto;
 import com.project.rare_x_back.security.JwtTokenProvider;
 import com.project.rare_x_back.service.AuthService;
+import com.project.rare_x_back.service.EmailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
     // 회원가입
     @PostMapping("/signup")
@@ -88,13 +90,27 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response, "토큰이 갱신되었습니다"));
     }
 
-    //임시비번 -> 비번 변경
-    @PutMapping("/password")
-    public ResponseEntity<ApiResponse<Void>> changePassword(
-            @AuthenticationPrincipal Long userId,
-            @Valid @RequestBody ChangePasswordRequestDto request
-    ) {
-        authService.changePassword(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("비밀번호 변경이 완료 되었습니다. 다시 로그인해 주세요."));
+
+    // 임시 비밀번호 발급 요청
+    @PostMapping("/users/resetpw")
+    public ResponseEntity<ApiResponse> requestPasswordReset(
+            @RequestBody @Valid PasswordResetRequestDto request) {
+
+        emailService.sendTempPassword(request.getEmail());
+
+        return ResponseEntity.ok(
+                ApiResponse.success("임시 비밀번호가 이메일로 발송되었습니다.")
+        );
     }
+
+    // 비밀번호 변경
+    @PatchMapping("/users/changepw")
+    public ResponseEntity<ApiResponse<?>> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody PasswordChangeRequestDto dto
+    ) {
+        authService.changePassword(userDetails.getUserId(), dto);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다."));
+    }
+
 }

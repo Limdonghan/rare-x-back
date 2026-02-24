@@ -10,6 +10,13 @@ public enum ErrorCode {
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 가입된 이메일입니다"),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다"),
 
+    // 회원탈퇴 관련
+    ACTIVE_ORDER_EXISTS(HttpStatus.BAD_REQUEST, "진행 중인 주문이 있어 탈퇴할 수 없습니다."),
+    PENDING_SETTLEMENT_EXISTS(HttpStatus.BAD_REQUEST, "미정산 건이 있어 탈퇴할 수 없습니다."),
+    UNPAID_PENALTY_EXISTS(HttpStatus.BAD_REQUEST, "미납 패널티가 있어 탈퇴할 수 없습니다."),
+    ACTIVE_STORAGE_EXISTS(HttpStatus.BAD_REQUEST, "보관 중인 상품이 있어 탈퇴할 수 없습니다."),
+    ACTIVE_STORAGE_REQUEST_EXISTS(HttpStatus.BAD_REQUEST, "진행 중인 보관 신청이 있어 탈퇴할 수 없습니다."),
+
     // 사용자 관련
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다"),     // 미가입 유저
     USER_ALREADY_DELETED(HttpStatus.GONE, "사용자를 찾을 수 없습니다"),    // 탈퇴 유저(softDelete)
@@ -80,6 +87,9 @@ public enum ErrorCode {
     PAYMENT_NOT_FOUND(HttpStatus.BAD_REQUEST, "결제 정보를 찾을 수 없습니다."),
     ALREADY_CANCELED(HttpStatus.BAD_REQUEST,"이미 취소된 결제입니다."),
     INVALID_CANCEL_AMOUNT(HttpStatus.BAD_REQUEST,"유효하지 않은 취소 금액 입니다."),
+
+    // 임시 비번 및 비번 변경
+    TEMP_PASSWORD_ALREADY_SENT(HttpStatus.TOO_MANY_REQUESTS,"임시 비밀번호가 이미 발송되었습니다. 1시간 후 재시도해주세요"),
 
     // Order 에러
     ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");

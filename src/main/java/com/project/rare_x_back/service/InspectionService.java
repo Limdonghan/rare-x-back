@@ -9,11 +9,9 @@ import com.project.rare_x_back.entity.*;
 import com.project.rare_x_back.enums.*;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
-import com.project.rare_x_back.repository.InspectionChecklistRepository;
-import com.project.rare_x_back.repository.InspectionRepository;
-import com.project.rare_x_back.repository.StorageItemRepository;
-import com.project.rare_x_back.repository.UserRepository;
+import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -33,6 +31,10 @@ public class InspectionService {
     private final StorageItemRepository storageItemRepository;
     private final OrderService orderService;
     private final SearchService searchService;
+    private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
+    private final OrderRepository orderRepository;
+    private final NotificationService notificationService;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -254,6 +256,15 @@ public class InspectionService {
                     .expiredAt(LocalDateTime.now().plusDays(180))
                     .build();
             storageItemRepository.save(storageItem);
+
+            /// [추가] 보관 신청자에게 검수 합격 및 보관 시작 알림 전송
+            notificationService.send(
+                    storageRequest.getUser().getUserId(),
+                    "보관 신청하신 상품의 검수가 완료되어 보관이 시작되었습니다.",
+                    "/mypage/storage", /// 보관함 페이지
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
         }
 
         if (inspection.getType() == InspectionType.ORDER) {
@@ -266,6 +277,15 @@ public class InspectionService {
 
             // order 상태 변경, order_history 이력 저장 (검수 합격)
             orderService.updateOrderStatus(order, CurrentStatus.PASSED);
+
+            /// [추가] 판매자에게 검수 합격 알림 전송
+            notificationService.send(
+                    order.getSeller().getUserId(),
+                    "판매하신 상품(" + order.getProduct().getProductName() + ")이 검수에 합격했습니다.",
+                    "/mypage/order", /// 판매 내역 페이지
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
         }
 
         // Typesense 인덱싱
@@ -304,18 +324,61 @@ public class InspectionService {
 
             // storage_requests 상태 동기화
             storageRequest.updateStatus(StorageRequestStatus.RETURN);
+
+            /// [추가] 유저에게 검수 불합격 알림 전송
+            notificationService.send(
+                    storageRequest.getUser().getUserId(),
+                    "보관 신청하신 상품이 검수 불합격되었습니다. (사유: " + failReason + ")",
+                    "/mypage/storagerequest", /// 보관 신청 내역 (또는 불합격 상세)
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
         }
 
+        // 입찰 주문 건 검수실패 처리
         if (inspection.getType() == InspectionType.ORDER) {
-            Order order = inspection.getOrder();
+            Order order = orderRepository.findByIdWithLock(inspection.getOrder().getOrderId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
 
-            // NPE 검사
-            if (order == null) {
-                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            // 구매자 결제 내역 조회
+            Payment payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND, "구매자의 결제 내역을 찾을 수 없습니다."));
+
+            // 이력 저장 및 상태 변경 + 인덱싱
+            orderService.finalizeFailInspectionCancellation(order);
+
+            /// [추가] 구매자에게 검수 불합격 및 결제 취소 알림 전송
+            notificationService.send(
+                    order.getBuyer().getUserId(), /// 구매자 ID
+                    "주문하신 상품이 검수 불합격되어 결제가 취소되었습니다.",
+                    "/mypage/order", /// 구매 내역
+                    NotificationType.ORDER_STATUS,
+                    EmailType.INSPECTION_RESULT
+            );
+
+            /// [추가] 판매자에게도 알림
+            notificationService.send(
+                    order.getSeller().getUserId(), /// 판매자 ID
+                    "판매하신 상품이 검수 불합격 처리되었습니다. (사유: " + failReason + ")",
+                    "/mypage/contract", /// 판매 내역
+                    NotificationType.INSPECTION_RESULT,
+                    EmailType.INSPECTION_RESULT
+            );
+
+            // 환불 금액 (전액 -> 검수 실패 이므로 구매자 귀책 X)
+            long cancelAmount = payment.getAmount();
+
+            try {
+                paymentService.cancelOnce(
+                    order.getOrderId(),
+                    cancelAmount,
+                    "INSPECTION_FAIL_CANCELED",
+                    "INSPECTION_FAIL"
+                );
+            } catch (Exception e) {
+                log.error("결제 취소 중 에러 발생, 전체 로직 롤백.");
+                throw e;
             }
-
-            // order 상태 변경, order_history 이력 저장 (검수 불합격 → 반송)
-            orderService.updateOrderStatus(order, CurrentStatus.RETURN);
         }
 
         // Typesense 인덱싱
@@ -364,20 +427,181 @@ public class InspectionService {
         return InspectionHistoryDetailResponseDto.from(inspection, checklist);
     }
 
-    // 검수 패스 후 구매자에게 발송함 PASSED -> SHIPPED
+    /**
+     * 검수 합격(PASSED) 건에 대해 환동을 통해 구매자에게 발송 (연관된 주문 상태를 SHIPPED로 변경)
+     * */
     @Transactional
     public void deliveryToBuyer (Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException( ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
 
-        // 2. 상태가 검수 통과인지 확인
+        // 2. 주문 검수인지 확인 (보관 검수는 일반 주문이 아닌 보관 신청 건이므로 InspectionType이 order가 아님)
+        if (inspection.getType() != InspectionType.ORDER) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 검수 건만 발송 처리할 수 있습니다.");
+        }
+
+        // 3. 주문 정보 확인
+        Order order = inspection.getOrder();
+        if (order == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+        }
+
+        // 4. 상태가 검수 통과인지 확인
         if (inspection.getStatus() != InspectionStatus.PASSED) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과된 상품만 배송할 수 있습니다.");
+        }
+
+        if (inspection.getType() != InspectionType.ORDER) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 검수 건만 배송 처리할 수 있습니다.");
+        }
+
+        if (inspection.getOrder() == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보가 존재하지 않습니다.");
         }
 
         // 3. order 상태 변경, order_history 이력 저장
         orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
     }
 
+    // ============================================
+    // 일괄 처리 메서드
+    // ============================================
+
+    /**
+     * 일괄 도착 확인 (SHIPPED_TO_WAREHOUSE → PENDING_INSPECTION)
+     */
+    @Transactional
+    public void bulkConfirmArrival(List<Long> inspectionIds) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.SHIPPED_TO_WAREHOUSE);
+
+        // 2. 개별 도착확인 처리 (상태 변경 + 연관 엔티티 동기화 + Typesense)
+        for (Long id : inspectionIds) {
+            confirmArrival(id);
+        }
+    }
+
+    /**
+     * 일괄 검수 시작 (PENDING_INSPECTION → INSPECTING)
+     * - 담당자 배정 + 체크리스트 생성
+     */
+    @Transactional
+    public void bulkStartInspection(List<Long> inspectionIds, Long adminId) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.PENDING_INSPECTION);
+
+        // 2. 개별 검수시작 처리 (담당자 배정 + 체크리스트 생성 + 상태 변경)
+        for (Long id : inspectionIds) {
+            startInspection(id, adminId);
+        }
+    }
+
+    /**
+     * 일괄 합격 처리 (INSPECTING → PASSED)
+     * - 체크리스트 동일값 일괄 적용 후 합격 처리
+     * - STORAGE: storage_items 생성 / ORDER: orders 상태 동기화
+     */
+    @Transactional
+    public void bulkPassInspection(List<Long> inspectionIds, InspectionChecklistRequestDto checklistDto) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.INSPECTING);
+
+        // 2. 체크리스트 저장 + 합격 처리
+        for (Long id : inspectionIds) {
+            if (checklistDto != null) {
+                updateChecklist(id, checklistDto);
+            }
+            passInspection(id);
+        }
+    }
+
+    /**
+     * 일괄 불합격 처리 (INSPECTING → FAILED)
+     * - 체크리스트 동일값 일괄 적용 + 동일 사유로 불합격 처리
+     * - STORAGE: 반송 처리 / ORDER: 반송 처리
+     */
+    @Transactional
+    public void bulkFailInspection(List<Long> inspectionIds, InspectionChecklistRequestDto checklistDto, String failReason) {
+        // 1. ID 존재 여부 + 상태 일치 검증
+        validateInspectionIds(inspectionIds, InspectionStatus.INSPECTING);
+
+        // 2. 불합격 사유 필수 검증
+        if (failReason == null || failReason.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "불합격 사유는 필수입니다.");
+        }
+
+        // 3. 체크리스트 저장 + 불합격 처리
+        for (Long id : inspectionIds) {
+            if (checklistDto != null) {
+                updateChecklist(id, checklistDto);
+            }
+            failInspection(id, failReason);
+        }
+    }
+
+    /**
+     * 일괄 배송 처리 (주문 검수 전용)
+     * - 검수 상태(InspectionStatus)는 PASSED로 유지되며,
+     * - 연관된 주문(Order)의 상태만 배송 중(SHIPPED)으로 변경합니다.
+     */
+    @Transactional
+    public void bulkDeliveryToBuyer(List<Long> inspectionIds) {
+        // 1. ID 존재 여부, 상태 일치 및 타입 선검증
+        List<Inspection> inspections = inspectionRepository.findAllByIdWithDetails(inspectionIds);
+
+        if (inspections.size() != inspectionIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 검수 건이 포함되어 있습니다.");
+        }
+
+        for (Inspection inspection : inspections) {
+            if (inspection.getStatus() != InspectionStatus.PASSED) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "선택한 검수 건의 상태가 일치하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+            if (inspection.getType() != InspectionType.ORDER) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "주문 검수 건만 배송 처리할 수 있습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+            if (inspection.getOrder() == null) {
+                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "주문 정보가 존재하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+        }
+
+        // 2. 개별 배송 처리 (선검증 완료, 주문 상태 업데이트 위임)
+        for (Inspection inspection : inspections) {
+            orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
+        }
+    }
+
+    // ============================================
+    // 공통 검증 메서드
+    // ============================================
+
+    /**
+     * 일괄 처리 공통 검증
+     * - inspectionIds에 해당하는 검수 건이 모두 존재하는지 확인
+     * - 모든 검수 건의 상태가 expectedStatus와 일치하는지 확인
+     */
+    private void validateInspectionIds(List<Long> inspectionIds, InspectionStatus expectedStatus) {
+        List<Inspection> inspections = inspectionRepository.findAllByIdWithDetails(inspectionIds);
+
+        // ID 개수 불일치 → 존재하지 않는 검수 건 포함
+        if (inspections.size() != inspectionIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 검수 건이 포함되어 있습니다.");
+        }
+
+        // 상태 불일치 → 해당 검수 번호 표시
+        for (Inspection inspection : inspections) {
+            if (inspection.getStatus() != expectedStatus) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                        "선택한 검수 건의 상태가 일치하지 않습니다. (VER-"
+                                + String.format("%03d", inspection.getInspectionId()) + ")");
+            }
+        }
+    }
 }

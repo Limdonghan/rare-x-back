@@ -12,7 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.connection.zset.Aggregate;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.typesense.api.Client;
 import org.typesense.model.*;
@@ -237,6 +239,7 @@ public class SearchService {
             document.put("email", user.getEmail());
             document.put("name", user.getName());
             document.put("role", user.getRole().name());
+            document.put("provider_type", user.getProviderType() != null ? user.getProviderType().name() : "");
             document.put("status", user.getStatus().name());
             document.put("is_deleted", user.getIsDeleted());
             document.put("created_at", user.getCreatedAt() != null
@@ -427,6 +430,12 @@ public class SearchService {
                             .name((String) doc.getOrDefault("name", ""))
                             .role((String) doc.getOrDefault("role", ""))
                             .status((String) doc.getOrDefault("status", ""))
+                            .providerType((String) doc.getOrDefault("provider_type", ""))
+                            .createdAt(doc.get("created_at") != null
+                                    ? java.time.LocalDateTime.ofInstant(
+                                    java.time.Instant.ofEpochSecond(((Number) doc.get("created_at")).longValue()),
+                                    java.time.ZoneId.systemDefault())
+                                    : null)
                             .build());
                 } catch (Exception e) {
                     log.error("회원 DTO 변환 실패: {}", e.getMessage());
@@ -603,6 +612,7 @@ public class SearchService {
                         new Field().name("name").type("string"),
                         new Field().name("role").type("string"),
                         new Field().name("status").type("string"),
+                        new Field().name("provider_type").type("string"),
                         new Field().name("is_deleted").type("bool"),
                         new Field().name("created_at").type("int64")
                 );
@@ -655,6 +665,32 @@ public class SearchService {
             log.info("인기 검색어 카운트 성공: {}", updatedScore);
         } catch (Exception e) {
             log.error("인기 검색어 카운트 실패: {}",e.getMessage());
+        }
+    }
+
+    /**
+     * 인기 검색어 점수 감소 및 정리 (매일 자정 실행)
+     * - 모든 검색어 점수에 0.9 곱하기 (10% 감소)
+     * - 점수가 1.0 미만인 검색어 삭제
+     */
+    @Scheduled(cron = "0 0 0 * * *")
+    public void decayPopularKeywords() {
+        try {
+            /// 1. 모든 키워드 점수에 0.9 곱하기 (ZUNIONSTORE 사용)
+            /// ZUNIONSTORE search:popular 1 search:popular WEIGHTS 0.9
+            redisTemplate.opsForZSet().unionAndStore(POPULAR_KEYWORD_KEY, List.of(POPULAR_KEYWORD_KEY), List.of(0.9).toString(), Aggregate.valueOf(POPULAR_KEYWORD_KEY));
+
+            /// 2. 점수가 1.0 미만인 키워드 삭제
+            /// ZREMRANGEBYSCORE search:popular -inf (1
+            /// 1.0 미만을 표현하기 위해 0.999... 또는 rangeByScoreLimiting 사용 가능하지만,
+            /// 여기서는 1.0 미만 삭제를 위해 0부터 0.9999까지 삭제 등으로 처리하거나,
+            /// 정확히는 removeRangeByScore(key, 0, 0.999999)
+            Long removedCount = redisTemplate.opsForZSet().removeRangeByScore(POPULAR_KEYWORD_KEY, 0, 0.99999);
+
+            log.info("인기 검색어 점수 감소 완료. 삭제된 검색어 수: {}", removedCount);
+
+        } catch (Exception e) {
+            log.error("인기 검색어 점수 감소 스케줄러 실패: {}", e.getMessage());
         }
     }
 

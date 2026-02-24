@@ -41,6 +41,8 @@ public class OrderService {
     private final UserPenaltyRepository userPenaltyRepository;
     private final PaymentService paymentService;
     private final PaymentHistoryRepository paymentHistoryRepository;
+    private final NotificationService notificationService;
+    private final StorageItemRepository storageItemRepository;
 
 
     @Value("${app.service-start-date}")
@@ -80,11 +82,29 @@ public class OrderService {
         // 주문 이력 저장
         saveHistory(savedOrder, initialStatus);
 
+        /// [추가] 구매자에게 알림 전송
+        notificationService.send(
+                buyer.getUserId(),
+                product.getProductName()+"상품의 입찰이 체결되어 주문이 생성되었습니다.",
+                "/mypage/order", // 구매 내역 페이지
+                NotificationType.ORDER_STATUS,
+                EmailType.PURCHASE_BID_MATCHED // 구매 입찰 체결 이메일
+        );
+
+        /// [추가] 판매자에게 알림 전송
+        notificationService.send(
+                seller.getUserId(),
+                product.getProductName()+"상품의 판매 입찰이 체결되었습니다. 상품을 발송해주세요.",
+                "/mypage/contract", // 판매 내역 페이지
+                NotificationType.ORDER_STATUS,
+                EmailType.SALE_BID_MATCHED // 판매 입찰 체결 이메일
+        );
+
         return savedOrder;
     }
 
-     // 주문의 상태가 변하는 모든 순간에 호출
-     // 상태 변경과 이력 저장을 동시에 처리하는 공통 메서드
+    // 주문의 상태가 변하는 모든 순간에 호출
+    // 상태 변경과 이력 저장을 동시에 처리하는 공통 메서드
     @Transactional
     public void updateOrderStatus(Order order, CurrentStatus newStatus) {
         if (order == null || newStatus == null) {
@@ -164,12 +184,71 @@ public class OrderService {
         updateOrderStatus(order, CurrentStatus.DELIVERED);
     }
 
+    // 관리자 보관 주문 발송 처리 (PASSED → SHIPPED)
+    @Transactional
+    public void shipStorageOrder(Long orderId) {
+        // 1. 주문 조회
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+
+        // 2. PASSED 상태 확인
+        // (참고: 보관 상품은 이미 과거에 창고 입고될 때 검수를 통과해서 들어온 상품이므로
+        // 다시 검수할 필요 없이 바로 'PASSED' 상태로 시작. PASSED를 체크해서 배송(SHIPPED)으로 변경
+        if (order.getCurrentStatus() != CurrentStatus.PASSED) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "검수 통과(PASSED) 상태의 주문만 발송 처리할 수 있습니다.");
+        }
+
+        // 3. 보관 주문인지 확인 (Inspection 레코드가 없어야 보관 주문)
+        boolean hasInspection = inspectionRepository.existsByOrder_OrderId(orderId);
+        if (hasInspection) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "일반 주문은 검수 발송 처리를 이용해주세요.");
+        }
+
+        // 4. Order 상태 변경 PASSED → SHIPPED
+        updateOrderStatus(order, CurrentStatus.SHIPPED);
+
+        // 5. StorageItem 상태를 RELEASED(출고완료)로 변경
+        // - SOLD는 이미 입찰 매칭(BidService) 시점에 처리됨
+        // - 관리자가 발송 처리하는 순간 = 보관함에서 출고된 시점 → RELEASED
+        // - LAZY 로딩 문제를 피하기 위해 Repository에서 sellBidId로 직접 조회
+        if (order.getSellBid() != null) {
+            storageItemRepository.findBySellBidId(order.getSellBid().getSellId()).ifPresent(storageItem -> {
+                storageItem.updateStatus(StorageStatus.RELEASED);
+                log.info("보관 주문 발송 처리: OrderId={}, StorageItem RELEASED 처리 완료", orderId);
+            });
+        }
+    }
+
+    // 관리자 주문 일괄 배송 완료 (SHIPPED -> DELIVERED)
+    @Transactional
+    public void bulkDeliveryComplete(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "주문 ID 목록이 비어있습니다.");
+        }
+
+        List<Order> orders = orderRepository.findAllById(orderIds);
+
+        if (orders.size() != orderIds.size()) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "일부 주문을 찾을 수 없습니다.");
+        }
+
+        for (Order order : orders) {
+            if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
+                throw new CustomException(ErrorCode.BAD_REQUEST,
+                        String.format("주문 %d은(는) 발송 상태가 아닙니다. (현재: %s)",
+                                order.getOrderId(), order.getCurrentStatus()));
+            }
+            updateOrderStatus(order, CurrentStatus.DELIVERED);
+        }
+    }
+
     // 주문 내역 조회
     @Transactional(readOnly = true)
     public Page<BuyingOrderResponseDto> getBuyingOrders(Long userId, String status, Pageable pageable) {
         Page<Order> orders;
 
         if ("IN_PROGRESS".equals(status)) {
+            // 변경없음 (진행중 전체)
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.PENDING,
                     CurrentStatus.SHIPPED_TO_WAREHOUSE,
@@ -181,6 +260,7 @@ public class OrderService {
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
         } else if ("COMPLETED".equals(status)) {
+            // 완료 탭
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.DELIVERED,
                     CurrentStatus.RETURN,
@@ -189,7 +269,15 @@ public class OrderService {
             );
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
+        } else if ("BEFORE_SHIPPING".equals(status)) {
+            // 구매자 입장에서 발송 전 (판매자가 아직 발송 안 한 상태)
+            List<CurrentStatus> statuses = List.of(
+                    CurrentStatus.PENDING
+            );
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
+
         } else {
+            // 전체
             orders = orderRepository.findByBuyer_UserId(userId, pageable);
         }
 
@@ -245,6 +333,14 @@ public class OrderService {
 
         if (!order.getBuyer().getUserId().equals(userId)) {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        String cancelledBy = null;
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            cancelledBy = historyRepository
+                    .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
+                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .orElse(null);
         }
 
         // 2. 상품 이미지
@@ -314,6 +410,7 @@ public class OrderService {
                 .inspectionStatus(inspectionStatus)
                 .failReason(failReason)
                 .statusHistories(statusHistories)
+                .cancelledBy(cancelledBy)
                 .build();
     }
 
@@ -322,47 +419,63 @@ public class OrderService {
     public Page<SellingOrderResponseDto> getSellingOrders(Long userId, String status, Pageable pageable) {
         Page<Order> orders;
 
-        if ("PENDING".equals(status)) {
-            // 발송대기
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+        if ("IN_PROGRESS".equals(status)) {
+            // 진행 중 (판매자 입장)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId,
-                    List.of(CurrentStatus.PENDING),
-                    pageable
+                    List.of(
+                            CurrentStatus.PENDING,
+                            CurrentStatus.SHIPPED_TO_WAREHOUSE,
+                            CurrentStatus.PENDING_INSPECTION,
+                            CurrentStatus.INSPECTING,
+                            CurrentStatus.PASSED,
+                            CurrentStatus.SHIPPED
+                    ),
+                    null, pageable
+            );
+        } else if ("PENDING".equals(status)) {
+            // 결제완료
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.PENDING), null, pageable
             );
         } else if ("INSPECTING".equals(status)) {
             // 검수중
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId,
                     List.of(CurrentStatus.SHIPPED_TO_WAREHOUSE, CurrentStatus.PENDING_INSPECTION, CurrentStatus.INSPECTING),
-                    pageable
+                    null, pageable
+            );
+        } else if ("BEFORE_SHIPPING".equals(status)) {
+            // 발송 전 (판매자가 상품을 발송해야 하는 상태)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.PENDING), null, pageable
             );
         } else if ("SHIPPING".equals(status)) {
-            // 배송중
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.PASSED, CurrentStatus.SHIPPED),
-                    pageable
+            // 배송중: SHIPPED만 포함
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.SHIPPED), null, pageable
             );
         } else if ("SETTLEMENT_PENDING".equals(status)) {
             // 정산대기
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.DELIVERED),
-                    pageable
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.DELIVERED), null, pageable
             );
         } else if ("COMPLETED".equals(status)) {
-            // 완료
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
+            // 완료 탭 (정산대기, 정산완료, 취소, 반송 포함)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId,
-                    List.of(CurrentStatus.CONFIRMED_PURCHASE),
-                    pageable
+                    List.of(
+                            CurrentStatus.DELIVERED,
+                            CurrentStatus.CONFIRMED_PURCHASE,
+                            CurrentStatus.RETURN,
+                            CurrentStatus.CANCELLED
+                    ),
+                    null, pageable
             );
         } else if ("CANCELLED".equals(status)) {
             // 취소·반송
-            orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    userId,
-                    List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN),
-                    pageable
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN), null, pageable
             );
         } else {
             // 전체
@@ -438,6 +551,25 @@ public class OrderService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
+        String cancelledBy = null;
+        Long cancelPenaltyCompensation = null;
+
+        if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
+            // OrderHistory description으로 취소 주체 판별
+            cancelledBy = historyRepository
+                    .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
+                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .orElse(null);
+
+            // 구매자 취소인 경우 UserPenalty에서 보상금 조회
+            if ("BUYER".equals(cancelledBy)) {
+                cancelPenaltyCompensation = userPenaltyRepository
+                        .findByOrder_OrderIdAndRole(orderId, PenaltyRole.BUYER)
+                        .map(p -> p.getAmount() / 2)  // 패널티의 50%가 보상금
+                        .orElse(null);
+            }
+        }
+
         // 2. 상품 이미지
         List<String> productImages = order.getProduct().getImages().stream()
                 .map(ProductImage::getImageUrl)
@@ -446,12 +578,27 @@ public class OrderService {
         // 3. 정산 정보
         Integer settlementPayout = null;
         LocalDateTime settlementCompletedAt = null;
+        boolean settlementCompleted = false;
+        Integer commissionFee = null;
 
-        Optional<Settlement> settlement = settlementRepository.findByOrder_OrderId(orderId);
-        if (settlement.isPresent()) {
-            settlementPayout = settlement.get().getPayout();
-            settlementCompletedAt = settlement.get().getCompletedAt();
+        Optional<Settlement> settlementOpt =
+                settlementRepository.findByOrder_OrderId(orderId);
+
+        if (settlementOpt.isPresent()) {
+
+            Settlement settlement = settlementOpt.get();
+
+            // payout 항상 계산 or 저장값 사용
+            settlementPayout = settlement.getPayout() != 0
+                    ? settlement.getPayout()
+                    : FeeCalculator.sellerPayout(order.getPrice());
+
+            commissionFee = settlement.getCommissionFee();
+
+            settlementCompletedAt = settlement.getCompletedAt();
+            settlementCompleted = settlementCompletedAt != null;
         }
+
 
         // 4. 검수 정보
         String inspectionStatus = null;
@@ -482,7 +629,9 @@ public class OrderService {
                 .productImages(productImages)
                 .price(order.getPrice())
                 .settlementPayout(settlementPayout)
+                .commissionFee(commissionFee)
                 .settlementCompletedAt(settlementCompletedAt)
+                .settlementCompleted(settlementCompleted)
                 .currentStatus(order.getCurrentStatus().name())
                 .returnStatus(order.getReturnStatus() != null ? order.getReturnStatus().name() : null)
                 .shipDeadline(order.getShipDeadline())
@@ -490,6 +639,8 @@ public class OrderService {
                 .inspectionStatus(inspectionStatus)
                 .inspectionFailReason(inspectionFailReason)
                 .statusHistories(statusHistories)
+                .cancelledBy(cancelledBy)
+                .cancelPenaltyCompensation(cancelPenaltyCompensation)
                 .build();
     }
 
@@ -576,6 +727,8 @@ public class OrderService {
         }
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_BUYER");
+
+        searchService.indexOrder(order);
     }
 
 
@@ -651,6 +804,24 @@ public class OrderService {
 
         // 정산 상태 변경 (실패 처리)
         settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_SELLER");
+
+        searchService.indexOrder(order);
+    }
+
+
+    // 결제 취소 API가 성공한 직후에 이 모든 DB 작업이 한 번에 성공 해야 하므로 따로 뺌.
+    public void finalizeFailInspectionCancellation(Order order) {
+        // 주문 상태 변경
+        order.updateStatus(CurrentStatus.RETURN);
+        order.updateExpAt();
+
+        // 이력 저장 CANCELED, description 기록
+        historyRepository.save(OrderHistory.createCancelHistory(order, CurrentStatus.RETURN, "검수 결과 불합격"));
+
+        // 정산 상태 변경 (실패 처리)
+        settlementService.failSettlement(order.getOrderId(), "ORDER_CANCELED_BY_FAIL_INSPECTION");
+
+        searchService.indexOrder(order);
     }
 
     //==============================================================================
@@ -663,18 +834,27 @@ public class OrderService {
             List<String> status, LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
 
-        // DB 직접 조회
-        List<CurrentStatus> statuses = null;
+        // DB 직접 조회 (BEFORE_SHIPPING 예외 처리)
+        List<CurrentStatus> statuses = new java.util.ArrayList<>();
+        Boolean inspectionExists = null;
+
         if (status != null && !status.isEmpty()) {
-            statuses = status.stream()
-                    .map(s -> {
-                        try {
-                           return CurrentStatus.valueOf(s);
-                        } catch (IllegalArgumentException e) {
-                            throw new CustomException(ErrorCode.BAD_REQUEST);
-                        }
-                    })
-                    .toList();
+            for (String s : status) {
+                if ("BEFORE_SHIPPING".equals(s)) {
+                    statuses.add(CurrentStatus.PASSED);
+                    // 발송전(BEFORE_SHIPPING) 탭: 일반(검수O) + 보관(검수X) 모두 포함하므로 null
+                    // 프론트엔드에서 BEFORE_SHIPPING만 단독으로 보낼 때를 가정합니다.
+                    inspectionExists = null; 
+                } else {
+                    try {
+                        statuses.add(CurrentStatus.valueOf(s));
+                    } catch (IllegalArgumentException e) {
+                        throw new CustomException(ErrorCode.BAD_REQUEST);
+                    }
+                }
+            }
+        } else {
+            statuses = null; // empty인 경우 null로 처리
         }
 
         // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
@@ -688,12 +868,14 @@ public class OrderService {
         Page<Order> orders;
 
         if (statuses != null && startDate != null) {
-            orders = orderRepository.findByCurrentStatusInAndCreatedAtBetween(
-                    statuses, startDate, endDate, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, startDate, endDate, inspectionExists, pageable);
         } else if (statuses != null) {
-            orders = orderRepository.findByCurrentStatusIn(statuses, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, null, null, inspectionExists, pageable);
         } else if (startDate != null) {
-            orders = orderRepository.findByCreatedAtBetween(startDate, endDate, pageable);
+            orders = orderRepository.findAllForAdminWithInspectionCheck(
+                    null, startDate, endDate, inspectionExists, pageable);
         } else {
             orders = orderRepository.findAllForAdmin(pageable);
         }

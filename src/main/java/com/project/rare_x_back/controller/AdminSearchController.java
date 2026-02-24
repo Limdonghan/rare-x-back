@@ -74,6 +74,12 @@ public class AdminSearchController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 20) Pageable pageable) {
 
+        // 빈 문자열 필터링
+        if (status != null) {
+            status = status.stream().filter(s -> s != null && !s.isBlank()).toList();
+            if (status.isEmpty()) status = null;
+        }
+
         // 날짜를 LocalDateTime으로 변환 (검색 범위 지정)
         LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime endDateTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
