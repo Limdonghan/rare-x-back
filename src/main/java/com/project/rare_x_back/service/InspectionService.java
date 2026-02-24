@@ -490,7 +490,7 @@ public class InspectionService {
         if (storageItem == null) {
             throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 상품 정보를 찾을 수 없습니다.");
         }
-        storageItem.updateStatus(StorageStatus.RELEASED);
+        storageItem.updateStatus(StorageStatus.RETURNED);
 
         // 5. Inspection 상태 변경
         inspection.updateStatus(InspectionStatus.RELEASE_COMPLETED);

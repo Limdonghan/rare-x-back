@@ -81,7 +81,7 @@ public class StorageItemService {
         boolean alreadyRequested = inspectionRepository
                 .existsByStorageItemStorageIdAndStatus(storageItem.getStorageId(), InspectionStatus.RELEASE_REQUESTED);
         if (alreadyRequested) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 반송 요청 중인 상품입니다.");
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 반송 요청이 접수된 상품입니다. 관리자 처리를 기다려주세요.");
         }
 
         // 6. Inspection 레코드 생성 (반송 요청)
