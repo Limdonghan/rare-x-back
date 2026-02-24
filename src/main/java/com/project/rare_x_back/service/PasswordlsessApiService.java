@@ -128,7 +128,7 @@ public class PasswordlsessApiService {
                 .retrieve()
                 .body(String.class);
         }else {
-            throw new RuntimeException("로그인 인증 요청이 실패했습니다.");
+            throw new CustomException(ErrorCode.PASSWORDLESS_NOT_REGISTERED);
         }
     }
 
