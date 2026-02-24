@@ -41,9 +41,16 @@ public class StorageItemService {
 
         List<StorageItem> storageItems = storageItemRepository.findByUserUserId(user.getUserId());
 
-        return storageItems.stream()    // 리스트에 담긴 데이터들을 하나씩 꺼내어 처리할 준비
-                .map(StorageItemResponseDto::from)  // Entity -> DTO 변환
-                .collect(Collectors.toList());  // 최종 리스트로 반환
+        // 반송 요청 중인 storageId 목록 한번에 조회
+        List<Long> releaseRequestedIds = inspectionRepository
+                .findStorageIdsByStatus(InspectionStatus.RELEASE_REQUESTED);
+
+        return storageItems.stream()
+                .map(item -> StorageItemResponseDto.from(
+                        item,
+                        releaseRequestedIds.contains(item.getStorageId())
+                ))
+                .collect(Collectors.toList());
     }
 
     // 보관 상품 반송 요청 (고객 요청)
