@@ -72,6 +72,12 @@ public class ProductService {
                 imageUrl = product.getImages().getFirst().getImageUrl();
             }
 
+            long storageStock =
+                    saleBidRepository.countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
+                            product.getProductId(),
+                            BidStatus.OPEN
+                    );
+
             return ProductResponseDto.builder()
                     .productId(product.getProductId())
                     .productName(product.getProductName())
@@ -80,6 +86,7 @@ public class ProductService {
                     .price(buyPrice)
                     .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
                     .wishCount(product.getWishCount())
+                    .storageStock(storageStock)
                     .build();
         });
     }
@@ -121,8 +128,15 @@ public class ProductService {
                 .thenComparing(BuyBid::getCreatedAt));
 
         // 판매 입찰: 가격 오름차순 -> 시간 오름차순 (같은 가격이면 먼저 등록된게 우선)
-        allSaleBids.sort(Comparator.comparingInt(SaleBid::getPrice)
-                .thenComparing(SaleBid::getCreatedAt));
+        allSaleBids.sort(
+                Comparator
+                        .comparingInt(SaleBid::getPrice) // 1순위 가격 낮은 순
+                        .thenComparing(
+                                (SaleBid s) -> s.getStorageItem() != null, // 동일 조건이면 보관 우선
+                                Comparator.reverseOrder()
+                        )
+                        .thenComparing(SaleBid::getCreatedAt) // 보관 없으면 시간 우선
+        );
 
         // [최적화] 2. 정렬된 리스트에서 즉시 ID 추출 (O(1))
         Long highestBuyBidId = allBuyBids.isEmpty() ? null : allBuyBids.get(0).getBuyId();
@@ -165,11 +179,19 @@ public class ProductService {
                     List<SaleBid> bids = entry.getValue();
 
                     long quantity = bids.size();
-
+                    // 내 입찰 여부
                     boolean isMine = userId != null &&
                             bids.stream().anyMatch(b -> b.getUser().getUserId().equals(userId));
 
-                    return new BidInfo(price, quantity, isMine);
+                    long storageQuantity =
+                            bids.stream()
+                                    .filter(b -> b.getStorageItem() != null)
+                                    .count();
+
+                    boolean isStorageSale = storageQuantity > 0;
+
+
+                    return new BidInfo(price, quantity, isMine,  isStorageSale, storageQuantity);
                 })
                 .toList();
 

@@ -20,6 +20,11 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     /// [추가] 상품별 상태별 가격순 조회
     List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
 
+    long countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
+            Long productId,
+            BidStatus status
+    );
+
     // 즉시 구매용
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
