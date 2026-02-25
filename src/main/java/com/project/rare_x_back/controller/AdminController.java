@@ -4,10 +4,7 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
 import com.project.rare_x_back.dto.request.*;
 import com.project.rare_x_back.dto.response.*;
-import com.project.rare_x_back.service.AdminDashboardService;
-import com.project.rare_x_back.service.AdminService;
-import com.project.rare_x_back.service.AdminUserService;
-import com.project.rare_x_back.service.OrderService;
+import com.project.rare_x_back.service.*;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +34,7 @@ public class AdminController {
     private final OrderService orderService;
     private final AdminUserService adminUserService;
     private final AdminDashboardService adminDashboardService;
+    private final ProductDemandRequestService productDemandRequestService;
 
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
@@ -292,6 +290,49 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(
                 adminDashboardService.getDailyRevenue(startDate, endDate)
         ));
+    }
+
+
+    // 유저 상품 등록 요청 목록 조회
+   // @GetMapping("/products/demand-requests")
+//    public ResponseEntity<ApiResponse<Page<ProductDemandRequestResponseDto>>> getList(
+//            @RequestParam (required = false) Integer period,
+//            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+//            Pageable pageable
+//    ) {
+//       Page<ProductDemandRequestResponseDto> responseDto = productDemandRequestService.getDemandRequests(period, pageable);
+//
+//       return ResponseEntity.ok(ApiResponse.success(responseDto));
+//    }
+
+    @GetMapping("/products/demand-requests")
+    public ResponseEntity<ApiResponse<ProductDemandPageResponseDto<ProductDemandRequestResponseDto>>> getList(
+            @RequestParam(required = false) Integer period,
+            @PageableDefault(size = 10, sort = "createdAt",
+                    direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        productDemandRequestService
+                                .getDemandRequests(period, pageable)
+                )
+        );
+    }
+
+    // 유저 상품 등록 요청 상세 조회
+    @GetMapping("/products/demand-requests/{demandId}")
+    public ResponseEntity<ApiResponse<ProductDemandRequestDetailResponseDto>> getDetail(@PathVariable Long demandId) {
+        ProductDemandRequestDetailResponseDto responseDto = productDemandRequestService.getDemandRequestDetail(demandId);
+        return ResponseEntity.ok(ApiResponse.success(responseDto));
+    }
+
+    // 유저 상품 등록 요청 삭제
+    @DeleteMapping("/products/demand-requests/{demandId}")
+    public ResponseEntity<ApiResponse<Void>> deleteRequest (@PathVariable Long demandId) {
+        productDemandRequestService.deleteDemandRequest(demandId);
+        return ResponseEntity.ok(ApiResponse.success("상품 등록 요청 삭제가 완료되었습니다."));
     }
 
 
