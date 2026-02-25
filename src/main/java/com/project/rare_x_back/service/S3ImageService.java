@@ -28,7 +28,7 @@ public class S3ImageService {
 
     @Value("${cloud.aws.s3.region.static}")
     private String region;
-
+    // 관리자 상품 등록 이미지 메소드
     public String uploadProductImage(MultipartFile file) {
         try {
             validateImage(file);
@@ -117,6 +117,37 @@ public class S3ImageService {
                 .key(key)
                 .build();
         s3Client.deleteObject(delReq);
+    }
+
+    // ====================== 유저 상품 등록 요청 이미지
+
+    // 상품 등록 요청 이미지
+    public String uploadProductRequestImage(MultipartFile file) {
+        try {
+            validateImage(file);
+
+            String key = requestProdGenerateKey(file.getOriginalFilename()); //s3에 저장될 파일 경로
+
+            PutObjectRequest putreq = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
+            s3Client.putObject(putreq, RequestBody.fromBytes(file.getBytes()));
+            //공개 url 반환
+            return buildPublicUrl(key);
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "파일 업로드 중 서버 오류가 발생했습니다.");
+        }
+    }
+
+    //업로드된 파일의 중복을 방지, 고유한 저장 경로 생성
+    private String requestProdGenerateKey(String originalFilename){
+        String ext = "";
+        if(originalFilename.contains(".")){
+            ext = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        return "product_request/" + UUID.randomUUID() + ext;
     }
 
 }
