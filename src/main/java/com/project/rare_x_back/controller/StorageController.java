@@ -20,7 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/storage")
 @RequiredArgsConstructor
-public class StorageRequestController {
+public class StorageController {
 
     private final StorageRequestService storageRequestService;
     private final StorageItemService storageItemService;
@@ -88,5 +88,16 @@ public class StorageRequestController {
         storageRequestService.cancelStorageRequest(userDetails.getUsername(), storageRequestId);
 
         return ResponseEntity.ok(ApiResponse.success("보관 신청이 취소되고 보증금이 환불되었습니다."));
+    }
+
+    // 보관 상품 반송 요청 (고객 요청)
+    @PostMapping("/items/{storageId}/release")
+    public ResponseEntity<ApiResponse<Void>> requestRelease(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long storageId) {
+
+        storageItemService.requestRelease(userDetails.getUsername(), storageId);
+
+        return ResponseEntity.ok(ApiResponse.success("반송 요청이 완료되었습니다."));
     }
 }

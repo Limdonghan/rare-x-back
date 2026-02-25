@@ -23,8 +23,9 @@ public class StorageItemResponseDto {
     private long storageDays;           // 보관 일수
     private long accumulatedFee;        // 누적 보관료
     private String status;
+    private boolean releaseRequested;
 
-    public static StorageItemResponseDto from(StorageItem storageItem) {
+    public static StorageItemResponseDto from(StorageItem storageItem, boolean releaseRequested) {
         long days = ChronoUnit.DAYS.between(storageItem.getStoredAt(), LocalDateTime.now());
         long fee = calculateFee(days);
 
@@ -45,6 +46,7 @@ public class StorageItemResponseDto {
                 .storageDays(days)
                 .accumulatedFee(fee)
                 .status(storageItem.getStatus().name())
+                .releaseRequested(releaseRequested)
                 .build();
     }
 

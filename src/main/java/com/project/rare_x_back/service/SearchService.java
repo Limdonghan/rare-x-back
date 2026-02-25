@@ -302,6 +302,11 @@ public class SearchService {
                         ? inspection.getStorageRequest().getProduct().getProductName() : "";
                 sellerName = inspection.getStorageRequest().getUser() != null
                         ? inspection.getStorageRequest().getUser().getName() : "";
+            } else if (inspection.getStorageItem() != null) {
+                productName = inspection.getStorageItem().getProduct() != null
+                        ? inspection.getStorageItem().getProduct().getProductName() : "";
+                sellerName = inspection.getStorageItem().getUser() != null
+                        ? inspection.getStorageItem().getUser().getName() : "";
             }
 
             Map<String, Object> document = new HashMap<>();

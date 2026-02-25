@@ -66,6 +66,28 @@ public class InspectionResponseDto {
             }
         }
 
+        // 반송(RELEASE)인 경우 - 고객 요청
+        StorageItem storageItem = inspection.getStorageItem();
+        if (storageItem != null) {
+            // 소유자 정보
+            User owner = storageItem.getUser();
+            if (owner != null) {
+                builder.sellerId(owner.getUserId())
+                        .sellerName(owner.getName());
+            }
+
+            // 상품 정보
+            Product product = storageItem.getProduct();
+            if (product != null) {
+                builder.productId(product.getProductId())
+                        .productName(product.getProductName());
+
+                if (product.getBrand() != null) {
+                    builder.brandName(product.getBrand().getBrandName());
+                }
+            }
+        }
+
         // 주문 검수(ORDER)인 경우
         Order order = inspection.getOrder();
         if (order != null) {

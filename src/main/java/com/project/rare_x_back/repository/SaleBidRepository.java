@@ -98,6 +98,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
            """)
     List<StorageProductResponseDto> findStorageProducts(@Param("status") BidStatus status);
 
+    // DB에 직접 UPDATE 쿼리 실행 (벌크 연산)
     @Modifying
     @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +
             "WHERE sb.storageItem.storageId = :storageId " +

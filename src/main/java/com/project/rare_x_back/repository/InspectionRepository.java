@@ -21,7 +21,9 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     // 보관 주문은 Inspection 레코드가 생성되지 않으므로 false → 보관 주문
     boolean existsByOrder_OrderId(Long orderId);
 
-
+    // 반송 요청 중인 storageItem ID 목록 조회 (특정 보관함 ID 범위 내)
+    @Query("SELECT DISTINCT i.storageItem.storageId FROM Inspection i WHERE i.status = :status AND i.storageItem.storageId IN :storageIds")
+    List<Long> findStorageIdsByStatusAndStorageIds(@Param("status") InspectionStatus status, @Param("storageIds") List<Long> storageIds);
 
     // 주문 ID 목록으로 검수 정보 일괄 조회 (다건 - ORDER-002용)
     @EntityGraph(attributePaths = {"order"})
@@ -36,6 +38,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.product.brand",
@@ -52,6 +58,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.product.brand",
@@ -68,6 +78,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.product.brand",
@@ -84,6 +98,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product",
             "storageRequest.product.brand",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.product.brand",
@@ -96,6 +114,8 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     // 타입 + 상태별 건수 조회 (대시보드용)
     long countByTypeAndStatus(InspectionType type, InspectionStatus status);
 
+    // 보관함 ID와 검수 상태로 존재 여부 확인 (반송 중복 요청 방지)
+    boolean existsByStorageItemStorageIdAndStatus(Long storageId, InspectionStatus status);
 
     // ===== VER-004 검수 이력 조회용 (페이징) =====
 
@@ -107,6 +127,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest.product.brand",
             "storageRequest.product.category",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.product.brand",
@@ -141,6 +165,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest",
             "storageRequest.product",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.seller"
@@ -154,6 +182,10 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
             "storageRequest",
             "storageRequest.product",
             "storageRequest.user",
+            "storageItem",
+            "storageItem.product",
+            "storageItem.product.brand",
+            "storageItem.user",
             "order",
             "order.product",
             "order.buyer",

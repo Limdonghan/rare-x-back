@@ -153,6 +153,15 @@ public class InspectionController {
         return ResponseEntity.ok(ApiResponse.success("구매자에게 발송 완료"));
     }
 
+    // 반송 처리 (RELEASE_REQUESTED → RELEASE_COMPLETED)
+    @PatchMapping("/{inspectionId}/release")
+    public ResponseEntity<ApiResponse<InspectionResponseDto>> processRelease(
+            @PathVariable Long inspectionId) {
+
+        InspectionResponseDto response = inspectionService.processRelease(inspectionId);
+        return ResponseEntity.ok(ApiResponse.success(response, "반송 처리가 완료되었습니다"));
+    }
+
     // ============================================
     // 일괄 처리 엔드포인트
     // ============================================
