@@ -72,6 +72,12 @@ public class ProductService {
                 imageUrl = product.getImages().getFirst().getImageUrl();
             }
 
+            long storageStock =
+                    saleBidRepository.countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
+                            product.getProductId(),
+                            BidStatus.OPEN
+                    );
+
             return ProductResponseDto.builder()
                     .productId(product.getProductId())
                     .productName(product.getProductName())
@@ -80,6 +86,7 @@ public class ProductService {
                     .price(buyPrice)
                     .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
                     .wishCount(product.getWishCount())
+                    .storageStock(storageStock)
                     .build();
         });
     }
