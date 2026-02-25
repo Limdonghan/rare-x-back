@@ -294,17 +294,6 @@ public class AdminController {
 
 
     // 유저 상품 등록 요청 목록 조회
-   // @GetMapping("/products/demand-requests")
-//    public ResponseEntity<ApiResponse<Page<ProductDemandRequestResponseDto>>> getList(
-//            @RequestParam (required = false) Integer period,
-//            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-//            Pageable pageable
-//    ) {
-//       Page<ProductDemandRequestResponseDto> responseDto = productDemandRequestService.getDemandRequests(period, pageable);
-//
-//       return ResponseEntity.ok(ApiResponse.success(responseDto));
-//    }
-
     @GetMapping("/products/demand-requests")
     public ResponseEntity<ApiResponse<ProductDemandPageResponseDto<ProductDemandRequestResponseDto>>> getList(
             @RequestParam(required = false) Integer period,
