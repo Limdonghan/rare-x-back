@@ -21,9 +21,9 @@ public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     // 보관 주문은 Inspection 레코드가 생성되지 않으므로 false → 보관 주문
     boolean existsByOrder_OrderId(Long orderId);
 
-    // 반송 요청 중인 storageItem ID 목록 조회 (보관중 페이지 필터용)
-    @Query("SELECT i.storageItem.storageId FROM Inspection i WHERE i.status = :status AND i.storageItem IS NOT NULL")
-    List<Long> findStorageIdsByStatus(@Param("status") InspectionStatus status);
+    // 반송 요청 중인 storageItem ID 목록 조회 (특정 보관함 ID 범위 내)
+    @Query("SELECT DISTINCT i.storageItem.storageId FROM Inspection i WHERE i.status = :status AND i.storageItem.storageId IN :storageIds")
+    List<Long> findStorageIdsByStatusAndStorageIds(@Param("status") InspectionStatus status, @Param("storageIds") List<Long> storageIds);
 
     // 주문 ID 목록으로 검수 정보 일괄 조회 (다건 - ORDER-002용)
     @EntityGraph(attributePaths = {"order"})

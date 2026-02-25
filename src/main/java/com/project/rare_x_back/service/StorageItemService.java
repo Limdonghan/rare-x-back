@@ -19,7 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,9 +43,16 @@ public class StorageItemService {
 
         List<StorageItem> storageItems = storageItemRepository.findByUserUserId(user.getUserId());
 
-        // 반송 요청 중인 storageId 목록 한번에 조회
-        List<Long> releaseRequestedIds = inspectionRepository
-                .findStorageIdsByStatus(InspectionStatus.RELEASE_REQUESTED);
+        // 해당 유저 보관함의 storageId 목록 추출
+        List<Long> userStorageIds = storageItems.stream()
+                .map(StorageItem::getStorageId)
+                .toList();
+
+        // 반송 요청 중인 storageId를 Set으로 조회 (O(1) lookup)
+        Set<Long> releaseRequestedIds = new HashSet<>(
+                inspectionRepository.findStorageIdsByStatusAndStorageIds(
+                        InspectionStatus.RELEASE_REQUESTED, userStorageIds)
+        );
 
         return storageItems.stream()
                 .map(item -> StorageItemResponseDto.from(
@@ -78,20 +87,21 @@ public class StorageItemService {
                     "반송 요청이 불가능한 상태입니다. (현재: " + storageItem.getStatus() + ")");
         }
 
-        // 5. ON_SALE 상태면 판매 입찰 자동 취소
-        if (storageItem.getStatus() == StorageStatus.ON_SALE) {
-            saleBidRepository.cancelByStorageId(storageItem.getStorageId(), BidStatus.CANCELED, BidStatus.OPEN);
-            log.info("반송 요청으로 판매 입찰 자동 취소: storageId={}", storageId);
-        }
-
-        // 5-2. 이미 반송 요청 중인지 확인
+        // 5. 이미 반송 요청 중인지 확인
+        // TODO: 동시 요청 시 레이스 컨디션 가능성 있음. 필요 시 DB 유니크 제약조건 추가 고려
         boolean alreadyRequested = inspectionRepository
                 .existsByStorageItemStorageIdAndStatus(storageItem.getStorageId(), InspectionStatus.RELEASE_REQUESTED);
         if (alreadyRequested) {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 반송 요청이 접수된 상품입니다. 관리자 처리를 기다려주세요.");
         }
 
-        // 6. Inspection 레코드 생성 (반송 요청)
+        // 6. ON_SALE 상태면 판매 입찰 자동 취소
+        if (storageItem.getStatus() == StorageStatus.ON_SALE) {
+            saleBidRepository.cancelByStorageId(storageItem.getStorageId(), BidStatus.CANCELED, BidStatus.OPEN);
+            log.info("반송 요청으로 판매 입찰 자동 취소: storageId={}", storageId);
+        }
+
+        // 7. Inspection 레코드 생성 (반송 요청)
         Inspection inspection = Inspection.builder()
                 .storageItem(storageItem)
                 .type(InspectionType.RELEASE)
@@ -99,7 +109,7 @@ public class StorageItemService {
                 .build();
         inspectionRepository.save(inspection);
 
-        // 7. Typesense 인덱싱
+        // 8. Typesense 인덱싱
         searchService.indexInspection(inspection);
 
         log.info("반송 요청 완료: storageId={}, userId={}, inspectionId={}",
