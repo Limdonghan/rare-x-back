@@ -1,4 +1,4 @@
-package com.project.rare_x_back.Scheduler;
+package com.project.rare_x_back.scheduler;
 
 import com.project.rare_x_back.entity.ProductDemandRequest;
 import com.project.rare_x_back.repository.ProductDemandRequestRepository;
@@ -6,13 +6,13 @@ import com.project.rare_x_back.service.S3ImageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Service
+@Component
 @Slf4j
 @RequiredArgsConstructor
 public class DemandRequestScheduler {
@@ -34,7 +34,11 @@ public class DemandRequestScheduler {
         for (ProductDemandRequest demand : oldList) {
             //s3 삭제
             if (demand.getImageUrl() != null) {
-                s3ImageService.deleteImageByUrl(demand.getImageUrl());
+                try {
+                    s3ImageService.deleteImageByUrl(demand.getImageUrl());
+                } catch (Exception e) {
+                    log.error("s3 이미지 삭제 실패 - demandId {}, imageUrl : {}", demand.getDemandId(), demand.getImageUrl(), e);
+                }
             }
             // DB 삭제
             demandRequestRepository.delete(demand);

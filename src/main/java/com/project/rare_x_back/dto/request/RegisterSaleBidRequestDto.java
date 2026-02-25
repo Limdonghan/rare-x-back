@@ -13,7 +13,7 @@ public class RegisterSaleBidRequestDto {
     private Long productId;     /// 상품 ID
 
     @NotNull
-    @Min(1000)
+    @Min(value = 1000, message = "판매 입찰 가격은 1000원 이상이어야 합니다.")
     private int price;          /// 판매 가격
 
 }

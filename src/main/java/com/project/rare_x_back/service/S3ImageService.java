@@ -3,20 +3,23 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class S3ImageService {
@@ -148,6 +151,36 @@ public class S3ImageService {
             ext = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
         return "product_request/" + UUID.randomUUID() + ext;
+    }
+
+
+
+    // S3ImageService에 벌크 삭제
+    public void deleteImageByUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return;
+
+        // url에서 s3 Object Key (파일명)만 추출
+        List<ObjectIdentifier> keysToDelete = imageUrls.stream()
+                .map(url -> ObjectIdentifier.builder().key(extractKeyFromUrl(url)).build())
+                .collect(Collectors.toList());
+        // 삭제 요청 구성
+        Delete deleteRequest = Delete.builder()
+                .objects(keysToDelete)
+                .quiet(false)
+                .build();
+
+        DeleteObjectsRequest multiObjectDeleteRequest = DeleteObjectsRequest.builder()
+                .bucket(bucket)
+                .delete(deleteRequest)
+                .build();
+
+        // s3에 벌크 삭제 요청 전송
+        try {
+            s3Client.deleteObjects(multiObjectDeleteRequest);
+            log.info("{}개의 이미지 S3 삭제 완료", keysToDelete.size());
+        } catch (S3Exception e) {
+            log.error("S3 벌크 삭제 중 오류 발생: {}", e.awsErrorDetails().errorMessage());
+        }
     }
 
 }

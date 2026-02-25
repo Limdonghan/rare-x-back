@@ -123,7 +123,7 @@ public class ProductDemandRequestService {
     public ProductDemandRequestDetailResponseDto getDemandRequestDetail (Long demandId) {
 
 
-        ProductDemandRequest demand = demandRequestRepository.findByDemandId(demandId)
+        ProductDemandRequest demand = demandRequestRepository.findById(demandId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "요청 정보를 찾을 수 없습니다."));
 
         return ProductDemandRequestDetailResponseDto.builder()
@@ -147,9 +147,11 @@ public class ProductDemandRequestService {
 
         // S3 이미지 삭제
         if (demand.getImageUrl() != null) {
-            s3ImageService.deleteImageByUrl(
-                    demand.getImageUrl()
-            );
+            try {
+                s3ImageService.deleteImageByUrl(demand.getImageUrl());
+            } catch (Exception e) {
+                log.error("s3 이미지 삭제 실패 - demandId {}, imageUrl : {}", demandId, demand.getImageUrl(), e);
+            }
         }
 
         // DB 삭제
