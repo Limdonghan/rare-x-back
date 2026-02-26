@@ -3,20 +3,23 @@ package com.project.rare_x_back.service;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class S3ImageService {
@@ -28,7 +31,7 @@ public class S3ImageService {
 
     @Value("${cloud.aws.s3.region.static}")
     private String region;
-
+    // 관리자 상품 등록 이미지 메소드
     public String uploadProductImage(MultipartFile file) {
         try {
             validateImage(file);
@@ -117,6 +120,67 @@ public class S3ImageService {
                 .key(key)
                 .build();
         s3Client.deleteObject(delReq);
+    }
+
+    // ====================== 유저 상품 등록 요청 이미지
+
+    // 상품 등록 요청 이미지
+    public String uploadProductRequestImage(MultipartFile file) {
+        try {
+            validateImage(file);
+
+            String key = requestProdGenerateKey(file.getOriginalFilename()); //s3에 저장될 파일 경로
+
+            PutObjectRequest putreq = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
+            s3Client.putObject(putreq, RequestBody.fromBytes(file.getBytes()));
+            //공개 url 반환
+            return buildPublicUrl(key);
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "파일 업로드 중 서버 오류가 발생했습니다.");
+        }
+    }
+
+    //업로드된 파일의 중복을 방지, 고유한 저장 경로 생성
+    private String requestProdGenerateKey(String originalFilename){
+        String ext = "";
+        if(originalFilename.contains(".")){
+            ext = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        return "product_request/" + UUID.randomUUID() + ext;
+    }
+
+
+
+    // S3ImageService에 벌크 삭제
+    public void deleteImageByUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return;
+
+        // url에서 s3 Object Key (파일명)만 추출
+        List<ObjectIdentifier> keysToDelete = imageUrls.stream()
+                .map(url -> ObjectIdentifier.builder().key(extractKeyFromUrl(url)).build())
+                .collect(Collectors.toList());
+        // 삭제 요청 구성
+        Delete deleteRequest = Delete.builder()
+                .objects(keysToDelete)
+                .quiet(false)
+                .build();
+
+        DeleteObjectsRequest multiObjectDeleteRequest = DeleteObjectsRequest.builder()
+                .bucket(bucket)
+                .delete(deleteRequest)
+                .build();
+
+        // s3에 벌크 삭제 요청 전송
+        try {
+            s3Client.deleteObjects(multiObjectDeleteRequest);
+            log.info("{}개의 이미지 S3 삭제 완료", keysToDelete.size());
+        } catch (S3Exception e) {
+            log.error("S3 벌크 삭제 중 오류 발생: {}", e.awsErrorDetails().errorMessage());
+        }
     }
 
 }
