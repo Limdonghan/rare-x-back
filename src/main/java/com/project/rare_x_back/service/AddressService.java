@@ -7,14 +7,17 @@ import com.project.rare_x_back.dto.response.JusoResponseDto;
 import com.project.rare_x_back.dto.response.UserAddressResponseDto;
 import com.project.rare_x_back.entity.Address;
 import com.project.rare_x_back.entity.User;
+import com.project.rare_x_back.enums.BidStatus;
 import com.project.rare_x_back.exceptions.CustomException;
 import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.AddressRepository;
+import com.project.rare_x_back.repository.BuyBidRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -30,6 +33,7 @@ public class AddressService {
     private final WebClient jusoWebClient;
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
+    private final BuyBidRepository buyBidRepository;
 
     @Value("${juso.api.key}")
     private String apiKey;
@@ -175,20 +179,34 @@ public class AddressService {
     @Transactional
     public void deleteAddress(Long userId, Long addressId) {
 
-        Address deleteAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST,"지정된 사용자에 대한 주소를 찾을 수 없습니다"));
+        Address deleteAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
+
+        // OPEN 입찰이 참조 중이면 삭제 거부
+        boolean hasOpenBids = buyBidRepository.existsByAddressIdAndStatus(addressId, BidStatus.OPEN);
+        if (hasOpenBids) {
+            throw new CustomException(ErrorCode.ADDRESS_IN_USE_BY_BID);
+        }
+
+        // 종료된 입찰의 address_id를 NULL로 처리
+        buyBidRepository.nullifyAddressByAddressId(addressId,
+                List.of(BidStatus.MATCHED, BidStatus.CANCELED, BidStatus.EXPIRED));
 
         boolean wasDefault = deleteAddress.isDefault();
-        // 주소 삭제
-        addressRepository.delete(deleteAddress);
+        // 주소 삭제 — FK 레이스 컨디션 방어
+        try {
+            addressRepository.delete(deleteAddress);
+            addressRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.ADDRESS_IN_USE_BY_BID);
+        }
 
-        // 삭제한 배송지가 기본 배송지 였다면
-        if (wasDefault) {   // 삭제한 주소아이디 제외, 등록 최신순 주소 아이디 조회
+        // 삭제한 배송지가 기본 배송지였다면
+        if (wasDefault) {
             Optional<Address> newDefaultAddr = addressRepository
                     .findTopByUser_UserIdAndAddressIdNotOrderByCreatedAtDesc(userId, addressId);
             newDefaultAddr.ifPresent(Address::setAsDefault);
         }
-
     }
 
 }
