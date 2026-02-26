@@ -206,20 +206,47 @@ public class SecurityConfig {
     }
 
 
-    // ✅ CORS 허용 설정 (모든 요청 허용)
+    // CORS 허용 설정 (모든 요청 허용)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:5500")); // 프론트엔드 주소 (필요시 "*"로 변경 가능하지만 credentials true일 땐 구체적이어야 함)
-        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (테스트용)
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 환경 분기
+        if (isProd()) {
+
+            // 운영
+            config.setAllowedOrigins(List.of(
+                    "https://rarex.club",
+                    "https://www.rarex.club"
+            ));
+
+        } else {
+
+            // 개발
+            config.setAllowedOrigins(List.of(
+                    "http://localhost:5173",
+                    "http://localhost:3000"
+            ));
+        }
+
+        config.setAllowedMethods(List.of(
+                "GET","POST","PUT","DELETE","PATCH","OPTIONS"
+        ));
+
+        config.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
+
+
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
