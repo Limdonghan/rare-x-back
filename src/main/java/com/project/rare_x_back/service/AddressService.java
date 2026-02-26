@@ -179,7 +179,7 @@ public class AddressService {
     public void deleteAddress(Long userId, Long addressId) {
 
         Address deleteAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다"));
+                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
 
         // OPEN 입찰이 참조 중이면 삭제 거부
         boolean hasOpenBids = buyBidRepository.existsByAddressIdAndStatus(addressId, BidStatus.OPEN);
