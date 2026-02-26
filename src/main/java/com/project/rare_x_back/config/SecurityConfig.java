@@ -46,6 +46,39 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
+                //  CSP 및 보안 헤더 추가
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives(
+                                        // 같은 도메인만 허용
+                                        "default-src 'self'; " +
+                                                // 외부 JS 차단
+                                                "script-src 'self' " +
+                                                    "https://js.tosspayments.com " +
+                                                    "https://www.juso.go.kr " +
+                                                    "https://toss.im; " +
+                                                // CSS 인라인 스타일허용
+                                                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+                                                // 이미지 허용
+                                                "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+                                                // 현재 사이트 도메인에서 제공하는 폰트만 허용
+                                                "font-src 'self' data: https://cdn.jsdelivr.net; " +
+                                                // API 통신
+                                                "connect-src 'self' " +
+                                                    "https://api.tosspayments.com " +
+                                                    "https://www.juso.go.kr " +
+                                                    "https://toss.im; " +
+                                                // ifrmae/popup
+                                                "frame-src 'self' " +
+                                                    "https://www.juso.go.kr " +
+                                                    "https://toss.im; " +
+                                                // 클릭재킹 방어
+                                                "frame-ancestors 'self';"
+                                )
+                        )
+                        .frameOptions(frame -> frame.sameOrigin()) // 클릭재킹 방어
+                )
+
                 // URL별 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         // 인증 없이 접근 가능한 URL
