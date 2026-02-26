@@ -37,7 +37,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<Page<ProductResponseDto>>> getAllPublicProd (
             @RequestParam(required = false) List<Long> categoryIds,
             @RequestParam(required = false) List<Long> brandIds,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<ProductResponseDto> response = productService.getAllPublicProd(categoryIds, brandIds, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
