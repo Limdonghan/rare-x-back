@@ -146,26 +146,33 @@ public class SecurityConfig {
         return
                 "default-src 'self'; " +
 
+                        // 외부 스크립트 허용
                         "script-src 'self' " +
                         "https://js.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
+                        // 스타일 (Tailwind + 일부 inline 허용)
                         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
 
+                        // 이미지 (S3)
                         "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
 
-                        "font-src 'self' data: https://cdn.jsdelivr.net; " +
+                        // 폰트 (로컬만)
+                        "font-src 'self' data:; " +
 
+                        // API 통신
                         "connect-src 'self' " +
                         "https://api.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
+                        // iframe / popup
                         "frame-src 'self' " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
+                        // 클릭재킹 방어
                         "frame-ancestors 'self';";
     }
 
