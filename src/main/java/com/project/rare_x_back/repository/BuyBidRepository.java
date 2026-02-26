@@ -4,6 +4,7 @@ import com.project.rare_x_back.entity.BuyBid;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.enums.BidStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -71,15 +72,17 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsAll(@Param("userId") Long userId);
+    Page<BuyBid> findMyBuyBidsAll(@Param("userId") Long userId,
+                                  Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId AND b.status = :status ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
+    Page<BuyBid> findMyBuyBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status,
+                                       Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId AND b.status IN :statuses ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses);
+    Page<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses, Pageable pageable);
 
     // ====== 관리자 회원 상세 - 활성 구매입찰 건수 (MANAGER-004) ======
 

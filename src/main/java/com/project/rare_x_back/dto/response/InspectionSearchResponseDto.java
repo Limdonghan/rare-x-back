@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,4 +18,5 @@ public class InspectionSearchResponseDto {
     private String inspectorName;
     private String type;
     private String status;
+    private LocalDateTime createdAt;
 }
