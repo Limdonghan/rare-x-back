@@ -161,13 +161,16 @@ public class SecurityConfig {
                         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
 
                         // 이미지 (S3)
-                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+                        "img-src 'self' data: " +
+                        "https://4tential-rare-x.s3.amazonaws.com " +
+                        "https://4tential-rare-x.s3.ap-northeast-2.amazonaws.com; " +
 
                         // 폰트 (로컬만)
                         "font-src 'self' data:; " +
 
                         // API 통신
                         "connect-src 'self' " +
+                        "https://api.rarex.club " +
                         "https://api.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
