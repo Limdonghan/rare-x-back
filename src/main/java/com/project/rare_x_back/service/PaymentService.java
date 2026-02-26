@@ -103,6 +103,33 @@ public class PaymentService {
     }
 
     /**
+     * 카드 삭제 (빌링키 삭제)
+     * */
+    @Transactional
+    public void deleteBillingKey(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        /// [중복 검사] 이미 저장된 결제인지 확인
+        billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
+            try {
+                webClient.delete()
+                        .uri("billing/" + billingKey.getBillingKey())
+                        .retrieve()
+                        .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                                clientResponse.bodyToMono(String.class)
+                                        .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류" + s)))
+                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                        .block();
+
+                billingKeyRepository.delete(billingKey);
+            } catch (Exception e) {
+                log.error("토스 빌링키 해지 중 오류 (무시됨): {}", e.getMessage());
+            }
+        });
+    }
+
+    /**
      * 자동 결제 (빌링키 사용)
      * 저장된 빌링키를 사용하여 비밀번호 없이 즉시 결제 승인 요청
      * */
