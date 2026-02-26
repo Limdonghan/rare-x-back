@@ -60,8 +60,9 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
     // 종료된 입찰의 address_id를 NULL로 일괄 업데이트
     @Modifying
-    @Query("UPDATE BuyBid b SET b.addressId = null WHERE b.addressId = :addressId")
-    void nullifyAddressByAddressId(@Param("addressId") Long addressId);
+    @Query("UPDATE BuyBid b SET b.addressId = null WHERE b.addressId = :addressId AND b.status IN :statuses")
+    void nullifyAddressByAddressId(@Param("addressId") Long addressId,
+                                   @Param("statuses") List<BidStatus> statuses);
 
     // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
     @Query("SELECT s.product.productId, MAX(s.price) FROM BuyBid s " +

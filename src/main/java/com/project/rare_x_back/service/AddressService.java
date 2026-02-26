@@ -17,6 +17,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -188,11 +189,17 @@ public class AddressService {
         }
 
         // 종료된 입찰의 address_id를 NULL로 처리
-        buyBidRepository.nullifyAddressByAddressId(addressId);
+        buyBidRepository.nullifyAddressByAddressId(addressId,
+                List.of(BidStatus.MATCHED, BidStatus.CANCELED, BidStatus.EXPIRED));
 
         boolean wasDefault = deleteAddress.isDefault();
-        // 주소 삭제
-        addressRepository.delete(deleteAddress);
+        // 주소 삭제 — FK 레이스 컨디션 방어
+        try {
+            addressRepository.delete(deleteAddress);
+            addressRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.ADDRESS_IN_USE_BY_BID);
+        }
 
         // 삭제한 배송지가 기본 배송지였다면
         if (wasDefault) {
