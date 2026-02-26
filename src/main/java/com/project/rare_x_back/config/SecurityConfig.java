@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -34,7 +35,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;  // JSON 변환용
 
-    @Value("${CSP_MODE}")
+    @Value("${csp.mode}")
     private String cspMode;
 
     @Bean
@@ -61,7 +62,7 @@ public class SecurityConfig {
                         // 클릭 재킹 방어
                         .frameOptions(frame -> frame.sameOrigin())
                         // MIME Sniffing 방어
-                        .contentTypeOptions(contentType -> {})
+                        .contentTypeOptions(Customizer.withDefaults())
                 )
 
                 // URL별 권한 설정
@@ -194,7 +195,7 @@ public class SecurityConfig {
 
                         "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
 
-                        "font-src 'self' data: https://cdn.jsdelivr.net; " +
+                        "font-src 'self' data:;" +
 
                         "connect-src 'self' " +
                         "http://localhost:8080 " +
@@ -217,7 +218,7 @@ public class SecurityConfig {
     }
 
 
-    // CORS 허용 설정 (모든 요청 허용)
+    // CORS 설정: 환경별로 지정된 Origin만 허용
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
