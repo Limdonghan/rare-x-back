@@ -35,7 +35,7 @@ public class InspectionController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getAllInspections(
             @RequestParam(required = false) InspectionStatus status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getAllInspections(status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -45,7 +45,7 @@ public class InspectionController {
     @GetMapping("/storage")
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getStorageInspections(
             @RequestParam(required = false) InspectionStatus status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.STORAGE, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -55,7 +55,7 @@ public class InspectionController {
     @GetMapping("/order")
     public ResponseEntity<ApiResponse<Page<InspectionResponseDto>>> getOrderInspections(
             @RequestParam(required = false) InspectionStatus status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<InspectionResponseDto> response = inspectionService.getInspectionList(InspectionType.ORDER, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
