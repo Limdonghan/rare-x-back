@@ -2,14 +2,14 @@ package com.project.rare_x_back.repository;
 
 import com.project.rare_x_back.entity.StorageRequest;
 import com.project.rare_x_back.enums.StorageRequestStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 public interface StorageRequestRepository extends JpaRepository<StorageRequest, Long> {
 
@@ -17,7 +17,6 @@ public interface StorageRequestRepository extends JpaRepository<StorageRequest, 
     @Query("SELECT sr FROM StorageRequest sr " +
             "JOIN FETCH sr.product p " +
             "JOIN FETCH p.brand " +
-            "LEFT JOIN FETCH p.images " +
             "WHERE sr.user.userId = :userId AND sr.status = :status")
     Page<StorageRequest> findByUserIdAndStatus(@Param("userId") Long userId,
                                                @Param("status") StorageRequestStatus status, Pageable pageable);
@@ -26,7 +25,6 @@ public interface StorageRequestRepository extends JpaRepository<StorageRequest, 
     @Query("SELECT sr FROM StorageRequest sr " +
             "JOIN FETCH sr.product p " +
             "JOIN FETCH p.brand " +
-            "LEFT JOIN FETCH p.images " +
             "WHERE sr.user.userId = :userId")
     Page<StorageRequest> findByUserId(@Param("userId") Long userId, Pageable pageable);
 

@@ -120,6 +120,10 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status")
     Page<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status IN :statuses")
+    Page<SaleBid> findMySaleBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses, Pageable pageable);
+
     // ====== 관리자 회원 상세 - 활성 판매입찰 건수 (MANAGER-004) ======
 
     long countByUser_UserIdAndStatus(Long userId, BidStatus status);

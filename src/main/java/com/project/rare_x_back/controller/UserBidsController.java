@@ -20,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @AllArgsConstructor
 @RestController
@@ -32,8 +34,8 @@ public class UserBidsController {
     public ResponseEntity<ApiResponse<Page<MyBuyBidResponseDto>>> getMyBuyBids(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-            @RequestParam(required = false) BidStatus status){
-        Page<MyBuyBidResponseDto> myBuyBids = bidService.getMyBuyBids(userDetails.getEmail(), status, pageable);
+            @RequestParam(required = false) List<BidStatus> statuses){
+        Page<MyBuyBidResponseDto> myBuyBids = bidService.getMyBuyBids(userDetails.getEmail(), statuses, pageable);
         return ResponseEntity.ok(ApiResponse.success(myBuyBids));
     }
 
@@ -42,8 +44,8 @@ public class UserBidsController {
     public ResponseEntity<ApiResponse<Page<MySaleBidResponseDto>>> getMySaleBids (
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-            @RequestParam(required = false) BidStatus status) {
-        Page<MySaleBidResponseDto> response = bidService.getMySaleBids(userDetails.getEmail(), status, pageable);
+            @RequestParam(required = false) List<BidStatus> statuses) {
+        Page<MySaleBidResponseDto> response = bidService.getMySaleBids(userDetails.getEmail(), statuses, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

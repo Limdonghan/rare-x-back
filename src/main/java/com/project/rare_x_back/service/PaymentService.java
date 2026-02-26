@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -116,15 +117,19 @@ public class PaymentService {
                 webClient.delete()
                         .uri("billing/" + billingKey.getBillingKey())
                         .retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                                clientResponse.bodyToMono(String.class)
+                                        .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED,"토스 빌링키 해지 실패 (4xx): " + s))))
                         .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                                 clientResponse.bodyToMono(String.class)
-                                        .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류" + s)))
+                                        .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류 (5xx): " + s))))
                         .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                         .block();
 
                 billingKeyRepository.delete(billingKey);
             } catch (Exception e) {
-                log.error("토스 빌링키 해지 중 오류 (무시됨): {}", e.getMessage());
+                log.error("토스 빌링키 해지 중 오류 : {}", e.getMessage());
+                throw new CustomException(ErrorCode.TOSS_API_ERROR,"토스 빌링키 해지 실패 : " + e.getMessage());
             }
         });
     }
@@ -178,10 +183,10 @@ public class PaymentService {
                     .retrieve()                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                      /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
@@ -237,10 +242,10 @@ public class PaymentService {
                     .retrieve()                                                                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
@@ -295,10 +300,10 @@ public class PaymentService {
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
@@ -430,30 +435,30 @@ public class PaymentService {
                     // 4xx → 우리가 잘못 요청
                     .onStatus(HttpStatusCode::is4xxClientError, response ->
                             response.bodyToMono(String.class)
-                                    .map(msg -> {
+                                    .flatMap(msg -> {
                                         log.error(
                                                 "토스 결제 취소 4xx 오류 paymentKey={}, msg={}",
                                                 paymentKey, msg
                                         );
-                                        return new CustomException(
+                                        return Mono.error(new CustomException(
                                                 ErrorCode.PAYMENT_FAILED,
                                                 msg
-                                        );
+                                        ));
                                     })
                     )
 
                     // 5xx → 토스 서버 문제
                     .onStatus(HttpStatusCode::is5xxServerError, response ->
                             response.bodyToMono(String.class)
-                                    .map(msg -> {
+                                    .flatMap(msg -> {
                                         log.error(
                                                 "토스 결제 취소 5xx 오류 paymentKey={}, msg={}",
                                                 paymentKey, msg
                                         );
-                                        return new CustomException(
+                                        return Mono.error(new CustomException(
                                                 ErrorCode.TOSS_API_ERROR,
                                                 "토스 서버 오류"
-                                        );
+                                        ));
                                     })
                     )
 

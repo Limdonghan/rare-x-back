@@ -82,7 +82,7 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId AND b.status IN :statuses ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses);
+    Page<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses, Pageable pageable);
 
     // ====== 관리자 회원 상세 - 활성 구매입찰 건수 (MANAGER-004) ======
 

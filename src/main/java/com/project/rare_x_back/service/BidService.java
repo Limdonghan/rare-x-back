@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -348,18 +347,20 @@ public class BidService {
 
     // 자신의 구매입찰 내역 조회(마이페이지에서)
     @Transactional(readOnly = true)
-    public Page<MyBuyBidResponseDto> getMyBuyBids(String email, BidStatus status, Pageable pageable) {
+    public Page<MyBuyBidResponseDto> getMyBuyBids(String email, List<BidStatus> statuses, Pageable pageable) {
 
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
+        // 입찰 조회 (statuses 있으면 필터, 없으면 전체)
         Page<BuyBid> bids;
 
-        if (status == null) {
-            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId(),pageable);
+        if (statuses == null || statuses.isEmpty()) {
+            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId(), pageable);
+        } else if (statuses.size() == 1) {
+            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), statuses.getFirst(), pageable);
         } else {
-            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), status,pageable);
+            bids = buyBidRepository.findMyBuyBidsByStatuses(user.getUserId(), statuses, pageable);
         }
 
         return bids.map(MyBuyBidResponseDto::from);
@@ -367,16 +368,18 @@ public class BidService {
 
     // 판매입찰 조회
     @Transactional(readOnly = true)
-    public Page<MySaleBidResponseDto> getMySaleBids(String email, BidStatus status, Pageable pageable) {
+    public Page<MySaleBidResponseDto> getMySaleBids(String email, List<BidStatus> statuses, Pageable pageable) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
+        // 입찰 조회 (statuses 있으면 필터, 없으면 전체)
         Page<SaleBid> bids;
-        if (status == null) {
+        if (statuses == null || statuses.isEmpty()) {
             bids = saleBidRepository.findMySaleBidsAll(user.getUserId(), pageable);
+        } else if (statuses.size() == 1) {
+            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), statuses.getFirst(), pageable);
         } else {
-            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), status, pageable);
+            bids = saleBidRepository.findMySaleBidsByStatuses(user.getUserId(), statuses, pageable);
         }
 
         return bids.map(MySaleBidResponseDto::from);
