@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
 
 public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
 
@@ -112,12 +113,12 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     // ===== 마이페이지 판매입찰 조회 (N+1 방지) =====
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
-    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId ORDER BY s.createdAt DESC")
-    List<SaleBid> findMySaleBidsAll(@Param("userId") Long userId);
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId")
+    Page<SaleBid> findMySaleBidsAll(@Param("userId") Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
-    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status ORDER BY s.createdAt DESC")
-    List<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status")
+    Page<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status, Pageable pageable);
 
     // ====== 관리자 회원 상세 - 활성 판매입찰 건수 (MANAGER-004) ======
 

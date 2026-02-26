@@ -8,27 +8,27 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface StorageRequestRepository extends JpaRepository<StorageRequest, Long> {
 
-    // 사용자의 특정 상태 보관 신청 목록 조회 (최신순)
+    // 사용자의 특정 상태 보관 신청 목록 조회
     @Query("SELECT sr FROM StorageRequest sr " +
             "JOIN FETCH sr.product p " +
             "JOIN FETCH p.brand " +
             "LEFT JOIN FETCH p.images " +
-            "WHERE sr.user.userId = :userId AND sr.status = :status " +
-            "ORDER BY sr.createdAt DESC")
-    List<StorageRequest> findByUserIdAndStatus(@Param("userId") Long userId,
-                                               @Param("status") StorageRequestStatus status);
+            "WHERE sr.user.userId = :userId AND sr.status = :status")
+    Page<StorageRequest> findByUserIdAndStatus(@Param("userId") Long userId,
+                                               @Param("status") StorageRequestStatus status, Pageable pageable);
 
-    // 사용자의 전체 보관 신청 목록 조회 (최신순)
+    // 사용자의 전체 보관 신청 목록 조회
     @Query("SELECT sr FROM StorageRequest sr " +
             "JOIN FETCH sr.product p " +
             "JOIN FETCH p.brand " +
             "LEFT JOIN FETCH p.images " +
-            "WHERE sr.user.userId = :userId " +
-            "ORDER BY sr.createdAt DESC")
-    List<StorageRequest> findByUserId(@Param("userId") Long userId);
+            "WHERE sr.user.userId = :userId")
+    Page<StorageRequest> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
     // 본인 확인용 단건 조회
     @Query("SELECT sr FROM StorageRequest sr " +

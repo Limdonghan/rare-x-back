@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface StorageItemRepository extends JpaRepository<StorageItem, Long> {
 
@@ -18,9 +20,8 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
             "JOIN FETCH s.product p " +
             "JOIN FETCH p.brand " +
             "LEFT JOIN FETCH p.images " +
-            "WHERE s.user.userId = :userId " +
-            "ORDER BY s.storedAt DESC")
-    List<StorageItem> findByUserUserId(@Param("userId") Long userId);
+            "WHERE s.user.userId = :userId")
+    Page<StorageItem> findByUserUserId(@Param("userId") Long userId, Pageable pageable);
 
 
     StorageItem findByProduct(Product product);

@@ -16,6 +16,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 @RestController
 @RequestMapping("/api/storage")
@@ -39,31 +43,34 @@ public class StorageController {
 
     // 보관 신청 목록 조회 (전체 또는 상태별 필터링)
     @GetMapping("/requests")
-    public ResponseEntity<ApiResponse<List<StorageRequestResponseDto>>> getMyStorageRequests(
+    public ResponseEntity<ApiResponse<Page<StorageRequestResponseDto>>> getMyStorageRequests(
             @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) StorageRequestStatus status) {
 
-        List<StorageRequestResponseDto> response = storageRequestService.getMyStorageRequests(userDetails.getUsername(), status);
+        Page<StorageRequestResponseDto> response = storageRequestService.getMyStorageRequests(userDetails.getUsername(), status, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // 보관 중 상품 목록 조회
     @GetMapping("/items")
-    public ResponseEntity<ApiResponse<List<StorageItemResponseDto>>> getMyStorageItems(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Page<StorageItemResponseDto>>> getMyStorageItems(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "storedAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        List<StorageItemResponseDto> response = storageItemService.getMyStorageItems(userDetails.getUsername());
+        Page<StorageItemResponseDto> response = storageItemService.getMyStorageItems(userDetails.getUsername(), pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // 발송 대기 목록 조회 (PENDING 상태)
     @GetMapping("/pending")
-    public ResponseEntity<ApiResponse<List<StorageRequestResponseDto>>> getPendingStorageRequests(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Page<StorageRequestResponseDto>>> getPendingStorageRequests(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        List<StorageRequestResponseDto> response = storageRequestService.getPendingStorageRequests(userDetails.getUsername());
+        Page<StorageRequestResponseDto> response = storageRequestService.getPendingStorageRequests(userDetails.getUsername(), pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

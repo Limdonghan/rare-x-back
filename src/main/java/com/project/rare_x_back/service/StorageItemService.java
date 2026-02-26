@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Slf4j
 @Service
@@ -37,14 +39,14 @@ public class StorageItemService {
     private final SearchService searchService;
 
     // 보관 중 상품 목록 조회
-    public List<StorageItemResponseDto> getMyStorageItems(String userEmail) {
+    public Page<StorageItemResponseDto> getMyStorageItems(String userEmail, Pageable pageable) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        List<StorageItem> storageItems = storageItemRepository.findByUserUserId(user.getUserId());
+        Page<StorageItem> storageItems = storageItemRepository.findByUserUserId(user.getUserId(), pageable);
 
         // 해당 유저 보관함의 storageId 목록 추출
-        List<Long> userStorageIds = storageItems.stream()
+        List<Long> userStorageIds = storageItems.getContent().stream()
                 .map(StorageItem::getStorageId)
                 .toList();
 
@@ -54,12 +56,10 @@ public class StorageItemService {
                         InspectionStatus.RELEASE_REQUESTED, userStorageIds)
         );
 
-        return storageItems.stream()
-                .map(item -> StorageItemResponseDto.from(
-                        item,
-                        releaseRequestedIds.contains(item.getStorageId())
-                ))
-                .collect(Collectors.toList());
+        return storageItems.map(item -> StorageItemResponseDto.from(
+                item,
+                releaseRequestedIds.contains(item.getStorageId())
+        ));
     }
 
     // 보관 상품 반송 요청 (고객 요청)
