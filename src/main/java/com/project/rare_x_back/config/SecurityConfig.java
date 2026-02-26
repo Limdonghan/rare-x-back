@@ -5,6 +5,7 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -33,6 +34,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;  // JSON 변환용
 
+    @Value("${CSP_MODE:dev}")
+    private String cspMode;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -50,33 +54,10 @@ public class SecurityConfig {
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives(
-                                        // 같은 도메인만 허용
-                                        "default-src 'self'; " +
-                                                // 외부 JS 차단
-                                                "script-src 'self' " +
-                                                    "https://js.tosspayments.com " +
-                                                    "https://www.juso.go.kr " +
-                                                    "https://toss.im; " +
-                                                // CSS 인라인 스타일허용
-                                                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-                                                // 이미지 허용
-                                                "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
-                                                // 현재 사이트 도메인에서 제공하는 폰트만 허용
-                                                "font-src 'self' data: https://cdn.jsdelivr.net; " +
-                                                // API 통신
-                                                "connect-src 'self' " +
-                                                    "https://api.tosspayments.com " +
-                                                    "https://www.juso.go.kr " +
-                                                    "https://toss.im; " +
-                                                // ifrmae/popup
-                                                "frame-src 'self' " +
-                                                    "https://www.juso.go.kr " +
-                                                    "https://toss.im; " +
-                                                // 클릭재킹 방어
-                                                "frame-ancestors 'self';"
+                                        isProd() ? prodCsp() : devCsp()
                                 )
                         )
-                        .frameOptions(frame -> frame.sameOrigin()) // 클릭재킹 방어
+                        .frameOptions(frame -> frame.sameOrigin())
                 )
 
                 // URL별 권한 설정
@@ -159,6 +140,72 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+    // 운영 CSP
+    private String prodCsp() {
+        return
+                "default-src 'self'; " +
+
+                        "script-src 'self' " +
+                        "https://js.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+
+                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+
+                        "font-src 'self' data: https://cdn.jsdelivr.net; " +
+
+                        "connect-src 'self' " +
+                        "https://api.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-src 'self' " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-ancestors 'self';";
+    }
+
+    // 개발 CSP
+    private String devCsp() {
+        return
+                "default-src 'self'; " +
+
+                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+                        "https://js.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+
+                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+
+                        "font-src 'self' data: https://cdn.jsdelivr.net; " +
+
+                        "connect-src 'self' " +
+                        "http://localhost:8080 " +
+                        "http://localhost:5173 " +
+                        "ws://localhost:5173 " +
+                        "https://api.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-src 'self' " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-ancestors 'self';";
+    }
+
+    // prod 여부 판별 메서드
+    private boolean isProd() {
+        return "prod".equalsIgnoreCase(cspMode);
+    }
+
+
     // ✅ CORS 허용 설정 (모든 요청 허용)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
