@@ -34,8 +34,8 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증이 필요합니다"),
 
     // 이메일 인증 추가 필요
-    INVALID_VERIFICATION_CODE(HttpStatus.UNAUTHORIZED, "인증번호가 일치하지 않습니다"),
-    VERIFICATION_CODE_EXPIRED(HttpStatus.UNAUTHORIZED, "인증번호가 만료되었습니다"),
+    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "인증번호가 일치하지 않습니다"),
+    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "인증번호가 만료되었습니다"),
 
     // 상품 관련
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다"),
@@ -61,7 +61,7 @@ public enum ErrorCode {
     TEMP_PASSWORD_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 비밀번호가 만료되었습니다. 다시 발급받아 주세요."),
 
     // 비밀번호 변경 관련
-    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다"),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "기존 비밀번호와 동일한 비밀번호로 변경할 수 없습니다."),
     CURRENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "현재 비밀번호를 입력해주세요"),
 
     // 잘못된 요청
