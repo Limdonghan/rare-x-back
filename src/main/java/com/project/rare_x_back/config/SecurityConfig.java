@@ -161,7 +161,7 @@ public class SecurityConfig {
                         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
 
                         // 이미지 (S3)
-                        "img-src 'self' data: " +
+                        "img-src 'self' data: blob: " +
                         "https://4tential-rare-x.s3.amazonaws.com " +
                         "https://4tential-rare-x.s3.ap-northeast-2.amazonaws.com; " +
 
@@ -196,7 +196,9 @@ public class SecurityConfig {
 
                         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
 
-                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+                        "img-src 'self' data: blob: " +
+                        "https://4tential-rare-x.s3.amazonaws.com " +
+                        "https://4tential-rare-x.s3.ap-northeast-2.amazonaws.com; " +
 
                         "font-src 'self' data:;" +
 
