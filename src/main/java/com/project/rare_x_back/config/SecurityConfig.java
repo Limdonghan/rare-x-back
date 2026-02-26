@@ -34,7 +34,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;  // JSON 변환용
 
-    @Value("${CSP_MODE:dev}")
+    @Value("${CSP_MODE}")
     private String cspMode;
 
     @Bean
