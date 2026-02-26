@@ -3,6 +3,8 @@ package com.project.rare_x_back.repository;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.entity.StorageItem;
 import com.project.rare_x_back.enums.StorageStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,10 +19,8 @@ public interface StorageItemRepository extends JpaRepository<StorageItem, Long> 
     @Query("SELECT s FROM StorageItem s " +
             "JOIN FETCH s.product p " +
             "JOIN FETCH p.brand " +
-            "LEFT JOIN FETCH p.images " +
-            "WHERE s.user.userId = :userId " +
-            "ORDER BY s.storedAt DESC")
-    List<StorageItem> findByUserUserId(@Param("userId") Long userId);
+            "WHERE s.user.userId = :userId")
+    Page<StorageItem> findByUserUserId(@Param("userId") Long userId, Pageable pageable);
 
 
     StorageItem findByProduct(Product product);

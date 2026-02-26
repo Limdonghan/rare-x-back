@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
 
 public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
 
@@ -19,6 +20,11 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
 
     /// [추가] 상품별 상태별 가격순 조회
     List<SaleBid> findByProductAndStatusOrderByPriceAsc(Product product, BidStatus status);
+
+    long countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
+            Long productId,
+            BidStatus status
+    );
 
     // 즉시 구매용
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -93,6 +99,7 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
            """)
     List<StorageProductResponseDto> findStorageProducts(@Param("status") BidStatus status);
 
+    // DB에 직접 UPDATE 쿼리 실행 (벌크 연산)
     @Modifying
     @Query("UPDATE SaleBid sb SET sb.status = :cancelStatus " +
             "WHERE sb.storageItem.storageId = :storageId " +
@@ -106,12 +113,16 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
     // ===== 마이페이지 판매입찰 조회 (N+1 방지) =====
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
-    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId ORDER BY s.createdAt DESC")
-    List<SaleBid> findMySaleBidsAll(@Param("userId") Long userId);
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId")
+    Page<SaleBid> findMySaleBidsAll(@Param("userId") Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
-    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status ORDER BY s.createdAt DESC")
-    List<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status = :status")
+    Page<SaleBid> findMySaleBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
+    @Query("SELECT s FROM SaleBid s WHERE s.user.userId = :userId AND s.status IN :statuses")
+    Page<SaleBid> findMySaleBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses, Pageable pageable);
 
     // ====== 관리자 회원 상세 - 활성 판매입찰 건수 (MANAGER-004) ======
 

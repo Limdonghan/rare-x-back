@@ -31,6 +31,11 @@ public class Inspection {
     @JoinColumn(name = "storage_request_id")
     private StorageRequest storageRequest;
 
+    // 반송용 (NULL 가능)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "storage_id")
+    private StorageItem storageItem;
+
     // 검수 담당자 (관리자)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -58,10 +63,11 @@ public class Inspection {
     private LocalDateTime inspectedAt;
 
     @Builder
-    public Inspection(Order order, StorageRequest storageRequest, User user,
+    public Inspection(Order order, StorageRequest storageRequest, StorageItem storageItem, User user,
                       InspectionType type, InspectionStatus status) {
         this.order = order;
         this.storageRequest = storageRequest;
+        this.storageItem = storageItem;
         this.user = user;
         this.type = type;
         this.status = status;

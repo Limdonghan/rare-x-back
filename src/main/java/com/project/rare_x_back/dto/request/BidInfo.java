@@ -11,6 +11,20 @@ import lombok.NoArgsConstructor;
 public class BidInfo {
     private int price;   // 가격
     private long quantity; // 수량
+
     @JsonProperty("isMine")
     private boolean isMine;
+
+    @JsonProperty("isStorageSale")
+    private boolean isStorageSale = false;
+
+    private long storageQuantity;
+
+    public BidInfo(int price, long quantity, boolean isMine) {
+        this.price = price;
+        this.quantity = quantity;
+        this.isMine = isMine;
+        this.isStorageSale = false;
+        this.storageQuantity=0;
+    }
 }

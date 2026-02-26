@@ -29,6 +29,16 @@ public class PaymentController {
     }
 
     /**
+     * [카드 삭제 API]
+     * 해당 유저를 검증 후 유저가 등록한 빌링키를 찾아 삭제
+     */
+    @DeleteMapping("/billing")
+    public ApiResponse<?> deleteBillingKey (@AuthenticationPrincipal CustomUserDetails userDetails) {
+        paymentService.deleteBillingKey(userDetails.getUsername());
+        return ApiResponse.success("빌링키 삭제 완료");
+    }
+
+    /**
      * [자동 결제 요청 API]
      * 등록된 카드로 즉시 결제를 진행
      * 요청 예시: POST /api/payments/billing/pay?email=buyer1@test.com

@@ -464,6 +464,45 @@ public class InspectionService {
         orderService.updateOrderStatus(inspection.getOrder(), CurrentStatus.SHIPPED);
     }
 
+    /**
+     * 반송 처리 (RELEASE_REQUESTED → RELEASE_COMPLETED)
+     * - 관리자가 반송 처리 버튼 클릭 시 호출
+     * - StorageItem 상태를 RELEASED로 변경
+     */
+    @Transactional
+    public InspectionResponseDto processRelease(Long inspectionId) {
+        // 1. 검수 조회
+        Inspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+
+        // 2. 반송 건인지 확인
+        if (inspection.getType() != InspectionType.RELEASE) {
+            throw new CustomException(ErrorCode.BAD_REQUEST, "반송 건만 반송 처리할 수 있습니다.");
+        }
+
+        // 3. 상태 확인
+        if (inspection.getStatus() != InspectionStatus.RELEASE_REQUESTED) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "반송 요청 상태에서만 반송 처리가 가능합니다.");
+        }
+
+        // 4. StorageItem 조회 및 상태 변경
+        StorageItem storageItem = inspection.getStorageItem();
+        if (storageItem == null) {
+            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 상품 정보를 찾을 수 없습니다.");
+        }
+        storageItem.updateStatus(StorageStatus.RETURNED);
+
+        // 5. Inspection 상태 변경
+        inspection.updateStatus(InspectionStatus.RELEASE_COMPLETED);
+
+        // 6. Typesense 인덱싱
+        searchService.indexInspection(inspection);
+
+        log.info("반송 처리 완료: inspectionId={}, storageId={}", inspectionId, storageItem.getStorageId());
+
+        return InspectionResponseDto.from(inspection);
+    }
+
     // ============================================
     // 일괄 처리 메서드
     // ============================================

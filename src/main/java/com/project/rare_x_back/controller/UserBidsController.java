@@ -8,14 +8,16 @@ import com.project.rare_x_back.dto.response.MyBuyBidResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidMatchedResponseDto;
 import com.project.rare_x_back.dto.response.MySaleBidResponseDto;
 import com.project.rare_x_back.enums.BidStatus;
-import com.project.rare_x_back.enums.CurrentStatus;
 import com.project.rare_x_back.service.BidService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,38 +31,42 @@ public class UserBidsController {
 
     // 구매 입찰 목록 조회
     @GetMapping("/buybid")
-    public ResponseEntity<ApiResponse<List<MyBuyBidResponseDto>>> getMyBuyBids(
+    public ResponseEntity<ApiResponse<Page<MyBuyBidResponseDto>>> getMyBuyBids(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) BidStatus status){
-        List<MyBuyBidResponseDto> response = bidService.getMyBuyBids(userDetails.getEmail(), status);
-        return ResponseEntity.ok(ApiResponse.success(response));
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) List<BidStatus> statuses){
+        Page<MyBuyBidResponseDto> myBuyBids = bidService.getMyBuyBids(userDetails.getEmail(), statuses, pageable);
+        return ResponseEntity.ok(ApiResponse.success(myBuyBids));
     }
 
     // 판매 입찰 목록 조회
     @GetMapping("/salebid")
-    public ResponseEntity<ApiResponse<List<MySaleBidResponseDto>>> getMySaleBids (
+    public ResponseEntity<ApiResponse<Page<MySaleBidResponseDto>>> getMySaleBids (
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) BidStatus status) {
-        List<MySaleBidResponseDto> response = bidService.getMySaleBids(userDetails.getEmail(), status);
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) List<BidStatus> statuses) {
+        Page<MySaleBidResponseDto> response = bidService.getMySaleBids(userDetails.getEmail(), statuses, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // 판매 입찰 목록 조회 - 체결됨
     @GetMapping("/salebid/matched")
-    public ResponseEntity<ApiResponse<List<MySaleBidMatchedResponseDto>>> getMySaleBidMatched(
+    public ResponseEntity<ApiResponse<Page<MySaleBidMatchedResponseDto>>> getMySaleBidMatched(
             @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String orderStatus) {
-        List<MySaleBidMatchedResponseDto> response = bidService.getMySaleBidMatched(
-                userDetails.getEmail(), orderStatus);
+        Page<MySaleBidMatchedResponseDto> response = bidService.getMySaleBidMatched(
+                userDetails.getEmail(), orderStatus, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // 구매 입찰 목록 조회 - 체결됨
     @GetMapping("/buybid/matched")
-    public ResponseEntity<ApiResponse<List<MyBuyBidMatchedResponseDto>>> getMyBuyBidMatched(
-            @AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<ApiResponse<Page<MyBuyBidMatchedResponseDto>>> getMyBuyBidMatched(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String orderStatus) {
-        List<MyBuyBidMatchedResponseDto> result = bidService.getMyBuyBidMatched(userDetails.getUsername(), orderStatus);
+        Page<MyBuyBidMatchedResponseDto> result = bidService.getMyBuyBidMatched(userDetails.getEmail(), orderStatus, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

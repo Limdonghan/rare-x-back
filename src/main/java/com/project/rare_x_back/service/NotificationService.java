@@ -140,6 +140,16 @@ public class NotificationService {
     }
 
     /**
+     * 특정 사용자 알림 모두 읽음 처리
+     * 프론트엔드에서 n번의 단건 API 요청이 들어오는 대신,
+     * 한 번의 요청으로 사용자의 모든 미확인 알림을 읽음 처리(isRead = true)
+     */
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        notificationRepository.markAllAsRead(userId);
+    }
+
+    /**
      * 주기적으로(1분마다) Heartbeat 전송하여 503 에러 및 타임아웃 방지
      */
     @Scheduled(fixedRate = 60 * 1000)

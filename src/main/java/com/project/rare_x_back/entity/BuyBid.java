@@ -32,7 +32,7 @@ public class BuyBid {
     @JoinColumn(name = "product_id")
     private Product product;              /// 구매 상품
   
-    @Column(name = "address_id", nullable = false)
+    @Column(name = "address_id", nullable = true)
     private Long addressId;
 
     @Column(name = "price")

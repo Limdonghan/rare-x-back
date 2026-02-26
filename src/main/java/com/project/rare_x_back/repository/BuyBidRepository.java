@@ -4,11 +4,9 @@ import com.project.rare_x_back.entity.BuyBid;
 import com.project.rare_x_back.entity.Product;
 import com.project.rare_x_back.enums.BidStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -58,6 +56,14 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
             Pageable pageable
     );
 
+    // 특정 주소를 참조하는 OPEN 입찰 존재 여부 체크
+    boolean existsByAddressIdAndStatus(Long addressId, BidStatus status);
+
+    // 종료된 입찰의 address_id를 NULL로 일괄 업데이트
+    @Modifying
+    @Query("UPDATE BuyBid b SET b.addressId = null WHERE b.addressId = :addressId AND b.status IN :statuses")
+    void nullifyAddressByAddressId(@Param("addressId") Long addressId,
+                                   @Param("statuses") List<BidStatus> statuses);
 
     // WISH-001 상품별 최저가 배치 조회 : 여러 상품의 최저가를 한 번에 계산해서 가져오는 JPQL
     @Query("SELECT s.product.productId, MAX(s.price) FROM BuyBid s " +
@@ -71,15 +77,17 @@ public interface BuyBidRepository extends JpaRepository<BuyBid, Long> {
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsAll(@Param("userId") Long userId);
+    Page<BuyBid> findMyBuyBidsAll(@Param("userId") Long userId,
+                                  Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId AND b.status = :status ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status);
+    Page<BuyBid> findMyBuyBidsByStatus(@Param("userId") Long userId, @Param("status") BidStatus status,
+                                       Pageable pageable);
 
     @EntityGraph(attributePaths = {"product", "product.brand", "product.images"})
     @Query("SELECT b FROM BuyBid b WHERE b.user.userId = :userId AND b.status IN :statuses ORDER BY b.createdAt DESC")
-    List<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses);
+    Page<BuyBid> findMyBuyBidsByStatuses(@Param("userId") Long userId, @Param("statuses") List<BidStatus> statuses, Pageable pageable);
 
     // ====== 관리자 회원 상세 - 활성 구매입찰 건수 (MANAGER-004) ======
 

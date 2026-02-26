@@ -276,6 +276,12 @@ public class OrderService {
             );
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
+        } else if ("PASSED".equals(status)) {
+            // 발송 전 (검수 합격 상태)
+            List<CurrentStatus> statuses = List.of(
+                    CurrentStatus.PASSED
+            );
+            orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
         } else {
             // 전체
             orders = orderRepository.findByBuyer_UserId(userId, pageable);
@@ -476,6 +482,11 @@ public class OrderService {
             // 취소·반송
             orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId, List.of(CurrentStatus.CANCELLED, CurrentStatus.RETURN), null, pageable
+            );
+        } else if ("PASSED".equals(status)) {
+            // 발송 전 (검수 합격 상태)
+            orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
+                    userId, List.of(CurrentStatus.PASSED), null, pageable
             );
         } else {
             // 전체

@@ -302,6 +302,11 @@ public class SearchService {
                         ? inspection.getStorageRequest().getProduct().getProductName() : "";
                 sellerName = inspection.getStorageRequest().getUser() != null
                         ? inspection.getStorageRequest().getUser().getName() : "";
+            } else if (inspection.getStorageItem() != null) {
+                productName = inspection.getStorageItem().getProduct() != null
+                        ? inspection.getStorageItem().getProduct().getProductName() : "";
+                sellerName = inspection.getStorageItem().getUser() != null
+                        ? inspection.getStorageItem().getUser().getName() : "";
             }
 
             Map<String, Object> document = new HashMap<>();
@@ -496,6 +501,15 @@ public class SearchService {
             for (SearchResultHit hit : result.getHits()) {
                 try {
                     Map<String, Object> doc = hit.getDocument();
+
+                    LocalDateTime createdAt = null;
+                    if (doc.get("created_at") != null) {
+                        long epoch = ((Number) doc.get("created_at")).longValue();
+                        createdAt = LocalDateTime.ofInstant(
+                                java.time.Instant.ofEpochSecond(epoch),
+                                java.time.ZoneId.systemDefault());
+                    }
+
                     items.add(InspectionSearchResponseDto.builder()
                             .inspectionId(doc.get("inspection_id") != null ? ((Number) doc.get("inspection_id")).longValue() : 0L)
                             .productName((String) doc.getOrDefault("product_name", ""))
@@ -503,6 +517,7 @@ public class SearchService {
                             .inspectorName((String) doc.getOrDefault("inspector_name", ""))
                             .type((String) doc.getOrDefault("type", ""))
                             .status((String) doc.getOrDefault("status", ""))
+                            .createdAt(createdAt)
                             .build());
                 } catch (Exception e) {
                     log.error("검수 DTO 변환 실패: {}", e.getMessage());
