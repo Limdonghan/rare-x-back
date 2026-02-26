@@ -52,12 +52,16 @@ public class SecurityConfig {
 
                 //  CSP 및 보안 헤더 추가
                 .headers(headers -> headers
+                        // CSP
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives(
                                         isProd() ? prodCsp() : devCsp()
                                 )
                         )
+                        // 클릭 재킹 방어
                         .frameOptions(frame -> frame.sameOrigin())
+                        // MIME Sniffing 방어
+                        .contentTypeOptions(contentType -> {})
                 )
 
                 // URL별 권한 설정
