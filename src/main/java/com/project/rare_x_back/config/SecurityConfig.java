@@ -5,8 +5,10 @@ import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -33,6 +35,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;  // JSON 변환용
 
+    @Value("${csp.mode}")
+    private String cspMode;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -44,6 +49,20 @@ public class SecurityConfig {
                 // 세션 사용 안 함 (JWT 사용)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                //  CSP 및 보안 헤더 추가
+                .headers(headers -> headers
+                        // CSP
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives(
+                                        isProd() ? prodCsp() : devCsp()
+                                )
+                        )
+                        // 클릭 재킹 방어
+                        .frameOptions(frame -> frame.sameOrigin())
+                        // MIME Sniffing 방어
+                        .contentTypeOptions(Customizer.withDefaults())
                 )
 
                 // URL별 권한 설정
@@ -126,20 +145,120 @@ public class SecurityConfig {
 
         return http.build();
     }
-    // ✅ CORS 허용 설정 (모든 요청 허용)
+
+    // 운영 CSP
+    private String prodCsp() {
+        return
+                "default-src 'self'; " +
+
+                        // 외부 스크립트 허용
+                        "script-src 'self' " +
+                        "https://js.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        // 스타일 (Tailwind + 일부 inline 허용)
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+
+                        // 이미지 (S3)
+                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+
+                        // 폰트 (로컬만)
+                        "font-src 'self' data:; " +
+
+                        // API 통신
+                        "connect-src 'self' " +
+                        "https://api.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        // iframe / popup
+                        "frame-src 'self' " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        // 클릭재킹 방어
+                        "frame-ancestors 'self';";
+    }
+
+    // 개발 CSP
+    private String devCsp() {
+        return
+                "default-src 'self'; " +
+
+                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+                        "https://js.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+
+                        "img-src 'self' data: https://4tential-rare-x.s3.amazonaws.com; " +
+
+                        "font-src 'self' data:;" +
+
+                        "connect-src 'self' " +
+                        "http://localhost:8080 " +
+                        "http://localhost:5173 " +
+                        "ws://localhost:5173 " +
+                        "https://api.tosspayments.com " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-src 'self' " +
+                        "https://www.juso.go.kr " +
+                        "https://toss.im; " +
+
+                        "frame-ancestors 'self';";
+    }
+
+    // prod 여부 판별 메서드
+    private boolean isProd() {
+        return "prod".equalsIgnoreCase(cspMode);
+    }
+
+
+    // CORS 설정: 환경별로 지정된 Origin만 허용
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:5500")); // 프론트엔드 주소 (필요시 "*"로 변경 가능하지만 credentials true일 땐 구체적이어야 함)
-        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (테스트용)
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 환경 분기
+        if (isProd()) {
+
+            // 운영
+            config.setAllowedOrigins(List.of(
+                    "https://rarex.club",
+                    "https://www.rarex.club"
+            ));
+
+        } else {
+
+            // 개발
+            config.setAllowedOrigins(List.of(
+                    "http://localhost:5173",
+                    "http://localhost:3000"
+            ));
+        }
+
+        config.setAllowedMethods(List.of(
+                "GET","POST","PUT","DELETE","PATCH","OPTIONS"
+        ));
+
+        config.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
+
+
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
