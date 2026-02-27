@@ -172,11 +172,16 @@ public class SecurityConfig {
                         "connect-src 'self' " +
                         "https://api.rarex.club " +
                         "https://api.tosspayments.com " +
+                        "https://api-sandbox.tosspayments.com " +  // ← 추가
+                        "https://event.tosspayments.com " +         // ← 추가
+                        "https://log.tosspayments.com " +           // ← 추가
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
                         // iframe / popup
                         "frame-src 'self' " +
+                        "https://js.tosspayments.com " +            // ← 추가
+                        "https://api-sandbox.tosspayments.com " +   // ← 추가
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
