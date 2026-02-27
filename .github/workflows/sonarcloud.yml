@@ -3,7 +3,7 @@ name: SonarCloud Code Analysis
 on:
   push:
     branches:
-      - develop
+      - master
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -36,18 +36,25 @@ jobs:
           # 빌드와 함께 SonarCloud 분석을 수행합니다.
           ./gradlew build sonar --info
 
-      # 4. SonarQube Cloud 이슈 리포트 추출
-      - name: SonarQube Cloud 이슈 리포트 추출
+      # 4. [수정됨] SonarCloud 이슈 리포트 추출 및 CSV 자동 변환
+      - name: SonarCloud 이슈 리포트 추출 및 CSV 변환
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PROJECT_KEY: "Limdonghan_rare-x-back"
         run: |
-          curl -u "$SONAR_TOKEN:" \
-          "https://sonarcloud.io/api/issues/search?componentKeys=$PROJECT_KEY&ps=500" > sonar-issues.json
+          # 1. API를 찔러서 JSON 데이터를 가져오기 (-s 옵션으로 쓸데없는 로그 숨김)
+          curl -s -u "$SONAR_TOKEN:" \
+          "https://sonarcloud.io/api/issues/search?componentKeys=$PROJECT_KEY&ps=500" > temp-issues.json
+          
+          # 2. CSV 파일의 맨 첫 줄(헤더) 생성
+          echo "심각도,유형,상태,메시지,파일위치" > RARE-X-Security-Report.csv
+          
+          # 3. jq 툴을 이용해 JSON 알맹이만 빼서 CSV 포맷으로 변환
+          jq -r '.issues[]? | [.severity, .type, .status, .message, .component] | @csv' temp-issues.json >> RARE-X-Security-Report.csv
 
-      # 5. 추출된 리포트를 Artifact로 저장
+      # 5. [수정됨] 변환된 CSV 파일을 Artifact로 저장
       - name: 추출된 리포트를 Artifact로 저장
         uses: actions/upload-artifact@v4
         with:
           name: RARE-X-Security-Report
-          path: sonar-issues.json
+          path: RARE-X-Security-Report.csv
