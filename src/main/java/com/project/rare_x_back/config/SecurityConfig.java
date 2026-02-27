@@ -173,6 +173,7 @@ public class SecurityConfig {
                         "https://api.rarex.club " +
                         "https://api.tosspayments.com " +
                         "https://api-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
                         "https://event.tosspayments.com " +
                         "https://log.tosspayments.com " +
                         "https://www.juso.go.kr " +
@@ -182,6 +183,7 @@ public class SecurityConfig {
                         "frame-src 'self' " +
                         "https://js.tosspayments.com " +
                         "https://api-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
                         "https://tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
@@ -212,11 +214,20 @@ public class SecurityConfig {
                         "http://localhost:8080 " +
                         "http://localhost:5173 " +
                         "ws://localhost:5173 " +
+                        "https://api.rarex.club " +
                         "https://api.tosspayments.com " +
+                        "https://api-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
+                        "https://event.tosspayments.com " +
+                        "https://log.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
                         "frame-src 'self' " +
+                        "https://js.tosspayments.com " +
+                        "https://api-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
+                        "https://tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
