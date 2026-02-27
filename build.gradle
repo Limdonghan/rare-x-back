@@ -71,6 +71,7 @@ tasks.named('test') {
 sonar {
 	properties {
 		property "sonar.projectKey", "Limdonghan_rare-x-back"
+		property "sonar.organization", "limdonghan"
 		property "sonar.host.url", "https://sonarcloud.io"
 	}
 }
