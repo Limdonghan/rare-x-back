@@ -171,13 +171,22 @@ public class SecurityConfig {
                         // API 통신
                         "connect-src 'self' " +
                         "https://api.rarex.club " +
-                        "https://*.tosspayments.com " +   // ← 토스 전체 와일드카드
+                        "https://api.tosspayments.com " +
+                        "https://api-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
+                        "https://payment-gateway-sandbox.tosspayments.com " +
+                        "https://event.tosspayments.com " +
+                        "https://log.tosspayments.com " +
+                        "https://pay.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
                         // iframe / popup
                         "frame-src 'self' " +
-                        "https://*.tosspayments.com " +   // ← 토스 전체 와일드카드
+                        "https://js.tosspayments.com " +
+                        "https://pay.tosspayments.com " +
+                        "https://payment-gateway-sandbox.tosspayments.com " +
+                        "https://apigw-sandbox.tosspayments.com " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
