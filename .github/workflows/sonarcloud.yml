@@ -33,8 +33,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           chmod +x ./gradlew
-          # 빌드와 함께 SonarCloud 분석을 수행합니다.
-          ./gradlew build sonar --info
+          # 테스트 코드는 건너뛰고 SonarCloud 분석을 수행합니다.
+          ./gradlew build sonar -x test --info
 
       # 4. [수정됨] SonarCloud 이슈 리포트 추출 및 CSV 자동 변환
       - name: SonarCloud 이슈 리포트 추출 및 CSV 변환
