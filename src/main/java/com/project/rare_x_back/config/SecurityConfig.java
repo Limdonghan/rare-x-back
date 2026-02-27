@@ -187,6 +187,7 @@ public class SecurityConfig {
                         "https://pay.tosspayments.com " +
                         "https://payment-gateway-sandbox.tosspayments.com " +
                         "https://apigw-sandbox.tosspayments.com " +
+                        "https://postcode.map.daum.net " +
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
