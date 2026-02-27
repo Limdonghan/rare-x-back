@@ -171,20 +171,13 @@ public class SecurityConfig {
                         // API 통신
                         "connect-src 'self' " +
                         "https://api.rarex.club " +
-                        "https://api.tosspayments.com " +
-                        "https://api-sandbox.tosspayments.com " +
-                        "https://apigw-sandbox.tosspayments.com " +
-                        "https://event.tosspayments.com " +
-                        "https://log.tosspayments.com " +
+                        "https://*.tosspayments.com " +   // ← 토스 전체 와일드카드
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
                         // iframe / popup
                         "frame-src 'self' " +
-                        "https://js.tosspayments.com " +
-                        "https://api-sandbox.tosspayments.com " +
-                        "https://apigw-sandbox.tosspayments.com " +
-                        "https://tosspayments.com " +
+                        "https://*.tosspayments.com " +   // ← 토스 전체 와일드카드
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
@@ -215,19 +208,12 @@ public class SecurityConfig {
                         "http://localhost:5173 " +
                         "ws://localhost:5173 " +
                         "https://api.rarex.club " +
-                        "https://api.tosspayments.com " +
-                        "https://api-sandbox.tosspayments.com " +
-                        "https://apigw-sandbox.tosspayments.com " +
-                        "https://event.tosspayments.com " +
-                        "https://log.tosspayments.com " +
+                        "https://*.tosspayments.com " +   // ← 와일드카드
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
                         "frame-src 'self' " +
-                        "https://js.tosspayments.com " +
-                        "https://api-sandbox.tosspayments.com " +
-                        "https://apigw-sandbox.tosspayments.com " +
-                        "https://tosspayments.com " +
+                        "https://*.tosspayments.com " +   // ← 와일드카드
                         "https://www.juso.go.kr " +
                         "https://toss.im; " +
 
