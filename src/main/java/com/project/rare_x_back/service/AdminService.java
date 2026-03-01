@@ -41,16 +41,10 @@ public class AdminService {
     public Long createProduct(ProductCreateRequestDto productCreateRequestDto) {
 
         Brand brand = brandRepository.findById(productCreateRequestDto.getBrandId())
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "존재하지 않는 브랜드 입니다."
-                        ));
+                .orElseThrow(() -> new CustomException(ErrorCode.BRAND_NOT_FOUND));
 
         Category category = categoryRepository.findById(productCreateRequestDto.getCategoryId())
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "존재하지 않는 카테고리 입니다."
-                        ));
+                .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
 
         Product product = Product.builder()
                 .productName(productCreateRequestDto.getProductName())
@@ -68,10 +62,8 @@ public class AdminService {
     //상품 이미지 등록 (DB저장 실패 시 S3 롤백 로직 추가)
     public List<String> saveProductImage(Long productId, List<MultipartFile> images) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "상품을 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
         //저장된 url 담을 빈그릇 생성
         List<String> uploadUrls = new ArrayList<>(); //s3업로드 성공
         List<String> saveUrls = new ArrayList<>(); //
@@ -144,10 +136,7 @@ public class AdminService {
     public ProductResponseDto getDetailProduct(Long productId){
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
                 .orElseThrow(()->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "상품을 찾을 수 없습니다."
-                        ));
+                        new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
         // 이미지 객체 리스트를 URL만 있는 문자열 리스트로 변환
         List<String> imageUrls = product.getImages().stream()
@@ -171,27 +160,19 @@ public class AdminService {
     ){
         //수정할 상품 존재여부 확인
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
-                .orElseThrow(()->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "상품을 찾을 수 없습니다."
-                        ));
+                .orElseThrow(()-> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
         //수정된 값만 json채워 보내주고, 수정안된 값은 null로 채움
         Brand brand = null;
         if (productUpdateRequestDto.getBrandId() != null) {
             brand = brandRepository.findById(productUpdateRequestDto.getBrandId())
-                    .orElseThrow(() -> new CustomException(
-                            ErrorCode.RESOURCE_NOT_FOUND,
-                            "존재하지 않는 브랜드입니다."
-                    ));
+                    .orElseThrow(() -> new CustomException(ErrorCode.BRAND_NOT_FOUND));
         }
 
         Category category = null;
         if (productUpdateRequestDto.getCategoryId() != null) {
             category = categoryRepository.findById(productUpdateRequestDto.getCategoryId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND,
-                            "존재하지 않는 카테고리 입니다."
-                    ));
+                    .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
         }
         //엔티티 업데이트
         product.updateProductInfo(
@@ -233,11 +214,8 @@ public class AdminService {
     public void deleteProduct (Long productId) {
 
         Product product = productRepository.findByProductIdAndIsDeletedFalse(productId)
-                .orElseThrow(() ->
-                        new CustomException(
-                                ErrorCode.RESOURCE_NOT_FOUND,
-                                "상품을 찾을 수 없습니다."
-                        ));
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
         //s3에서 실제 파일 삭제 (반드시 s3이미지 부터 지워야 함)
         if(product.getImages() != null) {
             for (ProductImage productImage : product.getImages()) {
@@ -294,17 +272,15 @@ public class AdminService {
     //카테고리 수정
     public void updateCategory (CategoryUpdateRequestDto categoryUpdateRequestDto, Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "카테고리를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
+
         category.updateCategoryInfo(categoryUpdateRequestDto.getCategoryName());
     }
 
     //카테고리 삭제
     public void deleteCategory (Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "카테고리를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
 
         // 상품 연결 체크
         long productCount = productRepository.countByCategory_CategoryIdAndIsDeletedFalse(categoryId);
@@ -365,7 +341,7 @@ public class AdminService {
     //브랜드 삭제
     public void deleteBrand(Long brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "브랜드를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
 
         // 상품 연결 체크
         long productCount = productRepository.countByBrand_BrandIdAndIsDeletedFalse(brandId);
@@ -381,7 +357,7 @@ public class AdminService {
     public void bulkDeleteCategories(List<Long> categoryIds) {
         List<Category> categories = categoryRepository.findAllById(categoryIds);
         if (categories.size() != categoryIds.size()) {
-            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 카테고리가 포함되어 있습니다.");
+            throw new CustomException(ErrorCode.CATEGORY_NOT_FOUND);
         }
 
         List<Long> linkedIds = productRepository.findCategoryIdsWithProducts(categoryIds);
@@ -401,7 +377,7 @@ public class AdminService {
     public void bulkDeleteBrands(List<Long> brandIds) {
         List<Brand> brands = brandRepository.findAllById(brandIds);
         if (brands.size() != brandIds.size()) {
-            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 브랜드가 포함되어 있습니다.");
+            throw new CustomException(ErrorCode.BRAND_NOT_FOUND);
         }
 
         List<Long> linkedIds = productRepository.findBrandIdsWithProducts(brandIds);

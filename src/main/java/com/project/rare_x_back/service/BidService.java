@@ -423,7 +423,7 @@ public class BidService {
 
     // CurrentStatus 매핑 (통계 탭 별 상태 그룹핑)
     private List<CurrentStatus> parseAndMapToStatuses(String filterStatusStr) {
-        if ("BEFORE_SHIPPING".equals(filterStatusStr)) {
+        if (OrderService.TAB_BEFORE_SHIPPING.equals(filterStatusStr)) {
             return List.of(CurrentStatus.PASSED);
         }
         
@@ -577,7 +577,6 @@ public class BidService {
     }
 
     // 판매 입찰 기준 매칭 메소드
-    @Transactional
     public void attemptMatchForSaleBid(SaleBid saleBid) {
         // 이미 처리된 입찰 거름
         if (saleBid.getStatus() != BidStatus.OPEN) return;

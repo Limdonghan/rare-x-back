@@ -10,7 +10,9 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,19 @@ public class OrderService {
     private final PaymentHistoryRepository paymentHistoryRepository;
     private final NotificationService notificationService;
     private final StorageItemRepository storageItemRepository;
+
+    @Autowired
+    @Lazy
+    private OrderService self;
+
+    // 프론트엔드 발송 전 필터 탭 식별용 상수
+    public static final String TAB_BEFORE_SHIPPING = "BEFORE_SHIPPING";
+
+    public static final String ORDER_NUMBER_FORMAT ="ORD-%08d";
+
+    // 역할 식별용 상수
+    public static final String ROLE_BUYER = "BUYER";
+    public static final String ROLE_SELLER = "SELLER";
 
 
     @Value("${app.service-start-date}")
@@ -140,7 +155,7 @@ public class OrderService {
     public void userConfirmPurchase(Long orderId, Long buyerId) {
         // 주문 조회
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         // 구매자가 아니면 권한 없음
         if (!order.getBuyer().getUserId().equals(buyerId)) {
@@ -174,14 +189,14 @@ public class OrderService {
     public void deliveryComplete (Long orderId) {
         // 1. 주문 조회
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         //2. 상태가 검수 통과 후 발송한 상태인지 확인
         if (order.getCurrentStatus() != CurrentStatus.SHIPPED) {
             throw new CustomException(ErrorCode.BAD_REQUEST, "발송된 주문이 아닙니다.");
         }
         // 주문 상태 변경 및 주문 이력 저장
-        updateOrderStatus(order, CurrentStatus.DELIVERED);
+        self.updateOrderStatus(order, CurrentStatus.DELIVERED);
     }
 
     // 관리자 보관 주문 발송 처리 (PASSED → SHIPPED)
@@ -189,7 +204,7 @@ public class OrderService {
     public void shipStorageOrder(Long orderId) {
         // 1. 주문 조회
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         // 2. PASSED 상태 확인
         // (참고: 보관 상품은 이미 과거에 창고 입고될 때 검수를 통과해서 들어온 상품이므로
@@ -205,7 +220,7 @@ public class OrderService {
         }
 
         // 4. Order 상태 변경 PASSED → SHIPPED
-        updateOrderStatus(order, CurrentStatus.SHIPPED);
+        self.updateOrderStatus(order, CurrentStatus.SHIPPED);
 
         // 5. StorageItem 상태를 RELEASED(출고완료)로 변경
         // - SOLD는 이미 입찰 매칭(BidService) 시점에 처리됨
@@ -238,7 +253,7 @@ public class OrderService {
                         String.format("주문 %d은(는) 발송 상태가 아닙니다. (현재: %s)",
                                 order.getOrderId(), order.getCurrentStatus()));
             }
-            updateOrderStatus(order, CurrentStatus.DELIVERED);
+            self.updateOrderStatus(order, CurrentStatus.DELIVERED);
         }
     }
 
@@ -269,7 +284,7 @@ public class OrderService {
             );
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(userId, statuses, pageable);
 
-        } else if ("BEFORE_SHIPPING".equals(status)) {
+        } else if (TAB_BEFORE_SHIPPING.equals(status)) {
             // 구매자 입장에서 발송 전 (판매자가 아직 발송 안 한 상태)
             List<CurrentStatus> statuses = List.of(
                     CurrentStatus.PENDING
@@ -318,7 +333,7 @@ public class OrderService {
 
         return BuyingOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -345,7 +360,7 @@ public class OrderService {
         if (order.getCurrentStatus() == CurrentStatus.CANCELLED) {
             cancelledBy = historyRepository
                     .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
-                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .map(h -> h.getDescription().contains("구매자") ? ROLE_BUYER : ROLE_SELLER)
                     .orElse(null);
         }
 
@@ -398,7 +413,7 @@ public class OrderService {
 
         return BuyingOrderDetailResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .currentStatus(order.getCurrentStatus().name())
                 .productId(order.getProduct().getProductId())
@@ -451,7 +466,7 @@ public class OrderService {
                     List.of(CurrentStatus.SHIPPED_TO_WAREHOUSE, CurrentStatus.PENDING_INSPECTION, CurrentStatus.INSPECTING),
                     null, pageable
             );
-        } else if ("BEFORE_SHIPPING".equals(status)) {
+        } else if (TAB_BEFORE_SHIPPING.equals(status)) {
             // 발송 전 (판매자가 상품을 발송해야 하는 상태)
             orders = orderRepository.findBySellerAndStatusWithInspectionCheck(
                     userId, List.of(CurrentStatus.PENDING), null, pageable
@@ -537,7 +552,7 @@ public class OrderService {
 
         return SellingOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -569,11 +584,11 @@ public class OrderService {
             // OrderHistory description으로 취소 주체 판별
             cancelledBy = historyRepository
                     .findTopByOrderAndCurrentStatusOrderByCreatedAtDesc(order, CurrentStatus.CANCELLED)
-                    .map(h -> h.getDescription().contains("구매자") ? "BUYER" : "SELLER")
+                    .map(h -> h.getDescription().contains("구매자") ? ROLE_BUYER : ROLE_SELLER)
                     .orElse(null);
 
             // 구매자 취소인 경우 UserPenalty에서 보상금 조회
-            if ("BUYER".equals(cancelledBy)) {
+            if (ROLE_BUYER.equals(cancelledBy)) {
                 cancelPenaltyCompensation = userPenaltyRepository
                         .findByOrder_OrderIdAndRole(orderId, PenaltyRole.BUYER)
                         .map(p -> p.getAmount() / 2)  // 패널티의 50%가 보상금
@@ -633,7 +648,7 @@ public class OrderService {
 
         return SellingOrderDetailResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .productId(order.getProduct().getProductId())
                 .productName(order.getProduct().getProductName())
@@ -661,7 +676,7 @@ public class OrderService {
     public void cancelByBuyer(Long userId, Long orderId) {
         // 주문 검증
         Order order = orderRepository.findByIdWithLock(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
         // 구매자인지 검증
         if (!order.getBuyer().getUserId().equals(userId)) {
             throw new CustomException(ErrorCode.ACCESS_DENIED, "본인의 주문 건만 취소할 수 있습니다.");
@@ -696,7 +711,7 @@ public class OrderService {
                 orderId,
                 cancelAmount,
                 "BUYER_CANCELED",
-                "BUYER"
+                ROLE_BUYER
         );
 
         // 주문, 주문 이력, 패널티 기록, 정산 상태, 판매자 보상 정보 확정 처리
@@ -748,7 +763,7 @@ public class OrderService {
     public void cancelBySeller (Long userId, Long orderId) {
         // 주문 존재 검증
         Order order = orderRepository.findByIdWithLock(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
         // 판매자인지 검증
         if (!order.getSeller().getUserId().equals(userId)) {
@@ -776,7 +791,7 @@ public class OrderService {
                 orderId,
                 cancelAmount,
                 "SELLER_CANCELED",
-                "SELLER"
+                ROLE_SELLER
         );
 
         // 주문, 주문 이력, 정산 상태 fail 처리
@@ -845,59 +860,78 @@ public class OrderService {
             List<String> status, LocalDateTime startDate, LocalDateTime endDate,
             Pageable pageable) {
 
-        // DB 직접 조회 (BEFORE_SHIPPING 예외 처리)
-        List<CurrentStatus> statuses = new java.util.ArrayList<>();
-        Boolean inspectionExists = null;
+        // 1. 상태 피싱
+        List<CurrentStatus> statuses = parseAdminOrderStatuses(status);
 
-        if (status != null && !status.isEmpty()) {
-            for (String s : status) {
-                if ("BEFORE_SHIPPING".equals(s)) {
-                    statuses.add(CurrentStatus.PASSED);
-                    // 발송전(BEFORE_SHIPPING) 탭: 일반(검수O) + 보관(검수X) 모두 포함하므로 null
-                    // 프론트엔드에서 BEFORE_SHIPPING만 단독으로 보낼 때를 가정합니다.
-                    inspectionExists = null; 
-                } else {
-                    try {
-                        statuses.add(CurrentStatus.valueOf(s));
-                    } catch (IllegalArgumentException e) {
-                        throw new CustomException(ErrorCode.BAD_REQUEST);
-                    }
-                }
-            }
-        } else {
-            statuses = null; // empty인 경우 null로 처리
-        }
+        // 2. 날짜 보정
+        LocalDateTime[] normalizedDates = normalizeDateRange(startDate, endDate);
+        LocalDateTime normStart = normalizedDates[0];
+        LocalDateTime normEnd = normalizedDates[1];
 
-        // 날짜 한쪽만 입력된 경우 보정 ( startDate 의 경우 서비스 시작일(임시))
-        if (startDate != null && endDate == null) {
-            endDate = LocalDateTime.now();
-        }
-        if (endDate != null && startDate == null) {
-            startDate = LocalDate.parse(serviceStartDate).atStartOfDay();
-        }
+        // 3. DB 조회
+        // inspectionExists는 기존 로직상 발송전 탭 포함 여부를 떠나 항상 null로 처리됨
+        Page<Order> orders = fetchAdminOrders(statuses, normStart, normEnd, null, pageable);
 
-        Page<Order> orders;
-
-        if (statuses != null && startDate != null) {
-            orders = orderRepository.findAllForAdminWithInspectionCheck(
-                    statuses, startDate, endDate, inspectionExists, pageable);
-        } else if (statuses != null) {
-            orders = orderRepository.findAllForAdminWithInspectionCheck(
-                    statuses, null, null, inspectionExists, pageable);
-        } else if (startDate != null) {
-            orders = orderRepository.findAllForAdminWithInspectionCheck(
-                    null, startDate, endDate, inspectionExists, pageable);
-        } else {
-            orders = orderRepository.findAllForAdmin(pageable);
-        }
-
+        // 4. DTO 변환
         return orders.map(this::toAdminOrderResponseDto);
     }
 
+    // 상태 문자열 -> CurrentStatus 리스트 변환
+    private List<CurrentStatus> parseAdminOrderStatuses(List<String> statusStrings) {
+        if (statusStrings == null || statusStrings.isEmpty()) {
+            return null; // empty인 경우 null로 처리
+        }
+        List<CurrentStatus> statuses = new java.util.ArrayList<>();
+        for (String s : statusStrings) {
+            if (TAB_BEFORE_SHIPPING.equals(s)) {
+                statuses.add(CurrentStatus.PASSED);
+            } else {
+                try {
+                    statuses.add(CurrentStatus.valueOf(s));
+                } catch (IllegalArgumentException e) {
+                    throw new CustomException(ErrorCode.BAD_REQUEST);
+                }
+            }
+        }
+        return statuses;
+    }
+
+    // 날짜 보정
+    private LocalDateTime[] normalizeDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        LocalDateTime normStart = startDate;
+        LocalDateTime normEnd = endDate;
+        if (normStart != null && normEnd == null) {
+            normEnd = LocalDateTime.now();
+        }
+        if (normEnd != null && normStart == null) {
+            normStart = LocalDate.parse(serviceStartDate).atStartOfDay();
+        }
+        return new LocalDateTime[] { normStart, normEnd };
+    }
+
+    // DB 조회
+    private Page<Order> fetchAdminOrders(
+            List<CurrentStatus> statuses, LocalDateTime startDate, LocalDateTime endDate,
+            Boolean inspectionExists, Pageable pageable) {
+        if (statuses != null && startDate != null) {
+            return orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, startDate, endDate, inspectionExists, pageable);
+        } else if (statuses != null) {
+            return orderRepository.findAllForAdminWithInspectionCheck(
+                    statuses, null, null, inspectionExists, pageable);
+        } else if (startDate != null) {
+            return orderRepository.findAllForAdminWithInspectionCheck(
+                    null, startDate, endDate, inspectionExists, pageable);
+        } else {
+            return orderRepository.findAllForAdmin(pageable);
+        }
+    }
+
+    // DTO 변환
     private AdminOrderResponseDto toAdminOrderResponseDto(Order order) {
         return AdminOrderResponseDto.builder()
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .buyerName(order.getBuyer().getName())
                 .sellerName(order.getSeller().getName())
@@ -949,7 +983,7 @@ public class OrderService {
         return AdminOrderDetailResponseDto.builder()
                 // 기본
                 .orderId(order.getOrderId())
-                .orderNumber(String.format("ORD-%08d", order.getOrderId()))
+                .orderNumber(String.format(ORDER_NUMBER_FORMAT, order.getOrderId()))
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 // 구매자

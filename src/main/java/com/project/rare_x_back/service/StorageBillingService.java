@@ -9,6 +9,7 @@ import com.project.rare_x_back.repository.StorageItemRepository;
 import com.project.rare_x_back.repository.StoragePaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ public class StorageBillingService {
     private final StorageItemRepository storageItemRepository;
     private final SaleBidRepository saleBidRepository;
     private final PaymentService paymentService;
+    private final ApplicationContext applicationContext;
 
     /**
      * 결제 시도 (건별 트랜잭션)
@@ -49,7 +51,8 @@ public class StorageBillingService {
 
             // 3회 실패 → SUSPENDED 처리
             if (!payment.canRetry()) {
-                suspendStorageItem(item);
+                // [Self-Invocation 해결] ApplicationContext를 통해 프록시 객체를 가져와 메서드 호출
+                applicationContext.getBean(StorageBillingService.class).suspendStorageItem(item);
             }
         }
     }

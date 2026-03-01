@@ -58,37 +58,38 @@ public class ProductService {
             productPage = productRepository.findAllByIsDeletedFalse(pageable);
         }
         // DTO 변환 및 이미지 처리
-        return productPage.map(product -> {
-            // [추가] 구매 가격 리스트 조회
-            List<SaleBid> saleBidPriceList = saleBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
+        return productPage.map(this::toProductResponseDto);
+    }
 
-            // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
-            int buyPrice = saleBidPriceList.isEmpty() ? 0 : saleBidPriceList.getFirst().getPrice();
+    private ProductResponseDto toProductResponseDto(Product product) {
+        // [추가] 구매 가격 리스트 조회
+        List<SaleBid> saleBidPriceList = saleBidRepository.findByProductAndStatusOrderByPriceAsc(product, BidStatus.OPEN);
 
+        // [추가] 즉시 구매/판매가 결정 (리스트가 비어있으면 0원)
+        int buyPrice = saleBidPriceList.isEmpty() ? 0 : saleBidPriceList.getFirst().getPrice();
 
-            // 이미지 리스트에서 첫 번째 이미지(썸네일) URL 추출
-            String imageUrl = null;
-            if (product.getImages() != null && !product.getImages().isEmpty()) {
-                imageUrl = product.getImages().getFirst().getImageUrl();
-            }
+        // 이미지 리스트에서 첫 번째 이미지(썸네일) URL 추출
+        String imageUrl = null;
+        if (product.getImages() != null && !product.getImages().isEmpty()) {
+            imageUrl = product.getImages().getFirst().getImageUrl();
+        }
 
-            long storageStock =
-                    saleBidRepository.countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
-                            product.getProductId(),
-                            BidStatus.OPEN
-                    );
+        long storageStock =
+                saleBidRepository.countByProduct_ProductIdAndStatusAndStorageItemIsNotNull(
+                        product.getProductId(),
+                        BidStatus.OPEN
+                );
 
-            return ProductResponseDto.builder()
-                    .productId(product.getProductId())
-                    .productName(product.getProductName())
-                    .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "")
-                    .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
-                    .price(buyPrice)
-                    .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
-                    .wishCount(product.getWishCount())
-                    .storageStock(storageStock)
-                    .build();
-        });
+        return ProductResponseDto.builder()
+                .productId(product.getProductId())
+                .productName(product.getProductName())
+                .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : "")
+                .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : "")
+                .price(buyPrice)
+                .imageUrl(imageUrl) // 추출한 S3 URL 주입 (썸네일)
+                .wishCount(product.getWishCount())
+                .storageStock(storageStock)
+                .build();
     }
 
     /**

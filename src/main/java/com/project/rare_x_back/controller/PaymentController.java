@@ -6,6 +6,8 @@ import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
+import com.project.rare_x_back.entity.BillingKey;
+import com.project.rare_x_back.entity.Payment;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,8 +25,8 @@ public class PaymentController {
      * authKey와 customerKey를 전달
      */
     @PostMapping("/billing/register")
-    public ApiResponse<?> registerCard (@RequestBody BillingKeyRequestDto requestDto,
-                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<BillingKey> registerCard (@RequestBody BillingKeyRequestDto requestDto,
+                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(paymentService.registerCard(requestDto, userDetails.getUsername()));
     }
 
@@ -33,7 +35,7 @@ public class PaymentController {
      * 해당 유저를 검증 후 유저가 등록한 빌링키를 찾아 삭제
      */
     @DeleteMapping("/billing")
-    public ApiResponse<?> deleteBillingKey (@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<String> deleteBillingKey (@AuthenticationPrincipal CustomUserDetails userDetails) {
         paymentService.deleteBillingKey(userDetails.getUsername());
         return ApiResponse.success("빌링키 삭제 완료");
     }
@@ -44,7 +46,7 @@ public class PaymentController {
      * 요청 예시: POST /api/payments/billing/pay?email=buyer1@test.com
      */
     @PostMapping("/billing/pay")
-    public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto) {
+    public ApiResponse<Payment> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto) {
         return ApiResponse.success(paymentService.payWithBillingKey(requestDto));
     }
 
@@ -54,8 +56,8 @@ public class PaymentController {
      * 요청 예시: POST /api/payments/confirm?email=buyer1@test.com
      */
     @PostMapping("/confirm")
-    public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
-                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Payment> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
+                                               @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(paymentService.confirmPayment(requestDto,userDetails.getUsername()));
     }
 

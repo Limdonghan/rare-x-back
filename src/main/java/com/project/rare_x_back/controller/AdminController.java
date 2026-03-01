@@ -36,6 +36,8 @@ public class AdminController {
     private final AdminDashboardService adminDashboardService;
     private final ProductDemandRequestService productDemandRequestService;
 
+    private static final String ANONYMOUS_ADMIN = "anonymous";
+
     //s3 이미지 업로드
     @PostMapping(value = "/products/{productId}/images",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -192,7 +194,7 @@ public class AdminController {
     ) {
         if (request == null || !request.containsKey("orderIds")) {
             log.warn("관리자({})가 유효하지 않은 일괄 배송 완료 요청을 보냈습니다. request 또는 orderIds 키가 없습니다.",
-                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+                    adminDetails != null ? adminDetails.getUsername() : ANONYMOUS_ADMIN);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.success("유효한 주문 ID 목록(orderIds)이 요청에 포함되어야 합니다."));
         }
@@ -200,14 +202,14 @@ public class AdminController {
         List<Long> orderIds = request.get("orderIds");
         if (orderIds == null || orderIds.isEmpty()) {
             log.warn("관리자({})가 비어 있거나 null인 주문 ID 목록으로 일괄 배송 완료 요청을 보냈습니다.",
-                    adminDetails != null ? adminDetails.getUsername() : "anonymous");
+                    adminDetails != null ? adminDetails.getUsername() : ANONYMOUS_ADMIN);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.success("주문 ID 목록(orderIds)은 비어 있을 수 없습니다."));
         }
 
         orderService.bulkDeliveryComplete(orderIds);
         log.info("관리자({})가 주문 {}건을 일괄 배송 완료 처리함",
-                adminDetails != null ? adminDetails.getUsername() : "anonymous", orderIds.size());
+                adminDetails != null ? adminDetails.getUsername() : ANONYMOUS_ADMIN, orderIds.size());
         return ResponseEntity.ok(ApiResponse.success("일괄 배송 완료 처리되었습니다."));
     }
 
