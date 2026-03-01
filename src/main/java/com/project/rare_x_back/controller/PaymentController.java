@@ -6,8 +6,6 @@ import com.project.rare_x_back.dto.request.AutoPaymentRequestDto;
 import com.project.rare_x_back.dto.request.BillingKeyRequestDto;
 import com.project.rare_x_back.dto.request.PaymentConfirmRequestDto;
 import com.project.rare_x_back.dto.response.BillingKeyResponseDto;
-import com.project.rare_x_back.entity.BillingKey;
-import com.project.rare_x_back.entity.Payment;
 import com.project.rare_x_back.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,9 +23,14 @@ public class PaymentController {
      * authKey와 customerKey를 전달
      */
     @PostMapping("/billing/register")
-    public ApiResponse<BillingKey> registerCard (@RequestBody BillingKeyRequestDto requestDto,
+    public ApiResponse<BillingKeyResponseDto> registerCard (@RequestBody BillingKeyRequestDto requestDto,
                                                  @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(paymentService.registerCard(requestDto, userDetails.getUsername()));
+        // 카드 등록 처리 (BillingKey 엔티티는 외부로 직접 노출하지 않음)
+        paymentService.registerCard(requestDto, userDetails.getUsername());
+
+        // 등록된 빌링키를 DTO 형태로 조회하여 응답
+        BillingKeyResponseDto billingKeyResponseDto = paymentService.validateBillingKey(userDetails.getUserId());
+        return ApiResponse.success(billingKeyResponseDto);
     }
 
     /**
@@ -46,7 +49,7 @@ public class PaymentController {
      * 요청 예시: POST /api/payments/billing/pay?email=buyer1@test.com
      */
     @PostMapping("/billing/pay")
-    public ApiResponse<Payment> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto) {
+    public ApiResponse<?> payWithBillingKey(@RequestBody AutoPaymentRequestDto requestDto) {
         return ApiResponse.success(paymentService.payWithBillingKey(requestDto));
     }
 
@@ -56,7 +59,7 @@ public class PaymentController {
      * 요청 예시: POST /api/payments/confirm?email=buyer1@test.com
      */
     @PostMapping("/confirm")
-    public ApiResponse<Payment> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
+    public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
                                                @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(paymentService.confirmPayment(requestDto,userDetails.getUsername()));
     }

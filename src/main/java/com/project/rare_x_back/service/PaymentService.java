@@ -42,7 +42,7 @@ public class PaymentService {
     private static final String ERR_MSG_PAYMENT_INFO = "결제 정보 오류";
     private static final String ERR_MSG_TOSS_SERVER = "토스 서버 오류";
 
-    private static final String BillingKey_URL="billing/";
+    private static final String BILLING_KEY_URL = "billing/";
 
     private final WebClient webClient;
     private final PaymentRepository paymentRepository;
@@ -129,7 +129,7 @@ public class PaymentService {
         billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
             try {
                 webClient.delete()
-                        .uri(BillingKey_URL + billingKey.getBillingKey())
+                        .uri(BILLING_KEY_URL + billingKey.getBillingKey())
                         .retrieve()
                         .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                                 clientResponse.bodyToMono(String.class)
@@ -187,7 +187,7 @@ public class PaymentService {
         try {
             /// 3. 토스 API 호출
             Map<String, Object> response = webClient.post()
-                    .uri(BillingKey_URL + billingKey.getBillingKey())
+                    .uri(BILLING_KEY_URL + billingKey.getBillingKey())
                     .bodyValue(Map.of(
                             KEY_AMOUNT, buyerTotalAmount,
                             KEY_CUSTOMER_KEY, billingKey.getCustomerKey(),
@@ -304,7 +304,7 @@ public class PaymentService {
         try {
             // 4. 토스 API 호출
             Map<String, Object> response = webClient.post()
-                    .uri(BillingKey_URL + billingKey.getBillingKey())
+                    .uri(BILLING_KEY_URL + billingKey.getBillingKey())
                     .bodyValue(Map.of(
                             KEY_AMOUNT, amount,
                             KEY_CUSTOMER_KEY, billingKey.getCustomerKey(),

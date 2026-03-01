@@ -210,7 +210,6 @@ public class AuthService {
     }
 
 
-    // 임시 비번 변경 (현재 비번 확인 불필요)
     @Transactional
     // 임시 비번 변경 (현재 비번 확인 불필요)
     public void changePassword(Long userId, PasswordChangeRequestDto request) {

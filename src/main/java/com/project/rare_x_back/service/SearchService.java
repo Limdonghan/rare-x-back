@@ -455,7 +455,7 @@ public class SearchService {
                 .brandName((String) doc.getOrDefault(FIELD_BRAND_NAME, ""))
                 .categoryName((String) doc.getOrDefault(FIELD_CATEGORY_NAME, ""))
                 .productDescription((String) doc.getOrDefault(FIELD_PRODUCT_DESC, ""))
-                .wishCount((Integer) doc.getOrDefault(FIELD_WISH_COUNT, 0))
+                .wishCount(doc.get(FIELD_WISH_COUNT) != null ? ((Number) doc.get(FIELD_WISH_COUNT)).intValue() : 0)
                 .imageUrls((List<String>) doc.get(FIELD_IMAGE_URLS) != null ? (List<String>) doc.get(FIELD_IMAGE_URLS) : null)
                 .retailPrice(doc.get(FIELD_RETAIL_PRICE) != null ? ((Number) doc.get(FIELD_RETAIL_PRICE)).intValue() : 0)
                 .build();

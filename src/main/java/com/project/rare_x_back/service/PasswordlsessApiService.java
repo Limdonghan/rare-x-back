@@ -15,7 +15,6 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -34,12 +33,10 @@ public class PasswordlsessApiService {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
-    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
 
 
     // 역할 식별용 상수
-    public static final String USER_ID = "userID";
+    public static final String USER_ID = "userId";
     public static final String SESSION_ID = "sessionId";
     public static final String IP = "ip";
 

@@ -341,7 +341,7 @@ public class AdminService {
     //브랜드 삭제
     public void deleteBrand(Long brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.BRAND_NOT_FOUND));
 
         // 상품 연결 체크
         long productCount = productRepository.countByBrand_BrandIdAndIsDeletedFalse(brandId);

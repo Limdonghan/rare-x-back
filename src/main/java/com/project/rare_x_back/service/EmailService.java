@@ -102,11 +102,9 @@ public class EmailService {
 
     //  6자리 랜덤 인증번호 생성
     private String generateCode() {
-        // 안전한 난수 생성기 사용
-        SecureRandom secureRandom = new SecureRandom();
-
+        // 클래스 레벨의 SECURE_RANDOM 인스턴스 재사용
         // 0부터 999999 사이의 난수 생성
-        int number = secureRandom.nextInt(1000000);
+        int number = SECURE_RANDOM.nextInt(1000000);
 
         // 6자리 문자열로 포맷팅 (예: 123 -> "000123")
         return String.format("%06d", number);
