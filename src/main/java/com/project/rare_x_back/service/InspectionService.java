@@ -12,6 +12,8 @@ import com.project.rare_x_back.exceptions.ErrorCode;
 import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,11 @@ public class InspectionService {
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
+
+    // 순환 참조를 막기 위해 @Lazy를 꼭 붙여서 자기 자신의 대리인(Proxy)을 주입
+    @Autowired
+    @Lazy
+    private InspectionService inspectionServiceSelf;
 
     /**
      * 전체 검수 목록 조회 (타입 무관, 페이징)
@@ -94,10 +101,7 @@ public class InspectionService {
      */
     public InspectionResponseDto getInspection(Long inspectionId) {
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "검수 정보를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         return InspectionResponseDto.from(inspection);
     }
@@ -109,7 +113,7 @@ public class InspectionService {
     public InspectionResponseDto confirmArrival(Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 상태 확인
         if (inspection.getStatus() != InspectionStatus.SHIPPED_TO_WAREHOUSE) {
@@ -145,7 +149,7 @@ public class InspectionService {
     public InspectionResponseDto startInspection(Long inspectionId, Long adminId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 상태 확인
         if (inspection.getStatus() != InspectionStatus.PENDING_INSPECTION) {
@@ -154,7 +158,7 @@ public class InspectionService {
 
         // 3. 담당자(관리자) 조회 및 배정
         User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "관리자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ADMIN_NOT_FOUND));
         inspection.assignInspector(admin);
 
         // 4. 상태 변경 (INSPECTING + started_at 기록)
@@ -186,11 +190,11 @@ public class InspectionService {
     public InspectionChecklistResponseDto getChecklist(Long inspectionId) {
         // 1. 먼저 검수 존재 확인
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 체크리스트 조회
         InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CHECK_LIST_NOT_FOUND));
 
         return InspectionChecklistResponseDto.from(checklist);
     }
@@ -200,11 +204,11 @@ public class InspectionService {
     public InspectionChecklistResponseDto updateChecklist(Long inspectionId, InspectionChecklistRequestDto request) {
         // 1. 먼저 검수 존재 확인
         inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 체크리스트 조회
         InspectionChecklist checklist = inspectionChecklistRepository.findByInspectionId(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "체크리스트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CHECK_LIST_NOT_FOUND));
 
         checklist.updateChecklist(
                 request.getIsAuthentic(),
@@ -226,7 +230,7 @@ public class InspectionService {
     public InspectionResponseDto passInspection(Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 상태 확인
         if (inspection.getStatus() != InspectionStatus.INSPECTING) {
@@ -242,7 +246,7 @@ public class InspectionService {
 
             // NPE 검사
             if (storageRequest == null) {
-                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청 정보를 찾을 수 없습니다.");
+                throw new CustomException(ErrorCode.STORAGE_REQUEST_ITEM_NOT_FOUND);
             }
 
             // storage_requests 상태 동기화
@@ -272,7 +276,7 @@ public class InspectionService {
 
             // NPE 검사
             if (order == null) {
-                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+                throw new CustomException(ErrorCode.ORDER_NOT_FOUND);
             }
 
             // order 상태 변경, order_history 이력 저장 (검수 합격)
@@ -303,7 +307,7 @@ public class InspectionService {
     public InspectionResponseDto failInspection(Long inspectionId, String failReason) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 상태 확인
         if (inspection.getStatus() != InspectionStatus.INSPECTING) {
@@ -319,7 +323,7 @@ public class InspectionService {
 
             // NPE 검사
             if (storageRequest == null) {
-                throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 신청 정보를 찾을 수 없습니다.");
+                throw new CustomException(ErrorCode.STORAGE_REQUEST_ITEM_NOT_FOUND);
             }
 
             // storage_requests 상태 동기화
@@ -338,7 +342,7 @@ public class InspectionService {
         // 입찰 주문 건 검수실패 처리
         if (inspection.getType() == InspectionType.ORDER) {
             Order order = orderRepository.findByIdWithLock(inspection.getOrder().getOrderId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
 
             // 구매자 결제 내역 조회
             Payment payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
@@ -413,7 +417,7 @@ public class InspectionService {
     public InspectionHistoryDetailResponseDto getInspectionHistoryDetail(Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 완료된 검수인지 확인 (PASSED 또는 FAILED)
         if (inspection.getStatus() != InspectionStatus.PASSED && inspection.getStatus() != InspectionStatus.FAILED) {
@@ -434,7 +438,7 @@ public class InspectionService {
     public void deliveryToBuyer (Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException( ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException( ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 주문 검수인지 확인 (보관 검수는 일반 주문이 아닌 보관 신청 건이므로 InspectionType이 order가 아님)
         if (inspection.getType() != InspectionType.ORDER) {
@@ -444,7 +448,7 @@ public class InspectionService {
         // 3. 주문 정보 확인
         Order order = inspection.getOrder();
         if (order == null) {
-            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보를 찾을 수 없습니다.");
+            throw new CustomException(ErrorCode.ORDER_NOT_FOUND);
         }
 
         // 4. 상태가 검수 통과인지 확인
@@ -457,7 +461,7 @@ public class InspectionService {
         }
 
         if (inspection.getOrder() == null) {
-            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "주문 정보가 존재하지 않습니다.");
+            throw new CustomException(ErrorCode.ORDER_NOT_FOUND);
         }
 
         // 3. order 상태 변경, order_history 이력 저장
@@ -473,7 +477,7 @@ public class InspectionService {
     public InspectionResponseDto processRelease(Long inspectionId) {
         // 1. 검수 조회
         Inspection inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "검수 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.INSPECTION_NOT_FOUND));
 
         // 2. 반송 건인지 확인
         if (inspection.getType() != InspectionType.RELEASE) {
@@ -488,7 +492,7 @@ public class InspectionService {
         // 4. StorageItem 조회 및 상태 변경
         StorageItem storageItem = inspection.getStorageItem();
         if (storageItem == null) {
-            throw new CustomException(ErrorCode.RESOURCE_NOT_FOUND, "보관 상품 정보를 찾을 수 없습니다.");
+            throw new CustomException(ErrorCode.STORAGE_ITEM_NOT_FOUND, "보관 상품 정보를 찾을 수 없습니다.");
         }
         storageItem.updateStatus(StorageStatus.RETURNED);
 
@@ -517,7 +521,7 @@ public class InspectionService {
 
         // 2. 개별 도착확인 처리 (상태 변경 + 연관 엔티티 동기화 + Typesense)
         for (Long id : inspectionIds) {
-            confirmArrival(id);
+            inspectionServiceSelf.confirmArrival(id);
         }
     }
 
@@ -532,7 +536,7 @@ public class InspectionService {
 
         // 2. 개별 검수시작 처리 (담당자 배정 + 체크리스트 생성 + 상태 변경)
         for (Long id : inspectionIds) {
-            startInspection(id, adminId);
+            inspectionServiceSelf.startInspection(id, adminId);
         }
     }
 
@@ -549,9 +553,9 @@ public class InspectionService {
         // 2. 체크리스트 저장 + 합격 처리
         for (Long id : inspectionIds) {
             if (checklistDto != null) {
-                updateChecklist(id, checklistDto);
+                inspectionServiceSelf.updateChecklist(id, checklistDto);
             }
-            passInspection(id);
+            inspectionServiceSelf.passInspection(id);
         }
     }
 
@@ -573,9 +577,9 @@ public class InspectionService {
         // 3. 체크리스트 저장 + 불합격 처리
         for (Long id : inspectionIds) {
             if (checklistDto != null) {
-                updateChecklist(id, checklistDto);
+                inspectionServiceSelf.updateChecklist(id, checklistDto);
             }
-            failInspection(id, failReason);
+            inspectionServiceSelf.failInspection(id, failReason);
         }
     }
 

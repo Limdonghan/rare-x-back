@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -39,6 +38,8 @@ public class EmailService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // 클래스 로딩 시점에 딱 한 번만
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     //  이메일 인증번호 발송
     @Async  ///  별도 스레드에서 실행 (응답을 기다리지 않음)
@@ -101,9 +102,12 @@ public class EmailService {
 
     //  6자리 랜덤 인증번호 생성
     private String generateCode() {
-        Random random = new Random();
-        int code = 100000 + random.nextInt(900000);
-        return String.valueOf(code);
+        // 클래스 레벨의 SECURE_RANDOM 인스턴스 재사용
+        // 0부터 999999 사이의 난수 생성
+        int number = SECURE_RANDOM.nextInt(1000000);
+
+        // 6자리 문자열로 포맷팅 (예: 123 -> "000123")
+        return String.format("%06d", number);
     }
 
 
@@ -115,23 +119,22 @@ public class EmailService {
 
         String allChars = lowerCase + numbers + specialChars;
 
-        SecureRandom random = new SecureRandom();
         StringBuilder password = new StringBuilder();
 
         //각 타입별 최소 1개씩 (대문자 제외)
-        password.append(lowerCase.charAt(random.nextInt(lowerCase.length())));
-        password.append(numbers.charAt(random.nextInt(numbers.length())));
-        password.append(specialChars.charAt(random.nextInt(specialChars.length())));
+        password.append(lowerCase.charAt(SECURE_RANDOM.nextInt(lowerCase.length())));
+        password.append(numbers.charAt(SECURE_RANDOM.nextInt(numbers.length())));
+        password.append(specialChars.charAt(SECURE_RANDOM.nextInt(specialChars.length())));
 
         //나머지 6자리 랜덤 생성
         for (int i = 4; i < 10; i++) {
-            password.append(allChars.charAt(random.nextInt(allChars.length())));
+            password.append(allChars.charAt(SECURE_RANDOM.nextInt(allChars.length())));
         }
         //문자열 섞기
         List<Character> chars = password.chars()
                 .mapToObj(c -> (char) c)
                 .collect(Collectors.toList());
-        Collections.shuffle(chars, random);
+        Collections.shuffle(chars, SECURE_RANDOM);
 
         return chars.stream()
                 .map(String::valueOf)

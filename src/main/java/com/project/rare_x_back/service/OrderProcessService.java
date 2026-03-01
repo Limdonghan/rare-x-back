@@ -88,7 +88,7 @@ public class OrderProcessService {
                 orderId,
                 payment.getAmount(),
                 "SELLER_CANCELED",
-                "SELLER"
+                OrderService.ROLE_SELLER
         );
 
         finalizeSellerCancellation(order);
