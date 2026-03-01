@@ -2,6 +2,7 @@ package com.project.rare_x_back.controller;
 
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.common.CustomUserDetails;
+import com.project.rare_x_back.dto.request.PreOccupancyLockRequestDto;
 import com.project.rare_x_back.dto.request.PurchaseRequestDto;
 import com.project.rare_x_back.dto.request.RegisterBuyBidRequestDto;
 import com.project.rare_x_back.dto.request.RegisterSaleBidRequestDto;
@@ -73,6 +74,32 @@ public class BidController {
         SellNowResponseDto sellNowResponseDto = bidService.sellNow(sellNowRequestDto, userDetails.getUsername());
         return ResponseEntity
                 .ok().body(ApiResponse.success(sellNowResponseDto,"즉시 판매가 완료되었습니다"));
+    }
+
+    /**
+     * [즉시 구매 선점 락 발급] (Lock)
+     * 결제 위젯 진입 전, 가장 저렴한 SaleBid에 임시로 5~10분간 락을 걸어서 타 사용자의 접근을 차단
+     */
+    @PostMapping("/purchase/lock")
+    public ResponseEntity<ApiResponse<PreOccupancyLockResponseDto>> acquirePurchaseLock(
+            @Valid @RequestBody PreOccupancyLockRequestDto lockRequestDto,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        PreOccupancyLockResponseDto lockedDto = bidService.acquirePurchaseLock(lockRequestDto, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(lockedDto, "결제 대행 락을 성공적으로 획득했습니다."));
+    }
+
+    /**
+     * [즉시 구매 선점 락 해제] (Unlock)
+     * 결제 취소창을 닫거나 에러 난 경우 브라우저가 호출하여 임시 락 즉시 해제
+     */
+    @DeleteMapping("/purchase/lock/{sellId}")
+    public ResponseEntity<ApiResponse<Void>> releasePurchaseLock(
+            @PathVariable Long sellId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            
+        bidService.releasePurchaseLock(sellId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(null, "결제 대행 락이 해제되었습니다."));
     }
 
 }

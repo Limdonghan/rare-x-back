@@ -45,6 +45,23 @@ public interface SaleBidRepository extends JpaRepository<SaleBid, Long> {
             Pageable pageable
     );
 
+    // 즉시 구매 Redis 락 조회용 (DB Lock 없음)
+    @Query("""
+      SELECT s
+      FROM SaleBid s
+      WHERE s.product = :product
+        AND s.price = :price
+        AND s.status = :status
+        AND s.user.userId <> :buyerId
+      ORDER BY s.createdAt ASC
+    """)
+    List<SaleBid> findTargetsForLock(
+            @Param("product") Product product,
+            @Param("price") int price,
+            @Param("status") BidStatus status,
+            @Param("buyerId") Long buyerId
+    );
+
 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
