@@ -42,7 +42,7 @@ public class PasswordlessApiController {
 
     /// 패스워드리스 사용자 등록
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(
+    public ResponseEntity<String> registerUser(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String registerUserResult = passwordlsessApiService.registerUser(userDetails.getEmail());
         return ResponseEntity.ok(registerUserResult);
@@ -50,7 +50,7 @@ public class PasswordlessApiController {
 
     /// 패스워드리스 활성화
     @PostMapping("/enable")
-    public ResponseEntity<?> enableUser(
+    public ResponseEntity<String> enableUser(
             @RequestParam("email") String email) {
         passwordlsessApiService.passwordlessEnabled(email);
         return ResponseEntity.ok("패스워드리스 활성화");
@@ -58,7 +58,7 @@ public class PasswordlessApiController {
 
     /// 패스워드리스 로그인 인증 요청
     @PostMapping("login-trigger")
-    public ResponseEntity<?> loginTrigger(
+    public ResponseEntity<String> loginTrigger(
             @RequestParam("email") String email,
             @RequestParam("ip") String ip) {
         String triggerLoginResult = passwordlsessApiService.triggerLogin(email, ip);

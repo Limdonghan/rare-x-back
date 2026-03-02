@@ -37,6 +37,42 @@ public class SearchService {
     @Value("${app.service-start-date}")
     private String serviceStartDate;
 
+    // ==================== [상수 선언] ====================
+    private static final String COL_PRODUCTS = "products";
+    private static final String COL_USERS = "users";
+    private static final String COL_ORDERS = "orders";
+    private static final String COL_INSPECTIONS = "inspections";
+
+    private static final String SORT_CREATED_AT_DESC = "created_at:desc";
+    private static final String FILTER_IS_DELETED_FALSE = "is_deleted:false";
+
+    private static final String FIELD_ID = "id";
+    private static final String FIELD_CREATED_AT = "created_at";
+    private static final String FIELD_IS_DELETED = "is_deleted";
+    private static final String FIELD_PRODUCT_ID = "product_id";
+    private static final String FIELD_PRODUCT_NAME = "product_name";
+    private static final String FIELD_BRAND_NAME = "brand_name";
+    private static final String FIELD_CATEGORY_NAME = "category_name";
+    private static final String FIELD_PRODUCT_DESC = "product_description";
+    private static final String FIELD_RETAIL_PRICE = "retail_price";
+    private static final String FIELD_WISH_COUNT = "wish_count";
+    private static final String FIELD_IMAGE_URLS = "image_urls";
+    private static final String FIELD_USER_ID = "user_id";
+    private static final String FIELD_EMAIL = "email";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_ROLE = "role";
+    private static final String FIELD_PROVIDER_TYPE = "provider_type";
+    private static final String FIELD_STATUS = "status";
+    private static final String FIELD_ORDER_ID = "order_id";
+    private static final String FIELD_BUYER_NAME = "buyer_name";
+    private static final String FIELD_SELLER_NAME = "seller_name";
+    private static final String FIELD_PRICE = "price";
+    private static final String FIELD_CURRENT_STATUS = "current_status";
+    private static final String FIELD_BID_TYPE = "bid_type";
+    private static final String FIELD_INSPECTION_ID = "inspection_id";
+    private static final String FIELD_INSPECTOR_NAME = "inspector_name";
+    private static final String FIELD_TYPE = "type";
+
     // ==================== 검색 메서드 ====================
 
     /**
@@ -49,13 +85,13 @@ public class SearchService {
         try {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
-                    .queryBy("product_name,brand_name,category_name")
-                    .filterBy("is_deleted:false")
-                    .sortBy("created_at:desc")
+                    .queryBy(FIELD_PRODUCT_NAME + "," + FIELD_BRAND_NAME + "," + FIELD_CATEGORY_NAME)
+                    .filterBy(FILTER_IS_DELETED_FALSE)
+                    .sortBy(SORT_CREATED_AT_DESC)
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
-            SearchResult result = typesenseClient.collections("products")
+            SearchResult result = typesenseClient.collections(COL_PRODUCTS)
                     .documents()
                     .search(params);
 
@@ -74,13 +110,13 @@ public class SearchService {
         try {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
-                    .queryBy("email,name")
-                    .filterBy("is_deleted:false")
-                    .sortBy("created_at:desc")
+                    .queryBy(FIELD_EMAIL + "," + FIELD_NAME)
+                    .filterBy(FILTER_IS_DELETED_FALSE)
+                    .sortBy(SORT_CREATED_AT_DESC)
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
-            SearchResult result = typesenseClient.collections("users")
+            SearchResult result = typesenseClient.collections(COL_USERS)
                     .documents()
                     .search(params);
 
@@ -104,8 +140,8 @@ public class SearchService {
             // 검색 조건을 담을 객체 생성
             SearchParameters params = new SearchParameters()
                     .q(keyword)
-                    .queryBy("product_name,buyer_name,seller_name")
-                    .sortBy("created_at:desc")
+                    .queryBy(FIELD_PRODUCT_NAME + "," + FIELD_BUYER_NAME + "," + FIELD_SELLER_NAME)
+                    .sortBy(SORT_CREATED_AT_DESC)
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
@@ -134,17 +170,17 @@ public class SearchService {
                         })
                         .toList();
                 String statusFilter = String.join(",", validatedStatuses);    // 검증된 값들을 콤마로 연결
-                filters.add("current_status:[" + statusFilter + "]");   // 최종적으로 검색 조건에 추가
+                filters.add(FIELD_CURRENT_STATUS + ":[" + statusFilter + "]");   // 최종적으로 검색 조건에 추가
             }
 
             // 시작 날짜 필터 추가
             if (startDate != null) {
-                filters.add("created_at:>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+                filters.add(FIELD_CREATED_AT + ":>=" + startDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
             }
 
             // 종료 날짜 필터 추가
             if (endDate != null) {
-                filters.add("created_at:<=" + endDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+                filters.add(FIELD_CREATED_AT + ":<=" + endDate.atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
             }
 
             // 필터 조건이 있으면 params에 추가
@@ -152,7 +188,7 @@ public class SearchService {
                 params.filterBy(String.join(" && ", filters));
             }
 
-            SearchResult result = typesenseClient.collections("orders")
+            SearchResult result = typesenseClient.collections(COL_ORDERS)
                     .documents()
                     .search(params);
 
@@ -171,12 +207,12 @@ public class SearchService {
         try {
             SearchParameters params = new SearchParameters()
                     .q(keyword)
-                    .queryBy("product_name,seller_name,inspector_name")
-                    .sortBy("created_at:desc")
+                    .queryBy(FIELD_PRODUCT_NAME + "," + FIELD_SELLER_NAME + "," + FIELD_INSPECTOR_NAME)
+                    .sortBy(SORT_CREATED_AT_DESC)
                     .page(pageable.getPageNumber() + 1)
                     .perPage(pageable.getPageSize());
 
-            SearchResult result = typesenseClient.collections("inspections")
+            SearchResult result = typesenseClient.collections(COL_INSPECTIONS)
                     .documents()
                     .search(params);
 
@@ -196,16 +232,16 @@ public class SearchService {
     public void indexProduct(Product product) {
         try {
             Map<String, Object> document = new HashMap<>();
-            document.put("id", String.valueOf(product.getProductId()));
-            document.put("product_id", product.getProductId());
-            document.put("product_name", product.getProductName());
-            document.put("brand_name", product.getBrand() != null ? product.getBrand().getBrandName() : "");
-            document.put("category_name", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
-            document.put("product_description", product.getProductDescription());
-            document.put("retail_price", product.getRetailPrice());
-            document.put("wish_count", product.getWishCount());     /// [추가] 관심 개수 추가
-            document.put("is_deleted", product.isDeleted());
-            document.put("created_at", product.getCreatedAt() != null
+            document.put(FIELD_ID, String.valueOf(product.getProductId()));
+            document.put(FIELD_PRODUCT_ID, product.getProductId());
+            document.put(FIELD_PRODUCT_NAME, product.getProductName());
+            document.put(FIELD_BRAND_NAME, product.getBrand() != null ? product.getBrand().getBrandName() : "");
+            document.put(FIELD_CATEGORY_NAME, product.getCategory() != null ? product.getCategory().getCategoryName() : "");
+            document.put(FIELD_PRODUCT_DESC, product.getProductDescription());
+            document.put(FIELD_RETAIL_PRICE, product.getRetailPrice());
+            document.put(FIELD_WISH_COUNT, product.getWishCount());     /// [추가] 관심 개수 추가
+            document.put(FIELD_IS_DELETED, product.isDeleted());
+            document.put(FIELD_CREATED_AT, product.getCreatedAt() != null
                     ? product.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
             /// [추가] 상품 이미지 인덱싱
@@ -215,9 +251,9 @@ public class SearchService {
                         .map(ProductImage::getImageUrl)
                         .toList();
             }
-            document.put("image_urls", imageUrls);
+            document.put(FIELD_IMAGE_URLS, imageUrls);
 
-            typesenseClient.collections("products")
+            typesenseClient.collections(COL_PRODUCTS)
                     .documents()
                     .upsert(document);
 
@@ -234,18 +270,18 @@ public class SearchService {
     public void indexUser(User user) {
         try {
             Map<String, Object> document = new HashMap<>();
-            document.put("id", String.valueOf(user.getUserId()));
-            document.put("user_id", user.getUserId());
-            document.put("email", user.getEmail());
-            document.put("name", user.getName());
-            document.put("role", user.getRole().name());
-            document.put("provider_type", user.getProviderType() != null ? user.getProviderType().name() : "");
-            document.put("status", user.getStatus().name());
-            document.put("is_deleted", user.getIsDeleted());
-            document.put("created_at", user.getCreatedAt() != null
+            document.put(FIELD_ID, String.valueOf(user.getUserId()));
+            document.put(FIELD_USER_ID, user.getUserId());
+            document.put(FIELD_EMAIL, user.getEmail());
+            document.put(FIELD_NAME, user.getName());
+            document.put(FIELD_ROLE, user.getRole().name());
+            document.put(FIELD_PROVIDER_TYPE, user.getProviderType() != null ? user.getProviderType().name() : "");
+            document.put(FIELD_STATUS, user.getStatus().name());
+            document.put(FIELD_IS_DELETED, user.getIsDeleted());
+            document.put(FIELD_CREATED_AT, user.getCreatedAt() != null
                     ? user.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);   // 검색엔진에서 쓰기 좋은 초 단위 숫자로 바꿔서 저장
 
-            typesenseClient.collections("users")
+            typesenseClient.collections(COL_USERS)
                     .documents()
                     .upsert(document);
 
@@ -262,18 +298,18 @@ public class SearchService {
     public void indexOrder(Order order) {
         try {
             Map<String, Object> document = new HashMap<>();
-            document.put("id", String.valueOf(order.getOrderId()));
-            document.put("order_id", order.getOrderId());
-            document.put("buyer_name", order.getBuyer() != null ? order.getBuyer().getName() : "");
-            document.put("seller_name", order.getSeller() != null ? order.getSeller().getName() : "");
-            document.put("product_name", order.getProduct() != null ? order.getProduct().getProductName() : "");
-            document.put("price", order.getPrice());
-            document.put("current_status", order.getCurrentStatus() != null ? order.getCurrentStatus().name() : "");
-            document.put("bid_type", order.getType() != null ? order.getType().name() : "");
-            document.put("created_at", order.getCreatedAt() != null
+            document.put(FIELD_ID, String.valueOf(order.getOrderId()));
+            document.put(FIELD_ORDER_ID, order.getOrderId());
+            document.put(FIELD_BUYER_NAME, order.getBuyer() != null ? order.getBuyer().getName() : "");
+            document.put(FIELD_SELLER_NAME, order.getSeller() != null ? order.getSeller().getName() : "");
+            document.put(FIELD_PRODUCT_NAME, order.getProduct() != null ? order.getProduct().getProductName() : "");
+            document.put(FIELD_PRICE, order.getPrice());
+            document.put(FIELD_CURRENT_STATUS, order.getCurrentStatus() != null ? order.getCurrentStatus().name() : "");
+            document.put(FIELD_BID_TYPE, order.getType() != null ? order.getType().name() : "");
+            document.put(FIELD_CREATED_AT, order.getCreatedAt() != null
                     ? order.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
-            typesenseClient.collections("orders")
+            typesenseClient.collections(COL_ORDERS)
                     .documents()
                     .upsert(document);
 
@@ -310,17 +346,17 @@ public class SearchService {
             }
 
             Map<String, Object> document = new HashMap<>();
-            document.put("id", String.valueOf(inspection.getInspectionId()));
-            document.put("inspection_id", inspection.getInspectionId());
-            document.put("product_name", productName);
-            document.put("seller_name", sellerName);
-            document.put("inspector_name", inspection.getUser() != null ? inspection.getUser().getName() : "");
-            document.put("type", inspection.getType().name());
-            document.put("status", inspection.getStatus().name());
-            document.put("created_at", inspection.getCreatedAt() != null
+            document.put(FIELD_ID, String.valueOf(inspection.getInspectionId()));
+            document.put(FIELD_INSPECTION_ID, inspection.getInspectionId());
+            document.put(FIELD_PRODUCT_NAME, productName);
+            document.put(FIELD_SELLER_NAME, sellerName);
+            document.put(FIELD_INSPECTOR_NAME, inspection.getUser() != null ? inspection.getUser().getName() : "");
+            document.put(FIELD_TYPE, inspection.getType().name());
+            document.put(FIELD_STATUS, inspection.getStatus().name());
+            document.put(FIELD_CREATED_AT, inspection.getCreatedAt() != null
                     ? inspection.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond() : 0L);
 
-            typesenseClient.collections("inspections")
+            typesenseClient.collections(COL_INSPECTIONS)
                     .documents()
                     .upsert(document);
 
@@ -397,17 +433,7 @@ public class SearchService {
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
-                    Map<String, Object> doc = hit.getDocument();
-                    items.add(ProductSearchResponseDto.builder()
-                            .productId(doc.get("product_id") != null ? ((Number) doc.get("product_id")).longValue() : 0L)
-                            .productName((String) doc.getOrDefault("product_name", ""))
-                            .brandName((String) doc.getOrDefault("brand_name", ""))
-                            .categoryName((String) doc.getOrDefault("category_name", ""))
-                            .productDescription((String) doc.getOrDefault("product_description", ""))
-                            .wishCount((Integer) doc.getOrDefault("wish_count", 0))
-                            .imageUrls((List<String>) doc.get("image_urls") != null ? (List<String>) doc.get("image_urls") : null)
-                            .retailPrice(doc.get("retail_price") != null ? ((Number) doc.get("retail_price")).intValue() : 0)
-                            .build());
+                    items.add(mapToProductDto(hit.getDocument()));
                 } catch (Exception e) {
                     log.error("상품 DTO 변환 실패: {}", e.getMessage());
                 }
@@ -422,26 +448,26 @@ public class SearchService {
                 .build();
     }
 
+    private ProductSearchResponseDto mapToProductDto(Map<String, Object> doc) {
+        return ProductSearchResponseDto.builder()
+                .productId(doc.get(FIELD_PRODUCT_ID) != null ? ((Number) doc.get(FIELD_PRODUCT_ID)).longValue() : 0L)
+                .productName((String) doc.getOrDefault(FIELD_PRODUCT_NAME, ""))
+                .brandName((String) doc.getOrDefault(FIELD_BRAND_NAME, ""))
+                .categoryName((String) doc.getOrDefault(FIELD_CATEGORY_NAME, ""))
+                .productDescription((String) doc.getOrDefault(FIELD_PRODUCT_DESC, ""))
+                .wishCount(doc.get(FIELD_WISH_COUNT) != null ? ((Number) doc.get(FIELD_WISH_COUNT)).intValue() : 0)
+                .imageUrls((List<String>) doc.get(FIELD_IMAGE_URLS) != null ? (List<String>) doc.get(FIELD_IMAGE_URLS) : null)
+                .retailPrice(doc.get(FIELD_RETAIL_PRICE) != null ? ((Number) doc.get(FIELD_RETAIL_PRICE)).intValue() : 0)
+                .build();
+    }
+
     private SearchResultDto<UserSearchResponseDto> convertToUserDto(SearchResult result, Pageable pageable) {
         List<UserSearchResponseDto> items = new ArrayList<>();
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
-                    Map<String, Object> doc = hit.getDocument();
-                    items.add(UserSearchResponseDto.builder()
-                            .userId(doc.get("user_id") != null ? ((Number) doc.get("user_id")).longValue() : 0L)
-                            .email((String) doc.getOrDefault("email", ""))
-                            .name((String) doc.getOrDefault("name", ""))
-                            .role((String) doc.getOrDefault("role", ""))
-                            .status((String) doc.getOrDefault("status", ""))
-                            .providerType((String) doc.getOrDefault("provider_type", ""))
-                            .createdAt(doc.get("created_at") != null
-                                    ? java.time.LocalDateTime.ofInstant(
-                                    java.time.Instant.ofEpochSecond(((Number) doc.get("created_at")).longValue()),
-                                    java.time.ZoneId.systemDefault())
-                                    : null)
-                            .build());
+                    items.add(mapToUserDto(hit.getDocument()));
                 } catch (Exception e) {
                     log.error("회원 DTO 변환 실패: {}", e.getMessage());
                 }
@@ -456,34 +482,29 @@ public class SearchService {
                 .build();
     }
 
+    private UserSearchResponseDto mapToUserDto(Map<String, Object> doc) {
+        return UserSearchResponseDto.builder()
+                .userId(doc.get(FIELD_USER_ID) != null ? ((Number) doc.get(FIELD_USER_ID)).longValue() : 0L)
+                .email((String) doc.getOrDefault(FIELD_EMAIL, ""))
+                .name((String) doc.getOrDefault(FIELD_NAME, ""))
+                .role((String) doc.getOrDefault(FIELD_ROLE, ""))
+                .status((String) doc.getOrDefault(FIELD_STATUS, ""))
+                .providerType((String) doc.getOrDefault(FIELD_PROVIDER_TYPE, ""))
+                .createdAt(doc.get(FIELD_CREATED_AT) != null
+                        ? java.time.LocalDateTime.ofInstant(
+                        java.time.Instant.ofEpochSecond(((Number) doc.get(FIELD_CREATED_AT)).longValue()),
+                        java.time.ZoneId.systemDefault())
+                        : null)
+                .build();
+    }
+
     private Page<AdminOrderResponseDto> convertToOrderDto(SearchResult result, Pageable pageable) {
         List<AdminOrderResponseDto> items = new ArrayList<>();
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
-                    Map<String, Object> doc = hit.getDocument();
-                    long orderId = doc.get("order_id") != null
-                            ? ((Number) doc.get("order_id")).longValue() : 0L;
-
-                    LocalDateTime createdAt = null;
-                    if (doc.get("created_at") != null) {
-                        long epoch = ((Number) doc.get("created_at")).longValue();
-                        createdAt = LocalDateTime.ofInstant(
-                                java.time.Instant.ofEpochSecond(epoch),
-                                java.time.ZoneId.systemDefault());
-                    }
-
-                    items.add(AdminOrderResponseDto.builder()
-                            .orderId(orderId)
-                            .orderNumber(String.format("ORD-%08d", orderId))
-                            .createdAt(createdAt)
-                            .buyerName((String) doc.getOrDefault("buyer_name", ""))
-                            .sellerName((String) doc.getOrDefault("seller_name", ""))
-                            .productName((String) doc.getOrDefault("product_name", ""))
-                            .price(doc.get("price") != null ? ((Number) doc.get("price")).intValue() : 0)
-                            .currentStatus((String) doc.getOrDefault("current_status", ""))
-                            .build());
+                    items.add(mapToOrderDto(hit.getDocument()));
                 } catch (Exception e) {
                     log.error("관리자 주문 DTO 변환 실패: {}", e.getMessage());
                 }
@@ -494,31 +515,37 @@ public class SearchService {
         return new PageImpl<>(items, pageable, totalCount);
     }
 
+    private AdminOrderResponseDto mapToOrderDto(Map<String, Object> doc) {
+        long orderId = doc.get(FIELD_ORDER_ID) != null
+                ? ((Number) doc.get(FIELD_ORDER_ID)).longValue() : 0L;
+
+        LocalDateTime createdAt = null;
+        if (doc.get(FIELD_CREATED_AT) != null) {
+            long epoch = ((Number) doc.get(FIELD_CREATED_AT)).longValue();
+            createdAt = LocalDateTime.ofInstant(
+                    java.time.Instant.ofEpochSecond(epoch),
+                    java.time.ZoneId.systemDefault());
+        }
+
+        return AdminOrderResponseDto.builder()
+                .orderId(orderId)
+                .orderNumber(String.format(OrderService.ORDER_NUMBER_FORMAT, orderId))
+                .createdAt(createdAt)
+                .buyerName((String) doc.getOrDefault(FIELD_BUYER_NAME, ""))
+                .sellerName((String) doc.getOrDefault(FIELD_SELLER_NAME, ""))
+                .productName((String) doc.getOrDefault(FIELD_PRODUCT_NAME, ""))
+                .price(doc.get(FIELD_PRICE) != null ? ((Number) doc.get(FIELD_PRICE)).intValue() : 0)
+                .currentStatus((String) doc.getOrDefault(FIELD_CURRENT_STATUS, ""))
+                .build();
+    }
+
     private SearchResultDto<InspectionSearchResponseDto> convertToInspectionDto(SearchResult result, Pageable pageable) {
         List<InspectionSearchResponseDto> items = new ArrayList<>();
 
         if (result.getHits() != null) {
             for (SearchResultHit hit : result.getHits()) {
                 try {
-                    Map<String, Object> doc = hit.getDocument();
-
-                    LocalDateTime createdAt = null;
-                    if (doc.get("created_at") != null) {
-                        long epoch = ((Number) doc.get("created_at")).longValue();
-                        createdAt = LocalDateTime.ofInstant(
-                                java.time.Instant.ofEpochSecond(epoch),
-                                java.time.ZoneId.systemDefault());
-                    }
-
-                    items.add(InspectionSearchResponseDto.builder()
-                            .inspectionId(doc.get("inspection_id") != null ? ((Number) doc.get("inspection_id")).longValue() : 0L)
-                            .productName((String) doc.getOrDefault("product_name", ""))
-                            .sellerName((String) doc.getOrDefault("seller_name", ""))
-                            .inspectorName((String) doc.getOrDefault("inspector_name", ""))
-                            .type((String) doc.getOrDefault("type", ""))
-                            .status((String) doc.getOrDefault("status", ""))
-                            .createdAt(createdAt)
-                            .build());
+                    items.add(mapToInspectionDto(hit.getDocument()));
                 } catch (Exception e) {
                     log.error("검수 DTO 변환 실패: {}", e.getMessage());
                 }
@@ -530,6 +557,26 @@ public class SearchService {
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
                 .items(items)
+                .build();
+    }
+
+    private InspectionSearchResponseDto mapToInspectionDto(Map<String, Object> doc) {
+        LocalDateTime createdAt = null;
+        if (doc.get(FIELD_CREATED_AT) != null) {
+            long epoch = ((Number) doc.get(FIELD_CREATED_AT)).longValue();
+            createdAt = LocalDateTime.ofInstant(
+                    java.time.Instant.ofEpochSecond(epoch),
+                    java.time.ZoneId.systemDefault());
+        }
+
+        return InspectionSearchResponseDto.builder()
+                .inspectionId(doc.get(FIELD_INSPECTION_ID) != null ? ((Number) doc.get(FIELD_INSPECTION_ID)).longValue() : 0L)
+                .productName((String) doc.getOrDefault(FIELD_PRODUCT_NAME, ""))
+                .sellerName((String) doc.getOrDefault(FIELD_SELLER_NAME, ""))
+                .inspectorName((String) doc.getOrDefault(FIELD_INSPECTOR_NAME, ""))
+                .type((String) doc.getOrDefault(FIELD_TYPE, ""))
+                .status((String) doc.getOrDefault(FIELD_STATUS, ""))
+                .createdAt(createdAt)
                 .build();
     }
 

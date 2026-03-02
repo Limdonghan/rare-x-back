@@ -3,6 +3,7 @@ package com.project.rare_x_back.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.rare_x_back.common.ApiResponse;
 import com.project.rare_x_back.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,6 +68,8 @@ public class SecurityConfig {
 
                 // URL별 권한 설정
                 .authorizeHttpRequests(auth -> auth
+                        /// SSE 통신 등의 비동기 요청 시 SecurityContext 유실 방지를 위한 ASYNC 허용
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // 인증 없이 접근 가능한 URL
                         .requestMatchers(
                                 "/api/auth/signup",

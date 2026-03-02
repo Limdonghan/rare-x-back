@@ -124,7 +124,7 @@ public class AddressService {
     public void updateAddress (Long userId, Long addressId, UserAddressUpdateRequestDto requestDto) {
         // 수정할 유저의 주소록 정보 찾기
         Address changeAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ADDRESS_NOT_FOUND));
         changeAddress.updateAddress(requestDto.getRecipientName(), requestDto.getDetailAddress(), requestDto.getNickname());
     }
 
@@ -137,7 +137,7 @@ public class AddressService {
     public void updateDefaultAddress (Long userId, Long addressId, DefaultAddressUpdateRequestDto requestDto) {
 
         Address changeAddress =  addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ADDRESS_NOT_FOUND));
 
         // 요청
         boolean isDefault = requestDto.isDefaultAddress();
@@ -180,7 +180,7 @@ public class AddressService {
     public void deleteAddress(Long userId, Long addressId) {
 
         Address deleteAddress = addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BAD_REQUEST, "지정된 사용자에 대한 주소를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ADDRESS_NOT_FOUND));
 
         // OPEN 입찰이 참조 중이면 삭제 거부
         boolean hasOpenBids = buyBidRepository.existsByAddressIdAndStatus(addressId, BidStatus.OPEN);
