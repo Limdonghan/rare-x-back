@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 public class PurchaseRequestDto {
     private Long productId;     /// 상품 ID
     private int price;          /// 구매 가격
+    private Long sellId;        /// 락 획득 시 발급받은 판매 입찰 ID
 
     private Long addressId;     // 구매자가 선택한 배송지Id
 

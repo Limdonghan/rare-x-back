@@ -49,7 +49,7 @@ public interface AdminDashboardRepository extends JpaRepository<PaymentHistory, 
         FROM settlements s
         WHERE s.status = 'COMPLETE'
           AND s.completed_at >= :date
-          AND s.completed_at < DATE_ADD(:date, INTERVAL 1 DAY);
+          AND s.completed_at < DATE_ADD(:date, INTERVAL 1 DAY)
         """, nativeQuery = true)
     Long sumSellerFeeByDate(@Param("date") String date);
 

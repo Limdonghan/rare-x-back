@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Service
 @Slf4j
@@ -221,19 +221,21 @@ public class BidService {
         Product product = productRepository.findByProductIdAndIsDeletedFalse(purchaseRequestDto.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        /// [매칭] 해당 가격에 파는 판매 입찰(SaleBid) 찾기, (가장 저렴하고, 먼저 등록된 판매 입찰 1개 조회 + 본인 입찰 제외 추가)
-        List<SaleBid> saleBidList = saleBidRepository.findAllByProductAndPriceAndStatusAndUserNot(
-                product,
-                purchaseRequestDto.getPrice(),
-                BidStatus.OPEN,
-                buyer.getUserId(),
-                PageRequest.of(0, 1)
-        );
+        /// [매칭] 락 획득 시 전달받은 특정 판매 입찰(SaleBid) 단건 조회
+        SaleBid saleBid = saleBidRepository.findById(purchaseRequestDto.getSellId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_ON_SALE, "해당 판매 입찰을 찾을 수 없습니다."));
 
-        if (saleBidList.isEmpty()) {
-            throw new CustomException(ErrorCode.PRODUCT_NOT_ON_SALE);
+        if (saleBid.getStatus() != BidStatus.OPEN) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "해당 판매 입찰은 이미 체결되었거나 취소되었습니다.");
         }
-        SaleBid saleBid = saleBidList.getFirst();
+
+        if (!saleBid.getProduct().getProductId().equals(product.getProductId())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "결제 상품 정보가 일치하지 않습니다.");
+        }
+
+        if (saleBid.getPrice() != purchaseRequestDto.getPrice()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "결제 금액이 일치하지 않습니다.");
+        }
 
         if (saleBid.getUser().getUserId().equals(buyer.getUserId())) {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "본인의 판매 입찰은 구매할 수 없습니다.");
@@ -242,8 +244,8 @@ public class BidService {
         /// [Redis 락 검증] (결제창 진입 시 선점했던 락이 유효한지 또는 다른 사람의 락인지 확인)
         String lockKey = "sale_bid_lock:" + saleBid.getSellId();
         String lockOwner = redisTemplate.opsForValue().get(lockKey);
-        if (lockOwner != null && !lockOwner.equals(String.valueOf(buyer.getUserId()))) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST, "해당 상품은 다른 사용자가 결제 진행 중입니다.");
+        if (lockOwner == null || !lockOwner.equals(String.valueOf(buyer.getUserId()))) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "결제 시간이 만료되었거나 권한이 없습니다. 다시 시도해주세요.");
         }
 
         /// [상태 변경] 판매 입찰 -> 체결됨(MATCHED)
