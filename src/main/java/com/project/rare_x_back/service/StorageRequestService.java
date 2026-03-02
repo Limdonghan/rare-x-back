@@ -14,12 +14,13 @@ import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -96,34 +97,30 @@ public class StorageRequestService {
     }
 
     // 보관 신청 목록 조회 (전체 또는 상태별 필터링)
-    public List<StorageRequestResponseDto> getMyStorageRequests(String userEmail, StorageRequestStatus status) {
+    public Page<StorageRequestResponseDto> getMyStorageRequests(String userEmail, StorageRequestStatus status, Pageable pageable) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        List<StorageRequest> requests;
+        Page<StorageRequest> requests;
 
         if (status != null) {
-            requests = storageRequestRepository.findByUserIdAndStatus(user.getUserId(), status);
+            requests = storageRequestRepository.findByUserIdAndStatus(user.getUserId(), status, pageable);
         } else {
-            requests = storageRequestRepository.findByUserId(user.getUserId());
+            requests = storageRequestRepository.findByUserId(user.getUserId(), pageable);
         }
 
-        return requests.stream()
-                .map(sr -> StorageRequestResponseDto.from(sr, inspectionCenterAddress, inspectionCenterZipcode))
-                .collect(Collectors.toList());
+        return requests.map(sr -> StorageRequestResponseDto.from(sr, inspectionCenterAddress, inspectionCenterZipcode));
     }
 
     // 발송 대기 목록 조회 (PENDING 상태)
-    public List<StorageRequestResponseDto> getPendingStorageRequests(String userEmail) {
+    public Page<StorageRequestResponseDto> getPendingStorageRequests(String userEmail, Pageable pageable) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        List<StorageRequest> requests = storageRequestRepository
-                .findByUserIdAndStatus(user.getUserId(), StorageRequestStatus.PENDING);
+        Page<StorageRequest> requests = storageRequestRepository
+                .findByUserIdAndStatus(user.getUserId(), StorageRequestStatus.PENDING, pageable);
 
-        return requests.stream()
-                .map(sr -> StorageRequestResponseDto.from(sr, inspectionCenterAddress, inspectionCenterZipcode))
-                .collect(Collectors.toList());
+        return requests.map(sr -> StorageRequestResponseDto.from(sr, inspectionCenterAddress, inspectionCenterZipcode));
     }
 
     // 발송 처리

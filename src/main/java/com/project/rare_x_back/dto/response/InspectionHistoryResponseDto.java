@@ -48,68 +48,57 @@ public class InspectionHistoryResponseDto {
                 .inspectedAt(inspection.getInspectedAt());
 
         // 검수 담당자 정보
-        User inspector = inspection.getUser();
+        setInspectorInfo(builder,inspection.getUser());
+
+        // 보관 검수인 경우
+        if (inspection.getStorageRequest() != null) {
+            // 판매자 정보
+            setSellerInfo(builder,inspection.getStorageRequest().getUser());
+
+            // 상품 정보
+            setProductInfo(builder,inspection.getStorageRequest().getProduct());
+        }
+
+        // 주문 검수(ORDER)인 경우
+        else if (inspection.getOrder() != null) {
+            // 판매자 정보
+            setSellerInfo(builder,inspection.getOrder().getSeller());
+
+            // 상품 정보
+            setProductInfo(builder,inspection.getOrder().getProduct());
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * 복잡도 낮추기 위한 분리 메서드
+     * @setInspectorInfo : 검수 담당자 정보 조회
+     * @setSellerInfo : 판매자 정보 조회
+     * @setProductInfo : 상품 정보 조회
+     * */
+    private static void setInspectorInfo(InspectionHistoryResponseDtoBuilder builder, User inspector) {
         if (inspector != null) {
             builder.inspectorId(inspector.getUserId())
                     .inspectorName(inspector.getName());
         }
-
-        // 보관 검수인 경우
-        StorageRequest storageRequest = inspection.getStorageRequest();
-        if (storageRequest != null) {
-            // 판매자 정보
-            User seller = storageRequest.getUser();
-            if (seller != null) {
-                builder.sellerId(seller.getUserId())
-                        .sellerName(seller.getName());
-            }
-
-            // 상품 정보
-            Product product = storageRequest.getProduct();
-            if (product != null) {
-                builder.productId(product.getProductId())
-                        .productName(product.getProductName());
-
-                // 브랜드 정보
-                if (product.getBrand() != null) {
-                    builder.brandName(product.getBrand().getBrandName());
-                }
-
-                // 카테고리 정보
-                if (product.getCategory() != null) {
-                    builder.categoryId(product.getCategory().getCategoryId())
-                            .categoryName(product.getCategory().getCategoryName());
-                }
-            }
+    }
+    private static void setSellerInfo(InspectionHistoryResponseDtoBuilder builder, User seller) {
+        if (seller != null) {
+            builder.sellerId(seller.getUserId())
+                    .sellerName(seller.getName());
         }
-
-        // 주문 검수(ORDER)인 경우
-        Order order = inspection.getOrder();
-        if (order != null) {
-            // 판매자 정보
-            User seller = order.getSeller();
-            if (seller != null) {
-                builder.sellerId(seller.getUserId())
-                        .sellerName(seller.getName());
-            }
-
-            // 상품 정보
-            Product product = order.getProduct();
-            if (product != null) {
-                builder.productId(product.getProductId())
-                        .productName(product.getProductName());
-
-                if (product.getBrand() != null) {
-                    builder.brandName(product.getBrand().getBrandName());
-                }
-
-                if (product.getCategory() != null) {
-                    builder.categoryId(product.getCategory().getCategoryId())
-                            .categoryName(product.getCategory().getCategoryName());
-                }
-            }
+    }
+    private static void setProductInfo(InspectionHistoryResponseDtoBuilder builder, Product product) {
+        if (product == null) return;
+        builder.productId(product.getProductId())
+                .productName(product.getProductName());
+        if (product.getBrand() != null) {
+            builder.brandName(product.getBrand().getBrandName());
         }
-
-        return builder.build();
+        if (product.getCategory() != null) {
+            builder.categoryId(product.getCategory().getCategoryId())
+                    .categoryName(product.getCategory().getCategoryName());
+        }
     }
 }

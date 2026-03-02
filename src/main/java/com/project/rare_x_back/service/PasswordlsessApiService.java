@@ -15,7 +15,6 @@ import com.project.rare_x_back.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -34,8 +33,12 @@ public class PasswordlsessApiService {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
-    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
+
+
+    // 역할 식별용 상수
+    public static final String USER_ID = "userId";
+    public static final String SESSION_ID = "sessionId";
+    public static final String IP = "ip";
 
 
     /**
@@ -47,7 +50,7 @@ public class PasswordlsessApiService {
         /// URL 생성
         URI uri = UriComponentsBuilder.fromUriString(servingUrl)
                 .path("/status")
-                .queryParam("userId", email)
+                .queryParam(USER_ID, email)
                 .build()
                 .toUri();
 
@@ -82,7 +85,7 @@ public class PasswordlsessApiService {
         if (!userStatus && !user.getPasswordlessEnabled()) {
         URI uri = UriComponentsBuilder.fromUriString(servingUrl)
                 .path("/register")
-                .queryParam("userId", email)
+                .queryParam(USER_ID, email)
                 .build()
                 .toUri();
 
@@ -118,8 +121,8 @@ public class PasswordlsessApiService {
         if (userStatus && user.getPasswordlessEnabled()) {
         URI uri = UriComponentsBuilder.fromUriString(servingUrl)
                 .path("/login-trigger")
-                .queryParam("userId", email)
-                .queryParam("ip", ip)
+                .queryParam(USER_ID, email)
+                .queryParam(IP, ip)
                 .build()
                 .toUri();
 
@@ -141,8 +144,8 @@ public class PasswordlsessApiService {
 
         URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
                 .path("/result")
-                .queryParam("userId", email)
-                .queryParam("sessionId", sessionId)
+                .queryParam(USER_ID, email)
+                .queryParam(SESSION_ID, sessionId)
                 .build()
                 .toUri();
 
@@ -202,8 +205,8 @@ public class PasswordlsessApiService {
     public String cancel (String email, String sessionId){
         URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
                 .path("/cancel")
-                .queryParam("userId", email)
-                .queryParam("sessionId", sessionId)
+                .queryParam(USER_ID, email)
+                .queryParam(SESSION_ID, sessionId)
                 .build()
                 .toUri();
 
@@ -221,7 +224,7 @@ public class PasswordlsessApiService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         URI uri = UriComponentsBuilder.fromUriString(servingUrl) /// http://54.180.../api/passwordless
                 .path("/withdrawal")
-                .queryParam("userId", email)
+                .queryParam(USER_ID, email)
                 .build()
                 .toUri();
                 

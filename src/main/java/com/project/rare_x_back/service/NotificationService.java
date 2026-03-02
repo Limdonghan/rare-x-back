@@ -12,12 +12,13 @@ import com.project.rare_x_back.repository.SseRepository;
 import com.project.rare_x_back.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
 import java.util.List;
@@ -32,6 +33,11 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+
+    // 프록시 객체를 지연 주입
+    @Autowired
+    @Lazy
+    private NotificationService self;
 
     /// 기본 타임아웃: 60분
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
@@ -61,10 +67,9 @@ public class NotificationService {
     /**
      * 특정 유저에게 알림을 전송
      */
-    @Transactional
     // 알림 전송 (기본 EmailType used: NOTIFICATION)
     public void send(Long userId, String content, String url, NotificationType notificationType) {
-        send(userId, content, url, notificationType, EmailType.NOTIFICATION);
+        self.send(userId, content, url, notificationType, EmailType.NOTIFICATION);
     }
 
     // 알림 전송 (EmailType 지정 가능)
@@ -137,6 +142,16 @@ public class NotificationService {
 
         notification.isReadUpdate(true);
         notificationRepository.save(notification);
+    }
+
+    /**
+     * 특정 사용자 알림 모두 읽음 처리
+     * 프론트엔드에서 n번의 단건 API 요청이 들어오는 대신,
+     * 한 번의 요청으로 사용자의 모든 미확인 알림을 읽음 처리(isRead = true)
+     */
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        notificationRepository.markAllAsRead(userId);
     }
 
     /**

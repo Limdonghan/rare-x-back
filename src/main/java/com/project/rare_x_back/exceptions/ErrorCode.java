@@ -22,6 +22,7 @@ public enum ErrorCode {
     USER_ALREADY_DELETED(HttpStatus.GONE, "사용자를 찾을 수 없습니다"),    // 탈퇴 유저(softDelete)
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다"),
     ACCOUNT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "활성화되지 않은 계정입니다"),
+    ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND,"관리자를 찾을 수 없습니다"),
 
     // 인증 관련
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다"),
@@ -34,11 +35,13 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증이 필요합니다"),
 
     // 이메일 인증 추가 필요
-    INVALID_VERIFICATION_CODE(HttpStatus.UNAUTHORIZED, "인증번호가 일치하지 않습니다"),
-    VERIFICATION_CODE_EXPIRED(HttpStatus.UNAUTHORIZED, "인증번호가 만료되었습니다"),
+    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "인증번호가 일치하지 않습니다"),
+    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "인증번호가 만료되었습니다"),
 
     // 상품 관련
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다"),
+    BRAND_NOT_FOUND(HttpStatus.NOT_FOUND,"브랜드를 찾을 수 없습니다"),
+    CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND,"카테고리를 찾을 수 없습니다"),
 
     // 관심 상품 관련
     WISH_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 관심 상품에 등록되어 있습니다."),
@@ -61,7 +64,7 @@ public enum ErrorCode {
     TEMP_PASSWORD_EXPIRED(HttpStatus.UNAUTHORIZED, "임시 비밀번호가 만료되었습니다. 다시 발급받아 주세요."),
 
     // 비밀번호 변경 관련
-    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다"),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "기존 비밀번호와 동일한 비밀번호로 변경할 수 없습니다."),
     CURRENT_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "현재 비밀번호를 입력해주세요"),
 
     // 잘못된 요청
@@ -91,8 +94,25 @@ public enum ErrorCode {
     // 임시 비번 및 비번 변경
     TEMP_PASSWORD_ALREADY_SENT(HttpStatus.TOO_MANY_REQUESTS,"임시 비밀번호가 이미 발송되었습니다. 1시간 후 재시도해주세요"),
 
+    // 주소 관련
+    ADDRESS_IN_USE_BY_BID(HttpStatus.CONFLICT, "해당 배송지로 진행 중인 입찰이 있어 삭제할 수 없습니다. 입찰 종료 후 다시 시도해주세요."),
+    ADDRESS_NOT_FOUND(HttpStatus.NOT_FOUND,"지정된 사용자에 대한 주소를 찾을 수 없습니다."),
+
     // Order 에러
-    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다");
+    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST,"현재 주문 정보를 찾을 수 없습니다"),
+
+    // 검수 관련
+    INSPECTION_NOT_FOUND(HttpStatus.NOT_FOUND,"검수 정보를 찾을 수 없습니다."),
+    CHECK_LIST_NOT_FOUND(HttpStatus.NOT_FOUND,"체크리스트를 찾을 수 없습니다"),
+
+    // 보관 상품 관련
+    STORAGE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND,"보관 상품 정보를 찾을 수 없습니다."),
+    STORAGE_REQUEST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND,"보관 신청 정보를 찾을 수 없습니다.");
+
+
+
+
+
     private final String message;
     private final HttpStatus status;
 

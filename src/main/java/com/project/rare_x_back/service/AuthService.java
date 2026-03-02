@@ -20,6 +20,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -209,8 +210,8 @@ public class AuthService {
     }
 
 
-    // 임시 비번 변경 (현재 비번 확인 불필요)
     @Transactional
+    // 임시 비번 변경 (현재 비번 확인 불필요)
     public void changePassword(Long userId, PasswordChangeRequestDto request) {
 
         // 1. 사용자 조회
@@ -219,25 +220,18 @@ public class AuthService {
 
         // 2. 임시 비밀번호 사용자 확인
         boolean isTempPasswordUser = emailService.isTempPasswordUser(user.getEmail());
+        // 현재 비밀번호 입력 여부 확인
+        boolean hasCurrentPassword = StringUtils.hasText(request.getCurrentPassword());
 
-        // 3. 현재 비밀번호 확인 (임시 비밀번호 사용자는 선택적)
-        if (!isTempPasswordUser) {
-            // 일반 사용자는 현재 비밀번호 필수
-            if (request.getCurrentPassword() == null || request.getCurrentPassword().isEmpty()) {
-                throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED);
-            }
+        // 3. 현재 비밀번호 검증 (복잡도 감소를 위해 if-else 구조 최적화)
+        if (!isTempPasswordUser && !hasCurrentPassword) {
+            // 일반 사용자는 현재 비밀번호 입력 필수
+            throw new CustomException(ErrorCode.CURRENT_PASSWORD_REQUIRED);
+        }
 
-            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-                throw new CustomException(ErrorCode.INVALID_PASSWORD);
-            }
-        } else {
-            // 임시 비밀번호 사용자는 현재 비밀번호 확인 선택적
-            // 입력했다면 검증, 안 했다면 스킵
-            if (request.getCurrentPassword() != null && !request.getCurrentPassword().isEmpty()) {
-                if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-                    throw new CustomException(ErrorCode.INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.");
-                }
-            }
+        // 현재 비밀번호를 입력했다면, (일반 사용자든 임시 비밀번호 사용자든 상관없이) 무조건 일치해야 함
+        if (hasCurrentPassword && !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.");
         }
 
         // 4. 새 비밀번호 일치 확인
@@ -261,7 +255,7 @@ public class AuthService {
         }
 
         log.info("비밀번호 변경 완료: userId={}", userId);
-
     }
+
 
 }

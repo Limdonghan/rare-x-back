@@ -23,9 +23,24 @@ public class PaymentController {
      * authKey와 customerKey를 전달
      */
     @PostMapping("/billing/register")
-    public ApiResponse<?> registerCard (@RequestBody BillingKeyRequestDto requestDto,
-                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(paymentService.registerCard(requestDto, userDetails.getUsername()));
+    public ApiResponse<BillingKeyResponseDto> registerCard (@RequestBody BillingKeyRequestDto requestDto,
+                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
+        // 카드 등록 처리 (BillingKey 엔티티는 외부로 직접 노출하지 않음)
+        paymentService.registerCard(requestDto, userDetails.getUsername());
+
+        // 등록된 빌링키를 DTO 형태로 조회하여 응답
+        BillingKeyResponseDto billingKeyResponseDto = paymentService.validateBillingKey(userDetails.getUserId());
+        return ApiResponse.success(billingKeyResponseDto);
+    }
+
+    /**
+     * [카드 삭제 API]
+     * 해당 유저를 검증 후 유저가 등록한 빌링키를 찾아 삭제
+     */
+    @DeleteMapping("/billing")
+    public ApiResponse<String> deleteBillingKey (@AuthenticationPrincipal CustomUserDetails userDetails) {
+        paymentService.deleteBillingKey(userDetails.getUsername());
+        return ApiResponse.success("빌링키 삭제 완료");
     }
 
     /**
@@ -45,7 +60,7 @@ public class PaymentController {
      */
     @PostMapping("/confirm")
     public ApiResponse<?> confirmPayment(@RequestBody PaymentConfirmRequestDto requestDto,
-                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+                                               @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(paymentService.confirmPayment(requestDto,userDetails.getUsername()));
     }
 

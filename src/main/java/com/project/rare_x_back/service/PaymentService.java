@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -28,6 +29,20 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 public class PaymentService {
+
+    // 토스 API 연동 파라미터 및 응답 키 상수
+    private static final String KEY_CUSTOMER_KEY = "customerKey";
+    private static final String KEY_ORDER_ID = "orderId";
+    private static final String KEY_AMOUNT = "amount";
+    private static final String KEY_ORDER_NAME = "orderName";
+    private static final String KEY_PAYMENT_KEY = "paymentKey";
+    private static final String KEY_CARD = "card";
+
+    // 공통 에러 메시지 상수
+    private static final String ERR_MSG_PAYMENT_INFO = "결제 정보 오류";
+    private static final String ERR_MSG_TOSS_SERVER = "토스 서버 오류";
+
+    private static final String BILLING_KEY_URL = "billing/";
 
     private final WebClient webClient;
     private final PaymentRepository paymentRepository;
@@ -60,15 +75,15 @@ public class PaymentService {
                     .uri("billing/authorizations/issue")    /// 엔드포인트 설정
                     .bodyValue(Map.of(
                             "authKey", billingKeyRequestDto.getAuthKey(),
-                            "customerKey", billingKeyRequestDto.getCustomerKey()
+                            KEY_CUSTOMER_KEY, billingKeyRequestDto.getCustomerKey()
                     ))                                          /// Request Body 설정
                     .retrieve()                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED, ERR_MSG_PAYMENT_INFO + s)))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, ERR_MSG_TOSS_SERVER + s)))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})                     /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
 
@@ -76,10 +91,10 @@ public class PaymentService {
 
             /// 2. 응답에서 필요한 정보 추출
             String billingKey = (String) response.get("billingKey");
-            Map<String,Object> cardInfo = (Map<String, Object>) response.get("card");
+            Map<String,Object> cardInfo = (Map<String, Object>) response.get(KEY_CARD);
 
             /// Response값 매핑
-            String customerKey = String.valueOf(response.get("customerKey"));
+            String customerKey = String.valueOf(response.get(KEY_CUSTOMER_KEY));
             String cardCompany = String.valueOf(response.get("cardCompany"));
             String cardNumber = String.valueOf(cardInfo.get("number")).substring(12,16);
             OffsetDateTime authenticatedAt = OffsetDateTime.parse((String) response.get("authenticatedAt"));
@@ -100,6 +115,37 @@ public class PaymentService {
             log.error("결제 승인 실패: {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    /**
+     * 카드 삭제 (빌링키 삭제)
+     * */
+    @Transactional
+    public void deleteBillingKey(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        /// [중복 검사] 이미 저장된 결제인지 확인
+        billingKeyRepository.findByUser(user).ifPresent(billingKey -> {
+            try {
+                webClient.delete()
+                        .uri(BILLING_KEY_URL + billingKey.getBillingKey())
+                        .retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                                clientResponse.bodyToMono(String.class)
+                                        .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED,"토스 빌링키 해지 실패 (4xx): " + s))))
+                        .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                                clientResponse.bodyToMono(String.class)
+                                        .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류 (5xx): " + s))))
+                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                        .block();
+
+                billingKeyRepository.delete(billingKey);
+            } catch (Exception e) {
+                log.error("토스 빌링키 해지 중 오류 : {}", e.getMessage());
+                throw new CustomException(ErrorCode.TOSS_API_ERROR,"토스 빌링키 해지 실패 : " + e.getMessage());
+            }
+        });
     }
 
     /**
@@ -141,20 +187,20 @@ public class PaymentService {
         try {
             /// 3. 토스 API 호출
             Map<String, Object> response = webClient.post()
-                    .uri("billing/" + billingKey.getBillingKey())
+                    .uri(BILLING_KEY_URL + billingKey.getBillingKey())
                     .bodyValue(Map.of(
-                            "amount", buyerTotalAmount,
-                            "customerKey", billingKey.getCustomerKey(),
-                            "orderId", autoPaymentRequestDto.getTossOrderId(),
-                            "orderName", autoPaymentRequestDto.getOrderName()
+                            KEY_AMOUNT, buyerTotalAmount,
+                            KEY_CUSTOMER_KEY, billingKey.getCustomerKey(),
+                            KEY_ORDER_ID, autoPaymentRequestDto.getTossOrderId(),
+                            KEY_ORDER_NAME, autoPaymentRequestDto.getOrderName()
                     ))                                          /// Request Body 설정
                     .retrieve()                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED, ERR_MSG_PAYMENT_INFO + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR, ERR_MSG_TOSS_SERVER + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                      /// 응답을 Map으로 반환
                     .block();                                   /// 동기식으로 대기
@@ -203,17 +249,17 @@ public class PaymentService {
             Map<String, Object> response = webClient.post()
                     .uri("payments/confirm")
                     .bodyValue(Map.of(
-                            "paymentKey", paymentConfirmRequestDto.getPaymentKey(),
-                            "orderId", paymentConfirmRequestDto.getTossOrderId(),
-                            "amount", buyerTotalAmount
+                            KEY_PAYMENT_KEY, paymentConfirmRequestDto.getPaymentKey(),
+                            KEY_ORDER_ID, paymentConfirmRequestDto.getTossOrderId(),
+                            KEY_AMOUNT, buyerTotalAmount
                     ))                                                                                          /// Request Body 설정
                     .retrieve()                                                                                 /// 실제 HTTP 요청 실행
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED,"결제 정보 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED, ERR_MSG_PAYMENT_INFO + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR,"토스 서버 오류" + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR, ERR_MSG_TOSS_SERVER + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })                       /// 응답을 Map으로 반환
                     .block();                                                                                   /// 동기식으로 대기
@@ -258,25 +304,25 @@ public class PaymentService {
         try {
             // 4. 토스 API 호출
             Map<String, Object> response = webClient.post()
-                    .uri("billing/" + billingKey.getBillingKey())
+                    .uri(BILLING_KEY_URL + billingKey.getBillingKey())
                     .bodyValue(Map.of(
-                            "amount", amount,
-                            "customerKey", billingKey.getCustomerKey(),
-                            "orderId", tossOrderId,
-                            "orderName", orderName
+                            KEY_AMOUNT, amount,
+                            KEY_CUSTOMER_KEY, billingKey.getCustomerKey(),
+                            KEY_ORDER_ID, tossOrderId,
+                            KEY_ORDER_NAME, orderName
                     ))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.PAYMENT_FAILED, "보관료 결제 실패: " + s))))
                     .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                             clientResponse.bodyToMono(String.class)
-                                    .map(s -> new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s)))
+                                    .flatMap(s -> Mono.error(new CustomException(ErrorCode.TOSS_API_ERROR, "토스 서버 오류: " + s))))
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
             // 5. paymentKey 추출 및 반환
-            String tossPaymentKey = String.valueOf(response.get("paymentKey"));
+            String tossPaymentKey = String.valueOf(response.get(KEY_PAYMENT_KEY));
             log.info("보관료 결제 성공: userId={}, amount={}, paymentKey={}", userId, amount, tossPaymentKey);
 
             return tossPaymentKey;
@@ -294,12 +340,12 @@ public class PaymentService {
      * 공통 메서드 처리
      * */
     private Payment responseMappingWithSave (Map<String, Object> response, Order order){
-        Map<String, Object> cardInfo = (Map<String, Object>) response.get("card");
+        Map<String, Object> cardInfo = (Map<String, Object>) response.get(KEY_CARD);
 
         /// Response 값 매핑
-        String tossOrderId = String.valueOf(response.get("orderId"));
-        String tossPaymentKey = String.valueOf(response.get("paymentKey"));
-        int amount = (Integer) cardInfo.get("amount");
+        String tossOrderId = String.valueOf(response.get(KEY_ORDER_ID));
+        String tossPaymentKey = String.valueOf(response.get(KEY_PAYMENT_KEY));
+        int amount = (Integer) cardInfo.get(KEY_AMOUNT);
         String method = String.valueOf(response.get("method"));
         String status = String.valueOf(response.get("status"));
         String type = String.valueOf(response.get("type"));
@@ -403,30 +449,30 @@ public class PaymentService {
                     // 4xx → 우리가 잘못 요청
                     .onStatus(HttpStatusCode::is4xxClientError, response ->
                             response.bodyToMono(String.class)
-                                    .map(msg -> {
+                                    .flatMap(msg -> {
                                         log.error(
                                                 "토스 결제 취소 4xx 오류 paymentKey={}, msg={}",
                                                 paymentKey, msg
                                         );
-                                        return new CustomException(
+                                        return Mono.error(new CustomException(
                                                 ErrorCode.PAYMENT_FAILED,
                                                 msg
-                                        );
+                                        ));
                                     })
                     )
 
                     // 5xx → 토스 서버 문제
                     .onStatus(HttpStatusCode::is5xxServerError, response ->
                             response.bodyToMono(String.class)
-                                    .map(msg -> {
+                                    .flatMap(msg -> {
                                         log.error(
                                                 "토스 결제 취소 5xx 오류 paymentKey={}, msg={}",
                                                 paymentKey, msg
                                         );
-                                        return new CustomException(
+                                        return Mono.error(new CustomException(
                                                 ErrorCode.TOSS_API_ERROR,
                                                 "토스 서버 오류"
-                                        );
+                                        ));
                                     })
                     )
 

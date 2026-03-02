@@ -11,9 +11,11 @@ import com.project.rare_x_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -415,95 +417,83 @@ public class BidService {
 
     // 자신의 구매입찰 내역 조회(마이페이지에서)
     @Transactional(readOnly = true)
-    public List<MyBuyBidResponseDto> getMyBuyBids(String email, BidStatus status) {
+    public Page<MyBuyBidResponseDto> getMyBuyBids(String email, List<BidStatus> statuses, Pageable pageable) {
 
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
-        List<BuyBid> bids;
+        // 입찰 조회 (statuses 있으면 필터, 없으면 전체)
+        Page<BuyBid> bids;
 
-        if (status == null) {
-            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId());
+        if (statuses == null || statuses.isEmpty()) {
+            bids = buyBidRepository.findMyBuyBidsAll(user.getUserId(), pageable);
+        } else if (statuses.size() == 1) {
+            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), statuses.getFirst(), pageable);
         } else {
-            bids = buyBidRepository.findMyBuyBidsByStatus(user.getUserId(), status);
+            bids = buyBidRepository.findMyBuyBidsByStatuses(user.getUserId(), statuses, pageable);
         }
 
-        // DTO 변환
-        return bids.stream()
-                .map(MyBuyBidResponseDto::from)
-                .toList();
+        return bids.map(MyBuyBidResponseDto::from);
     }
 
     // 판매입찰 조회
     @Transactional(readOnly = true)
-    public List<MySaleBidResponseDto> getMySaleBids(String email, BidStatus status) {
+    public Page<MySaleBidResponseDto> getMySaleBids(String email, List<BidStatus> statuses, Pageable pageable) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 입찰 조회 (status 있으면 필터, 없으면 전체)
-        List<SaleBid> bids;
-        if (status == null) {
-            bids = saleBidRepository.findMySaleBidsAll(user.getUserId());
+        // 입찰 조회 (statuses 있으면 필터, 없으면 전체)
+        Page<SaleBid> bids;
+        if (statuses == null || statuses.isEmpty()) {
+            bids = saleBidRepository.findMySaleBidsAll(user.getUserId(), pageable);
+        } else if (statuses.size() == 1) {
+            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), statuses.getFirst(), pageable);
         } else {
-            bids = saleBidRepository.findMySaleBidsByStatus(user.getUserId(), status);
+            bids = saleBidRepository.findMySaleBidsByStatuses(user.getUserId(), statuses, pageable);
         }
 
-        return bids.stream()
-                .map(MySaleBidResponseDto::from)
-                .toList();
+        return bids.map(MySaleBidResponseDto::from);
     }
 
     // 판매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, String orderStatusStr) {
+    public Page<MySaleBidMatchedResponseDto> getMySaleBidMatched(String email, String orderStatusStr, Pageable pageable) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        List<Order> orders;
+        Page<Order> orders;
         if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
-            orders = orderRepository.findBySeller_UserId(user.getUserId(),
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+            orders = orderRepository.findBySeller_UserId(user.getUserId(), pageable);
         } else {
             List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
-            // BEFORE_SHIPPING (PASSED)의 경우, 통계 로직과 동일하게 분리할 수도 있지만
-            // 여기선 기존 로직이 'findBySeller_UserIdAndCurrentStatusIn' 이므로 
-            // 상태값 목록으로 조회하게 매핑된statuses를 그대로 사용
             orders = orderRepository.findBySeller_UserIdAndCurrentStatusIn(
-                    user.getUserId(), statuses,
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+                    user.getUserId(), statuses, pageable);
         }
 
-        return orders.stream()
-                .map(MySaleBidMatchedResponseDto::from)
-                .toList();
+        return orders.map(MySaleBidMatchedResponseDto::from);
     }
 
     // 구매 입찰 체결됨 탭 조회 (Order 기반)
     @Transactional(readOnly = true)
-    public List<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, String orderStatusStr) {
+    public Page<MyBuyBidMatchedResponseDto> getMyBuyBidMatched(String email, String orderStatusStr, Pageable pageable) {
         User user = userRepository.findByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        List<Order> orders;
+        Page<Order> orders;
         if (orderStatusStr == null || orderStatusStr.trim().isEmpty()) {
-            orders = orderRepository.findByBuyer_UserId(user.getUserId(),
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+            orders = orderRepository.findByBuyer_UserId(user.getUserId(), pageable);
         } else {
             List<CurrentStatus> statuses = parseAndMapToStatuses(orderStatusStr);
             orders = orderRepository.findByBuyer_UserIdAndCurrentStatusIn(
-                    user.getUserId(), statuses,
-                    PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+                    user.getUserId(), statuses, pageable);
         }
 
-        return orders.stream()
-                .map(MyBuyBidMatchedResponseDto::from)
-                .toList();
+        return orders.map(MyBuyBidMatchedResponseDto::from);
     }
 
     // CurrentStatus 매핑 (통계 탭 별 상태 그룹핑)
     private List<CurrentStatus> parseAndMapToStatuses(String filterStatusStr) {
-        if ("BEFORE_SHIPPING".equals(filterStatusStr)) {
+        if (OrderService.TAB_BEFORE_SHIPPING.equals(filterStatusStr)) {
             return List.of(CurrentStatus.PASSED);
         }
         
@@ -657,7 +647,6 @@ public class BidService {
     }
 
     // 판매 입찰 기준 매칭 메소드
-    @Transactional
     public void attemptMatchForSaleBid(SaleBid saleBid) {
         // 이미 처리된 입찰 거름
         if (saleBid.getStatus() != BidStatus.OPEN) return;
